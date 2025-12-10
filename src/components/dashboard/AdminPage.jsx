@@ -51,6 +51,16 @@ export default function AdminPage() {
         },
       });
       const data = await res.json();
+
+      // If the token is invalid/expired, force logout and send admin back to login form
+      if (res.status === 401) {
+        localStorage.removeItem("adminToken");
+        setAdminToken(null);
+        setUsers([]);
+        setError(data.message || "Session expired, please log in again as admin.");
+        return;
+      }
+
       if (!res.ok) {
         throw new Error(data.message || "Failed to load users");
       }
