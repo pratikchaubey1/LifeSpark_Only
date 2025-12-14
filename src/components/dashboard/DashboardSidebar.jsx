@@ -63,16 +63,14 @@ export default function DashboardSidebar({
   onRegisterClick,
 }) {
   const [openParent, setOpenParent] = useState(null);
-  const [activePanel, setActivePanel] = useState(null); // e.g., 'activate-id', 'team-business', etc.
+  const [activePanel, setActivePanel] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(
     typeof window !== "undefined" ? !!localStorage.getItem("token") : false
   );
 
-  // Prevent background scrolling when the sidebar is open.
   useEffect(() => {
     const previousOverflow = document.body.style.overflow || "";
 
-    // Check auth status whenever sidebar is opened/closed
     if (typeof window !== "undefined") {
       setIsLoggedIn(!!localStorage.getItem("token"));
     }
@@ -97,7 +95,6 @@ export default function DashboardSidebar({
       localStorage.removeItem("token");
     }
     setIsLoggedIn(false);
-    // Close sidebar and refresh UI state
     if (onClose) onClose();
     if (typeof window !== "undefined") {
       window.location.reload();
@@ -117,7 +114,6 @@ export default function DashboardSidebar({
   };
 
   const handleChildClick = (parentLabel, childLabel) => {
-    // Profile -> different forms / KYC screens
     if (parentLabel === "Profile") {
       if (childLabel === "Edit Profile") {
         setActivePanel("edit-profile");
@@ -131,10 +127,8 @@ export default function DashboardSidebar({
         setActivePanel("edit-bank-details");
         return;
       }
-      // For now we keep Edit Password / Welcome Letter / Create ID Card as simple logs
     }
 
-    // My Team Business Support -> business related panels
     if (parentLabel === "My Team Business Support") {
       if (childLabel === "Team Business") {
         setActivePanel("team-business");
@@ -149,17 +143,16 @@ export default function DashboardSidebar({
         return;
       }
     }
+
     console.log(`Clicked: ${parentLabel} → ${childLabel}`);
     setActivePanel(null);
   };
 
   const renderRightPanelContent = () => {
-    // Parent: Active ID
     if (activePanel === "activate-id") {
       return <ActivateID compact />;
     }
 
-    // Parent: Profile
     if (activePanel === "edit-profile") {
       return <EditProfile />;
     }
@@ -170,7 +163,6 @@ export default function DashboardSidebar({
       return <EditBankDetail />;
     }
 
-    // Parent: My Team Business Support
     if (activePanel === "team-business") {
       return <TeamBusiness />;
     }
@@ -181,7 +173,6 @@ export default function DashboardSidebar({
       return <FreedomBusiness />;
     }
 
-    // Default content when nothing specific is selected
     return children || null;
   };
 
@@ -189,15 +180,21 @@ export default function DashboardSidebar({
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm"
+        className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm md:bg-slate-900/30"
         onClick={onClose}
       />
 
       {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 text-slate-50 shadow-2xl flex flex-col">
+      <aside
+        className="
+          fixed inset-y-0 left-0 z-50 
+          w-full max-w-xs sm:max-w-sm md:w-72 
+          bg-slate-900 text-slate-50 shadow-2xl flex flex-col
+        "
+      >
         {/* Top */}
-        <div className="flex items-center justify-between px-4 h-16 border-b border-slate-800">
-          <span className="text-sm font-semibold tracking-wide uppercase">
+        <div className="flex items-center justify-between px-4 h-14 md:h-16 border-b border-slate-800">
+          <span className="text-xs sm:text-sm font-semibold tracking-wide uppercase">
             Member Menu
           </span>
           <button
@@ -210,7 +207,7 @@ export default function DashboardSidebar({
         </div>
 
         {/* nav */}
-        <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-1 text-sm">
+        <nav className="flex-1 overflow-y-auto px-2 py-3 md:py-4 space-y-1 text-xs sm:text-sm">
           {DASHBOARD_ITEMS.map((item) => {
             const isOpen = openParent === item.label;
             const hasChildren = !!item.children?.length;
@@ -220,7 +217,7 @@ export default function DashboardSidebar({
                   onClick={() => handleParentClick(item.label, hasChildren)}
                   className="w-full flex items-center justify-between rounded-lg px-3 py-2 hover:bg-slate-800/60 transition"
                 >
-                  <span>{item.label}</span>
+                  <span className="truncate">{item.label}</span>
                   {hasChildren && (
                     <span
                       className={`text-xs opacity-70 transform transition-transform ${
@@ -233,14 +230,14 @@ export default function DashboardSidebar({
                 </button>
 
                 {hasChildren && isOpen && (
-                  <div className="pl-4 space-y-1">
+                  <div className="pl-3 md:pl-4 space-y-1">
                     {item.children.map((child) => (
                       <button
                         key={child.label}
                         onClick={() =>
                           handleChildClick(item.label, child.label)
                         }
-                        className="w-full text-left rounded-md px-3 py-1.5 text-[13px] bg-slate-900/40 hover:bg-slate-800/80 transition"
+                        className="w-full text-left rounded-md px-3 py-1.5 text-[11px] sm:text-[13px] bg-slate-900/40 hover:bg-slate-800/80 transition"
                       >
                         {child.label}
                       </button>
@@ -253,21 +250,19 @@ export default function DashboardSidebar({
         </nav>
 
         {/* footer */}
-        <div className="border-t border-slate-800 px-4 py-4">
+        <div className="border-t border-slate-800 px-4 py-3 md:py-4">
           <div className="flex gap-2">
             {isLoggedIn ? (
-              // When user is logged in, show only Logout button
               <button
-                className="flex-1 rounded-lg bg-red-500 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-600 transition"
+                className="flex-1 rounded-lg bg-red-500 px-3 py-2 text-xs sm:text-sm font-medium text-white shadow-sm hover:bg-red-600 transition"
                 onClick={handleLogout}
               >
                 Logout
               </button>
             ) : (
               <>
-                {/* Register (primary) */}
                 <button
-                  className="flex-1 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 px-3 py-2 text-sm font-medium text-white shadow-sm hover:opacity-95 transition"
+                  className="flex-1 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 px-3 py-2 text-xs sm:text-sm font-medium text-white shadow-sm hover:opacity-95 transition"
                   onClick={
                     onRegisterClick ||
                     (() => {
@@ -278,9 +273,8 @@ export default function DashboardSidebar({
                   Register
                 </button>
 
-                {/* Login (secondary) */}
                 <button
-                  className="flex-1 rounded-lg border border-slate-500/70 bg-slate-900/60 px-3 py-2 text-sm font-medium text-slate-100 hover:bg-slate-800 transition"
+                  className="flex-1 rounded-lg border border-slate-500/70 bg-slate-900/60 px-3 py-2 text-xs sm:text-sm font-medium text-slate-100 hover:bg-slate-800 transition"
                   onClick={
                     onLoginClick ||
                     (() => {
@@ -297,7 +291,18 @@ export default function DashboardSidebar({
       </aside>
 
       {/* Right-side slider content area */}
-      <section className="fixed inset-y-0 left-72 right-0 z-40 bg-slate-950/95 text-slate-50 border-l border-slate-800 overflow-y-auto p-4 md:p-6">
+      <section
+        className="
+          fixed z-40 
+          bg-slate-950/95 text-slate-50 border-l border-slate-800 
+          overflow-y-auto 
+          top-14 md:top-0 
+          left-0 right-0 
+          md:left-72 
+          bottom-0 
+          p-3 sm:p-4 md:p-6
+        "
+      >
         {renderRightPanelContent()}
       </section>
     </>

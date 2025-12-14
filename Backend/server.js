@@ -9,6 +9,7 @@ const profileRoutes = require('./routes/profile');
 const kycRoutes = require('./routes/kyc');
 const dashboardRoutes = require('./routes/dashboard');
 const adminRoutes = require('./routes/admin');
+const testRoutes = require('./routes/test');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -29,6 +30,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/kyc', kycRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/test', testRoutes);
 // Admin routes (no /api prefix as per requirement: /admin/login)
 app.use('/admin', adminRoutes);
 

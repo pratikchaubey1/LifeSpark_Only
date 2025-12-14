@@ -1,0 +1,18 @@
+[
+  {
+    "code": "ZBG1-NR50-M5SJ",
+    "used": false,
+    "usedByUserId": null,
+    "usedAt": null,
+    "packageId": null,
+    "createdAt": "2025-12-11T17:56:00.352Z"
+  },
+  {
+    "code": "P3D2-XWK2-K3OX",
+    "used": true,
+    "usedByUserId": "1765474208899",
+    "usedAt": "2025-12-11T17:51:37.130Z",
+    "packageId": "Basic",
+    "createdAt": "2025-12-11T17:51:18.871Z"
+  }
+]

@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 
-const App = () => {
+const EditBankDetail = () => {
   const [form, setForm] = useState({
     accountHolder: "",
     bankName: "",
@@ -9,21 +9,63 @@ const App = () => {
     branchName: "",
   });
 
-  // input change handler
+  const [errors, setErrors] = useState({});
+  const [submitting, setSubmitting] = useState(false);
+
   const handleChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+
+    const newValue = name === "ifsc" ? value.toUpperCase() : value;
+
+    setForm((prev) => ({
+      ...prev,
+      [name]: newValue,
+    }));
+
+    if (errors[name]) {
+      setErrors((prev) => ({ ...prev, [name]: "" }));
+    }
   };
 
-  // submit
+  const validate = () => {
+    const newErrors = {};
+
+    if (!form.accountHolder.trim()) {
+      newErrors.accountHolder = "Account holder name is required.";
+    }
+    if (!form.bankName.trim()) {
+      newErrors.bankName = "Bank name is required.";
+    }
+    if (!form.accountNo.trim()) {
+      newErrors.accountNo = "Account number is required.";
+    } else if (!/^\d{8,18}$/.test(form.accountNo.trim())) {
+      newErrors.accountNo = "Enter a valid account number (8–18 digits).";
+    }
+    if (!form.ifsc.trim()) {
+      newErrors.ifsc = "IFSC code is required.";
+    } else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(form.ifsc.trim())) {
+      newErrors.ifsc = "Enter a valid IFSC code (e.g. SBIN0123456).";
+    }
+    if (!form.branchName.trim()) {
+      newErrors.branchName = "Branch name is required.";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = () => {
-    console.log("Bank Details:", form);
-    alert("Bank details updated successfully!");
+    if (!validate()) return;
+
+    setSubmitting(true);
+
+    setTimeout(() => {
+      console.log("Bank Details:", form);
+      alert("Bank details updated successfully!");
+      setSubmitting(false);
+    }, 500);
   };
 
-  // cancel (reset form)
   const handleCancel = () => {
     setForm({
       accountHolder: "",
@@ -32,89 +74,156 @@ const App = () => {
       ifsc: "",
       branchName: "",
     });
+    setErrors({});
   };
 
+  const inputBase =
+    "w-full mt-1.5 p-2.5 rounded-xl border text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition";
+  const labelBase = "text-gray-700 font-medium text-xs sm:text-sm";
+
   return (
-    <div className="h-screen w-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="w-[90%] sm:w-[60%] md:w-[40%] bg-white p-8 rounded-2xl shadow-lg">
+    <div className="w-full min-h-screen bg-slate-100 flex items-start sm:items-center justify-center p-3 sm:p-4">
+      {/* Card */}
+      <div className="w-full max-w-md sm:max-w-lg bg-white rounded-2xl shadow-md border border-slate-100 p-4 sm:p-6">
+        {/* Header */}
+        <div className="mb-5 sm:mb-6">
+          <h1 className="text-lg sm:text-2xl font-semibold text-slate-900">
+            Edit Bank Details
+          </h1>
+          <p className="text-[11px] sm:text-xs text-slate-500 mt-1">
+            Make sure all details exactly match your bank records.
+          </p>
+        </div>
 
-        <h1 className="text-2xl font-bold mb-6">Edit Bank Details</h1>
+        <div className="space-y-4">
+          {/* Account Holder */}
+          <div>
+            <label className={labelBase}>Account Holder</label>
+            <input
+              type="text"
+              name="accountHolder"
+              value={form.accountHolder}
+              onChange={handleChange}
+              placeholder="Enter account holder name"
+              className={`${inputBase} ${
+                errors.accountHolder ? "border-red-400" : "border-gray-200"
+              }`}
+            />
+            {errors.accountHolder && (
+              <p className="mt-1 text-[11px] text-red-500">
+                {errors.accountHolder}
+              </p>
+            )}
+          </div>
 
-        {/* Account Holder */}
-        <label className="text-gray-700 font-medium">Account Holder</label>
-        <input
-          type="text"
-          name="accountHolder"
-          value={form.accountHolder}
-          onChange={handleChange}
-          placeholder="Enter Account Holder Name"
-          className="w-full mt-2 mb-5 p-3 border rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
+          {/* Bank + Branch (2 columns on sm+) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+            <div>
+              <label className={labelBase}>Bank Name</label>
+              <input
+                type="text"
+                name="bankName"
+                value={form.bankName}
+                onChange={handleChange}
+                placeholder="Enter bank name"
+                className={`${inputBase} ${
+                  errors.bankName ? "border-red-400" : "border-gray-200"
+                }`}
+              />
+              {errors.bankName && (
+                <p className="mt-1 text-[11px] text-red-500">
+                  {errors.bankName}
+                </p>
+              )}
+            </div>
 
-        {/* Bank Name */}
-        <label className="text-gray-700 font-medium">Bank Name</label>
-        <input
-          type="text"
-          name="bankName"
-          value={form.bankName}
-          onChange={handleChange}
-          placeholder="Enter Bank Name"
-          className="w-full mt-2 mb-5 p-3 border rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
+            <div>
+              <label className={labelBase}>Branch Name</label>
+              <input
+                type="text"
+                name="branchName"
+                value={form.branchName}
+                onChange={handleChange}
+                placeholder="Enter branch name"
+                className={`${inputBase} ${
+                  errors.branchName ? "border-red-400" : "border-gray-200"
+                }`}
+              />
+              {errors.branchName && (
+                <p className="mt-1 text-[11px] text-red-500">
+                  {errors.branchName}
+                </p>
+              )}
+            </div>
+          </div>
 
-        {/* Account Number */}
-        <label className="text-gray-700 font-medium">Account Number</label>
-        <input
-          type="number"
-          name="accountNo"
-          value={form.accountNo}
-          onChange={handleChange}
-          placeholder="Enter Account Number"
-          className="w-full mt-2 mb-5 p-3 border rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
+          {/* Account Number */}
+          <div>
+            <label className={labelBase}>Account Number</label>
+            <input
+              type="text"
+              inputMode="numeric"
+              name="accountNo"
+              value={form.accountNo}
+              onChange={handleChange}
+              placeholder="Enter account number"
+              className={`${inputBase} ${
+                errors.accountNo ? "border-red-400" : "border-gray-200"
+              }`}
+            />
+            {errors.accountNo && (
+              <p className="mt-1 text-[11px] text-red-500">
+                {errors.accountNo}
+              </p>
+            )}
+          </div>
 
-        {/* IFSC */}
-        <label className="text-gray-700 font-medium">IFSC Code</label>
-        <input
-          type="text"
-          name="ifsc"
-          value={form.ifsc}
-          onChange={handleChange}
-          placeholder="Enter IFSC Code"
-          className="w-full mt-2 mb-5 p-3 border rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
-
-        {/* Branch Name */}
-        <label className="text-gray-700 font-medium">Branch Name</label>
-        <input
-          type="text"
-          name="branchName"
-          value={form.branchName}
-          onChange={handleChange}
-          placeholder="Enter Branch Name"
-          className="w-full mt-2 mb-7 p-3 border rounded-xl bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-400"
-        />
+          {/* IFSC */}
+          <div>
+            <label className={labelBase}>IFSC Code</label>
+            <input
+              type="text"
+              name="ifsc"
+              value={form.ifsc}
+              onChange={handleChange}
+              placeholder="e.g. SBIN0123456"
+              className={`${inputBase} uppercase tracking-wide ${
+                errors.ifsc ? "border-red-400" : "border-gray-200"
+              }`}
+            />
+            {errors.ifsc && (
+              <p className="mt-1 text-[11px] text-red-500">
+                {errors.ifsc}
+              </p>
+            )}
+          </div>
+        </div>
 
         {/* Buttons */}
-        <div className="flex gap-4">
+        <div className="mt-6 flex flex-col sm:flex-row gap-3">
           <button
-            className="w-full bg-green-600 text-white py-3 rounded-xl hover:bg-green-700"
+            className="w-full sm:flex-1 bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed transition"
             onClick={handleSubmit}
+            disabled={submitting}
           >
-            Update
+            {submitting ? "Updating..." : "Update Details"}
           </button>
 
           <button
-            className="w-full bg-red-500 text-white py-3 rounded-xl hover:bg-red-600"
+            className="w-full sm:flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl text-sm font-medium hover:bg-slate-200 active:scale-[0.98] transition border border-slate-200"
             onClick={handleCancel}
           >
             Cancel
           </button>
         </div>
 
+        <p className="mt-3 text-[10px] sm:text-[11px] text-slate-400">
+          Note: Withdrawals are processed to this bank account only. Double-check
+          before saving.
+        </p>
       </div>
     </div>
   );
 };
 
-export default App;
+export default EditBankDetail;

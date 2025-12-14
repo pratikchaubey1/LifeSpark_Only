@@ -86,6 +86,10 @@ router.post('/register', async (req, res) => {
       sponsorId: sponsorId || '',
       sponsorName: sponsorName || '',
       inviteCode,
+      // Activation status is controlled by separate E-Pin store (not per-member pin)
+      isActivated: false,
+      activationPackage: null,
+      activatedAt: null,
       balance: 0,
       totalIncome: 0,
       withdrawal: 0,
@@ -108,9 +112,9 @@ router.post('/register', async (req, res) => {
     saveUsers(users);
 
     const token = jwt.sign({ id: newUser.id }, JWT_SECRET, { expiresIn: '7d' });
-    const { password: _pw, ...userWithoutPassword } = newUser;
+    const { password: _pw, ...userWithoutSensitive } = newUser;
 
-    res.status(201).json({ user: userWithoutPassword, token });
+    res.status(201).json({ user: userWithoutSensitive, token });
   } catch (err) {
     console.error('Register error', err);
     res.status(500).json({ message: 'Server error' });
@@ -136,9 +140,9 @@ router.post('/login', async (req, res) => {
     }
 
     const token = jwt.sign({ id: user.id }, JWT_SECRET, { expiresIn: '7d' });
-    const { password: _pw, ...userWithoutPassword } = user;
+    const { password: _pw, ...userWithoutSensitive } = user;
 
-    res.json({ user: userWithoutPassword, token });
+    res.json({ user: userWithoutSensitive, token });
   } catch (err) {
     console.error('Login error', err);
     res.status(500).json({ message: 'Server error' });

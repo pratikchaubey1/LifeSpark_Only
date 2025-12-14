@@ -5,6 +5,7 @@ const auth = require('../middleware/auth');
 
 const router = express.Router();
 const USERS_PATH = path.join(__dirname, '..', 'data', 'users.json');
+const EPINS_PATH = path.join(__dirname, '..', 'data', 'epins.json');
 
 function loadUsers() {
   if (!fs.existsSync(USERS_PATH)) return [];
@@ -18,6 +19,33 @@ function loadUsers() {
 
 function saveUsers(users) {
   fs.writeFileSync(USERS_PATH, JSON.stringify(users, null, 2));
+}
+
+function loadEpins() {
+  if (!fs.existsSync(EPINS_PATH)) return [];
+  const raw = fs.readFileSync(EPINS_PATH, 'utf-8');
+  try {
+    return JSON.parse(raw || '[]');
+  } catch (e) {
+    return [];
+  }
+}
+
+function saveEpins(epins) {
+  fs.writeFileSync(EPINS_PATH, JSON.stringify(epins, null, 2));
+}
+
+function ensureActivationFlag(users) {
+  let changed = false;
+  users.forEach((u) => {
+    if (typeof u.isActivated !== 'boolean') {
+      u.isActivated = false;
+      changed = true;
+    }
+  });
+  if (changed) {
+    saveUsers(users);
+  }
 }
 
 function applyDailyBonus(user) {
@@ -44,6 +72,7 @@ function applyDailyBonus(user) {
 
 router.get('/', auth, (req, res) => {
   const users = loadUsers();
+  ensureActivationFlag(users);
   const idx = users.findIndex((u) => u.id === req.user.id);
   if (idx === -1) return res.status(404).json({ message: 'User not found' });
 
@@ -52,10 +81,10 @@ router.get('/', auth, (req, res) => {
   users[idx] = user;
   saveUsers(users);
 
-  const { password, ...userWithoutPassword } = user;
+  const { password, ...userWithoutSensitive } = user;
 
   res.json({
-    user: userWithoutPassword,
+    user: userWithoutSensitive,
     cards: {
       totalIncome: user.totalIncome || 0,
       withdrawal: user.withdrawal || 0,
@@ -64,6 +93,60 @@ router.get('/', auth, (req, res) => {
       freedomIncome: user.freedomIncome || 0,
       rankRewardIncome: user.rankRewardIncome || 0,
     },
+  });
+});
+
+// Activate ID using member's E-Pin from dashboard "Activate ID" section
+router.post('/activate-id', auth, (req, res) => {
+  const { epin, packageId } = req.body || {};
+
+  if (!epin || !packageId) {
+    return res.status(400).json({ message: 'E-Pin and package are required' });
+  }
+
+  const users = loadUsers();
+  ensureActivationFlag(users);
+
+  const idx = users.findIndex((u) => u.id === req.user.id);
+  if (idx === -1) return res.status(404).json({ message: 'User not found' });
+
+  const user = users[idx];
+
+  if (user.isActivated) {
+    return res.status(400).json({ message: 'This ID is already activated.' });
+  }
+
+  // Check E-Pin from central epins store
+  const epins = loadEpins();
+  const epinIndex = epins.findIndex((p) => String(p.code).trim() === String(epin).trim() && !p.used);
+
+  if (epinIndex === -1) {
+    return res.status(400).json({ message: 'Invalid or already used E-Pin.' });
+  }
+
+  const epinObj = epins[epinIndex];
+
+  // Mark E-Pin as used and link to this user
+  epinObj.used = true;
+  epinObj.usedByUserId = user.id;
+  epinObj.usedAt = new Date().toISOString();
+  epinObj.packageId = packageId;
+
+  epins[epinIndex] = epinObj;
+  saveEpins(epins);
+
+  // Mark user as activated
+  user.isActivated = true;
+  user.activationPackage = packageId;
+  user.activatedAt = new Date().toISOString();
+
+  users[idx] = user;
+  saveUsers(users);
+
+  const { password, ...userWithoutSensitive } = user;
+  return res.json({
+    message: 'ID activated successfully.',
+    user: userWithoutSensitive,
   });
 });
 

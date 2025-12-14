@@ -22,8 +22,8 @@ function saveUsers(users) {
 }
 
 router.get('/', auth, (req, res) => {
-  const { password, ...userWithoutPassword } = req.user;
-  res.json({ user: userWithoutPassword });
+  const { password, activationPin, ...userWithoutSensitive } = req.user;
+  res.json({ user: userWithoutSensitive });
 });
 
 router.put('/', auth, (req, res) => {

@@ -52,7 +52,7 @@ export default function Header({
             </button>
 
             <div className="font-semibold tracking-tight text-slate-900">
-              World Shopee Enterprises
+              Life Spark Associates
             </div>
           </div>
 
