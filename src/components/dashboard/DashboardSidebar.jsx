@@ -7,6 +7,7 @@ import FreedomBusiness from "./MyTeamBusiness/FreedomBusiness";
 import EditProfile from "./EditProfile";
 import EditBankDetail from "./Editbankdetail";
 import ImageUpload from "./Imageuploader";
+import IncomeReport from "./IncomeReport"; // ✅ Added
 
 const DASHBOARD_ITEMS = [
   {
@@ -68,6 +69,7 @@ export default function DashboardSidebar({
     typeof window !== "undefined" ? !!localStorage.getItem("token") : false
   );
 
+  // Disable scrolling when sidebar is open
   useEffect(() => {
     const previousOverflow = document.body.style.overflow || "";
 
@@ -96,82 +98,71 @@ export default function DashboardSidebar({
     }
     setIsLoggedIn(false);
     if (onClose) onClose();
-    if (typeof window !== "undefined") {
-      window.location.reload();
-    }
+    window.location.reload();
   };
 
   const handleParentClick = (label, hasChildren) => {
     if (hasChildren) {
       setOpenParent((prev) => (prev === label ? null : label));
     } else {
-      if (label === "Active ID") {
-        setActivePanel("activate-id");
-      } else {
-        console.log("Clicked parent:", label);
-      }
+      if (label === "Active ID") setActivePanel("activate-id");
     }
   };
 
   const handleChildClick = (parentLabel, childLabel) => {
+    // Profile Pages
     if (parentLabel === "Profile") {
-      if (childLabel === "Edit Profile") {
-        setActivePanel("edit-profile");
-        return;
-      }
-      if (childLabel === "KYC Upload") {
-        setActivePanel("kyc-upload");
-        return;
-      }
-      if (childLabel === "Edit Bank Details") {
-        setActivePanel("edit-bank-details");
-        return;
-      }
+      if (childLabel === "Edit Profile") return setActivePanel("edit-profile");
+      if (childLabel === "KYC Upload") return setActivePanel("kyc-upload");
+      if (childLabel === "Edit Bank Details")
+        return setActivePanel("edit-bank-details");
     }
 
+    // Business Pages
     if (parentLabel === "My Team Business Support") {
-      if (childLabel === "Team Business") {
-        setActivePanel("team-business");
-        return;
-      }
-      if (childLabel === "Rank Reward Business") {
-        setActivePanel("rank-reward-business");
-        return;
-      }
-      if (childLabel === "Freedom Business") {
-        setActivePanel("freedom-business");
-        return;
-      }
+      if (childLabel === "Team Business")
+        return setActivePanel("team-business");
+      if (childLabel === "Rank Reward Business")
+        return setActivePanel("rank-reward-business");
+      if (childLabel === "Freedom Business")
+        return setActivePanel("freedom-business");
     }
 
-    console.log(`Clicked: ${parentLabel} → ${childLabel}`);
+    // Income / Reports
+    if (parentLabel === "Income / Reports") {
+      if (childLabel === "Income Report")
+        return setActivePanel("income-report");
+      if (childLabel === "Payout Report")
+        return setActivePanel("payout-report");
+      if (childLabel === "Wallet Ledger")
+        return setActivePanel("wallet-ledger");
+    }
+
     setActivePanel(null);
   };
 
+  // Right panel renderer
   const renderRightPanelContent = () => {
-    if (activePanel === "activate-id") {
-      return <ActivateID compact />;
-    }
+    // Active ID
+    if (activePanel === "activate-id") return <ActivateID compact />;
 
-    if (activePanel === "edit-profile") {
-      return <EditProfile />;
-    }
-    if (activePanel === "kyc-upload") {
-      return <ImageUpload />;
-    }
-    if (activePanel === "edit-bank-details") {
-      return <EditBankDetail />;
-    }
+    // Profile
+    if (activePanel === "edit-profile") return <EditProfile />;
+    if (activePanel === "kyc-upload") return <ImageUpload />;
+    if (activePanel === "edit-bank-details") return <EditBankDetail />;
 
-    if (activePanel === "team-business") {
-      return <TeamBusiness />;
-    }
-    if (activePanel === "rank-reward-business") {
+    // Business Support
+    if (activePanel === "team-business") return <TeamBusiness />;
+    if (activePanel === "rank-reward-business")
       return <RankRewardBusiness />;
-    }
-    if (activePanel === "freedom-business") {
-      return <FreedomBusiness />;
-    }
+    if (activePanel === "freedom-business") return <FreedomBusiness />;
+
+    // Income Pages
+    if (activePanel === "income-report") return <IncomeReport />;
+    if (activePanel === "payout-report")
+      return <div className="p-4">Payout Report Coming Soon</div>;
+    if (activePanel === "wallet-ledger")
+      return <div className="p-4">Wallet Ledger Coming Soon</div>;
 
     return children || null;
   };
@@ -180,44 +171,37 @@ export default function DashboardSidebar({
     <>
       {/* Overlay */}
       <div
-        className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm md:bg-slate-900/30"
+        className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm"
         onClick={onClose}
       />
 
       {/* Sidebar */}
-      <aside
-        className="
-          fixed inset-y-0 left-0 z-50 
-          w-full max-w-xs sm:max-w-sm md:w-72 
-          bg-slate-900 text-slate-50 shadow-2xl flex flex-col
-        "
-      >
-        {/* Top */}
-        <div className="flex items-center justify-between px-4 h-14 md:h-16 border-b border-slate-800">
-          <span className="text-xs sm:text-sm font-semibold tracking-wide uppercase">
-            Member Menu
-          </span>
+      <aside className="fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 text-slate-50 shadow-2xl flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 h-16 border-b border-slate-800">
+          <span className="text-sm font-semibold uppercase">Member Menu</span>
           <button
             onClick={onClose}
             className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-slate-800 text-xl"
-            aria-label="Close sidebar"
           >
             ×
           </button>
         </div>
 
-        {/* nav */}
-        <nav className="flex-1 overflow-y-auto px-2 py-3 md:py-4 space-y-1 text-xs sm:text-sm">
+        {/* Navigation */}
+        <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-1 text-sm">
           {DASHBOARD_ITEMS.map((item) => {
             const isOpen = openParent === item.label;
             const hasChildren = !!item.children?.length;
+
             return (
               <div key={item.label} className="space-y-1">
                 <button
                   onClick={() => handleParentClick(item.label, hasChildren)}
                   className="w-full flex items-center justify-between rounded-lg px-3 py-2 hover:bg-slate-800/60 transition"
                 >
-                  <span className="truncate">{item.label}</span>
+                  <span>{item.label}</span>
+
                   {hasChildren && (
                     <span
                       className={`text-xs opacity-70 transform transition-transform ${
@@ -229,15 +213,16 @@ export default function DashboardSidebar({
                   )}
                 </button>
 
+                {/* Children */}
                 {hasChildren && isOpen && (
-                  <div className="pl-3 md:pl-4 space-y-1">
+                  <div className="pl-4 space-y-1">
                     {item.children.map((child) => (
                       <button
                         key={child.label}
                         onClick={() =>
                           handleChildClick(item.label, child.label)
                         }
-                        className="w-full text-left rounded-md px-3 py-1.5 text-[11px] sm:text-[13px] bg-slate-900/40 hover:bg-slate-800/80 transition"
+                        className="w-full text-left rounded-md px-3 py-1.5 text-[13px] bg-slate-900/40 hover:bg-slate-800/80 transition"
                       >
                         {child.label}
                       </button>
@@ -249,12 +234,12 @@ export default function DashboardSidebar({
           })}
         </nav>
 
-        {/* footer */}
-        <div className="border-t border-slate-800 px-4 py-3 md:py-4">
+        {/* Footer */}
+        <div className="border-t border-slate-800 px-4 py-4">
           <div className="flex gap-2">
             {isLoggedIn ? (
               <button
-                className="flex-1 rounded-lg bg-red-500 px-3 py-2 text-xs sm:text-sm font-medium text-white shadow-sm hover:bg-red-600 transition"
+                className="flex-1 rounded-lg bg-red-500 px-3 py-2 text-sm text-white hover:bg-red-600"
                 onClick={handleLogout}
               >
                 Logout
@@ -262,25 +247,15 @@ export default function DashboardSidebar({
             ) : (
               <>
                 <button
-                  className="flex-1 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 px-3 py-2 text-xs sm:text-sm font-medium text-white shadow-sm hover:opacity-95 transition"
-                  onClick={
-                    onRegisterClick ||
-                    (() => {
-                      console.log("Register clicked");
-                    })
-                  }
+                  className="flex-1 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 px-3 py-2 text-sm text-white"
+                  onClick={onRegisterClick}
                 >
                   Register
                 </button>
 
                 <button
-                  className="flex-1 rounded-lg border border-slate-500/70 bg-slate-900/60 px-3 py-2 text-xs sm:text-sm font-medium text-slate-100 hover:bg-slate-800 transition"
-                  onClick={
-                    onLoginClick ||
-                    (() => {
-                      console.log("Login clicked");
-                    })
-                  }
+                  className="flex-1 rounded-lg border border-slate-500/70 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
+                  onClick={onLoginClick}
                 >
                   Login
                 </button>
@@ -290,19 +265,8 @@ export default function DashboardSidebar({
         </div>
       </aside>
 
-      {/* Right-side slider content area */}
-      <section
-        className="
-          fixed z-40 
-          bg-slate-950/95 text-slate-50 border-l border-slate-800 
-          overflow-y-auto 
-          top-14 md:top-0 
-          left-0 right-0 
-          md:left-72 
-          bottom-0 
-          p-3 sm:p-4 md:p-6
-        "
-      >
+      {/* Right panel */}
+      <section className="fixed inset-y-0 left-72 right-0 z-40 bg-slate-950/95 text-slate-50 border-l border-slate-800 overflow-y-auto p-4 md:p-6">
         {renderRightPanelContent()}
       </section>
     </>
