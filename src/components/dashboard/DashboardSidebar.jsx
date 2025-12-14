@@ -7,7 +7,7 @@ import FreedomBusiness from "./MyTeamBusiness/FreedomBusiness";
 import EditProfile from "./EditProfile";
 import EditBankDetail from "./Editbankdetail";
 import ImageUpload from "./Imageuploader";
-import IncomeReport from "./IncomeReport"; // ✅ Added
+import IncomeReport from "./IncomeReport";
 import Withdraw from "./Withdraw";
 import TransferPin from "./e-pin/TransferPin";
 import TransferToUser from "./e-pin/TransferToUser";
@@ -77,15 +77,13 @@ export default function DashboardSidebar({
   );
   const [role, setRole] = useState(null);
 
-  // Disable scrolling when sidebar is open
   useEffect(() => {
-    const previousOverflow = document.body.style.overflow || "";
+    const prevOverflow = document.body.style.overflow || "";
 
     if (typeof window !== "undefined") {
       const token = localStorage.getItem("token");
       setIsLoggedIn(!!token);
 
-      // load member role so we can show/hide ePin section
       if (open && token) {
         (async () => {
           try {
@@ -94,115 +92,80 @@ export default function DashboardSidebar({
             });
             const data = await res.json();
             if (res.ok) setRole(data.user?.role || "member");
-          } catch (e) {
-            // ignore
-          }
+          } catch {}
         })();
       }
     }
 
-    if (open) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = previousOverflow;
-      setActivePanel(null);
-      setOpenParent(null);
-    }
+    document.body.style.overflow = open ? "hidden" : prevOverflow;
 
     return () => {
-      document.body.style.overflow = previousOverflow;
+      document.body.style.overflow = prevOverflow;
     };
   }, [open]);
 
   const handleLogout = () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("token");
-    }
+    localStorage.removeItem("token");
     setIsLoggedIn(false);
-    if (onClose) onClose();
+    onClose?.();
     window.location.reload();
   };
 
   const handleParentClick = (label, hasChildren) => {
     if (hasChildren) {
-      setOpenParent((prev) => (prev === label ? null : label));
+      setOpenParent((p) => (p === label ? null : label));
     } else {
       if (label === "Active ID") setActivePanel("activate-id");
-      if (label === "Active ID") {
-        setActivePanel("activate-id");
-      } else if (label === "Withdraw") {
-        setActivePanel("withdraw");
-      } else {
-        console.log("Clicked parent:", label);
-      }
+      if (label === "Withdraw") setActivePanel("withdraw");
     }
   };
 
-  const handleChildClick = (parentLabel, childLabel) => {
-    // Profile Pages
-    if (parentLabel === "Profile") {
-      if (childLabel === "Edit Profile") return setActivePanel("edit-profile");
-      if (childLabel === "KYC Upload") return setActivePanel("kyc-upload");
-      if (childLabel === "Edit Bank Details")
+  const handleChildClick = (parent, child) => {
+    if (parent === "Profile") {
+      if (child === "Edit Profile") return setActivePanel("edit-profile");
+      if (child === "KYC Upload") return setActivePanel("kyc-upload");
+      if (child === "Edit Bank Details")
         return setActivePanel("edit-bank-details");
-      return setActivePanel(null);
     }
 
-    if (parentLabel === "ePin") {
-      if (childLabel === "Generate ePin") return setActivePanel("epin-generate");
-      if (childLabel === "ePin Transfer") return setActivePanel("epin-transfer");
-      if (childLabel === "ePin Report") return setActivePanel("epin-report");
-      return setActivePanel(null);
+    if (parent === "ePin") {
+      if (child === "Generate ePin") return setActivePanel("epin-generate");
+      if (child === "ePin Transfer") return setActivePanel("epin-transfer");
+      if (child === "ePin Report") return setActivePanel("epin-report");
     }
 
-    if (parentLabel === "My Team Business Support") {
-      if (childLabel === "Team Business") return setActivePanel("team-business");
-      if (childLabel === "Rank Reward Business")
+    if (parent === "My Team Business Support") {
+      if (child === "Team Business") return setActivePanel("team-business");
+      if (child === "Rank Reward Business")
         return setActivePanel("rank-reward-business");
-      if (childLabel === "Freedom Business")
+      if (child === "Freedom Business")
         return setActivePanel("freedom-business");
-      return setActivePanel(null);
     }
 
-    // Income / Reports
-    if (parentLabel === "Income / Reports") {
-      if (childLabel === "Income Report") return setActivePanel("income-report");
-      if (childLabel === "Payout Report") return setActivePanel("payout-report");
-      if (childLabel === "Wallet Ledger") return setActivePanel("wallet-ledger");
-      return setActivePanel(null);
+    if (parent === "Income / Reports") {
+      if (child === "Income Report") return setActivePanel("income-report");
+      if (child === "Payout Report") return setActivePanel("payout-report");
+      if (child === "Wallet Ledger") return setActivePanel("wallet-ledger");
     }
-
-    setActivePanel(null);
   };
 
-  // Right panel renderer
   const renderRightPanelContent = () => {
     if (activePanel === "activate-id") return <ActivateID compact />;
-
-    // Profile
     if (activePanel === "edit-profile") return <EditProfile />;
     if (activePanel === "kyc-upload") return <ImageUpload />;
     if (activePanel === "edit-bank-details") return <EditBankDetail />;
-
-    // Withdraw
     if (activePanel === "withdraw") return <Withdraw />;
 
-    // ePin
     if (activePanel === "epin-generate") return <TransferPin />;
     if (activePanel === "epin-transfer") return <TransferToUser />;
     if (activePanel === "epin-report") return <UsedPin />;
 
-    // Business Support
     if (activePanel === "team-business") return <TeamBusiness />;
-    if (activePanel === "rank-reward-business") return <RankRewardBusiness />;
+    if (activePanel === "rank-reward-business")
+      return <RankRewardBusiness />;
     if (activePanel === "freedom-business") return <FreedomBusiness />;
 
-    // Income Pages
     if (activePanel === "income-report") return <IncomeReport />;
-    if (activePanel === "payout-report")
-      return <div className="p-4">Payout Report Coming Soon</div>;
-    if (activePanel === "wallet-ledger")
-      return <div className="p-4">Wallet Ledger Coming Soon</div>;
 
     return children || null;
   };
@@ -212,71 +175,64 @@ export default function DashboardSidebar({
     ? DASHBOARD_ITEMS
     : DASHBOARD_ITEMS.filter((i) => i.label !== "ePin");
 
-  // If user was on ePin section and role becomes non-franchise, kick them out
-  useEffect(() => {
-    if (!canSeeEpin && openParent === "ePin") setOpenParent(null);
-  }, [canSeeEpin, openParent]);
-
   if (!open) return null;
 
   return (
     <>
-      {/* Overlay */}
+      {/* MOBILE OVERLAY */}
       <div
-        className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-sm"
+        className="fixed inset-0 z-40 bg-black/50 md:hidden"
         onClick={onClose}
       />
 
-      {/* Sidebar */}
-      <aside className="fixed inset-y-0 left-0 z-50 w-72 bg-slate-900 text-slate-50 shadow-2xl flex flex-col">
-        {/* Header */}
+      {/* SIDEBAR */}
+      <aside
+        className={`
+          fixed inset-y-0 left-0 z-50 w-72
+          bg-slate-900 text-slate-50
+          shadow-2xl flex flex-col
+          transform transition-transform duration-300
+          md:translate-x-0
+        `}
+      >
         <div className="flex items-center justify-between px-4 h-16 border-b border-slate-800">
           <span className="text-sm font-semibold uppercase">Member Menu</span>
           <button
             onClick={onClose}
-            className="h-8 w-8 rounded-full flex items-center justify-center hover:bg-slate-800 text-xl"
+            className="md:hidden h-8 w-8 text-xl hover:bg-slate-800 rounded-full"
           >
             ×
           </button>
         </div>
 
-        {/* nav */}
-        <nav className="flex-1 overflow-y-auto px-2 py-3 md:py-4 space-y-1 text-xs sm:text-sm">
+        <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-1 text-sm">
           {visibleItems.map((item) => {
-            const isOpen = openParent === item.label;
-            const hasChildren = !!item.children?.length;
-
+            const openItem = openParent === item.label;
             return (
-              <div key={item.label} className="space-y-1">
+              <div key={item.label}>
                 <button
-                  onClick={() => handleParentClick(item.label, hasChildren)}
-                  className="w-full flex items-center justify-between rounded-lg px-3 py-2 hover:bg-slate-800/60 transition"
+                  onClick={() =>
+                    handleParentClick(item.label, !!item.children)
+                  }
+                  className="w-full flex justify-between px-3 py-2 rounded-lg hover:bg-slate-800/60"
                 >
-                  <span>{item.label}</span>
-
-                  {hasChildren && (
-                    <span
-                      className={`text-xs opacity-70 transform transition-transform ${
-                        isOpen ? "rotate-90" : ""
-                      }`}
-                    >
-                      ›
-                    </span>
+                  {item.label}
+                  {item.children && (
+                    <span className={openItem ? "rotate-90" : ""}>›</span>
                   )}
                 </button>
 
-                {/* Children */}
-                {hasChildren && isOpen && (
+                {item.children && openItem && (
                   <div className="pl-4 space-y-1">
-                    {item.children.map((child) => (
+                    {item.children.map((c) => (
                       <button
-                        key={child.label}
+                        key={c.label}
                         onClick={() =>
-                          handleChildClick(item.label, child.label)
+                          handleChildClick(item.label, c.label)
                         }
-                        className="w-full text-left rounded-md px-3 py-1.5 text-[13px] bg-slate-900/40 hover:bg-slate-800/80 transition"
+                        className="w-full text-left px-3 py-1.5 rounded-md hover:bg-slate-800/80"
                       >
-                        {child.label}
+                        {c.label}
                       </button>
                     ))}
                   </div>
@@ -286,39 +242,35 @@ export default function DashboardSidebar({
           })}
         </nav>
 
-        {/* Footer */}
         <div className="border-t border-slate-800 px-4 py-4">
-          <div className="flex gap-2">
-            {isLoggedIn ? (
+          {isLoggedIn ? (
+            <button
+              className="w-full bg-red-500 py-2 rounded-lg"
+              onClick={handleLogout}
+            >
+              Logout
+            </button>
+          ) : (
+            <div className="flex gap-2">
               <button
-                className="flex-1 rounded-lg bg-red-500 px-3 py-2 text-sm text-white hover:bg-red-600"
-                onClick={handleLogout}
+                className="flex-1 bg-indigo-500 py-2 rounded-lg"
+                onClick={onRegisterClick}
               >
-                Logout
+                Register
               </button>
-            ) : (
-              <>
-                <button
-                  className="flex-1 rounded-lg bg-gradient-to-r from-indigo-500 to-violet-500 px-3 py-2 text-sm text-white"
-                  onClick={onRegisterClick}
-                >
-                  Register
-                </button>
-
-                <button
-                  className="flex-1 rounded-lg border border-slate-500/70 bg-slate-900/60 px-3 py-2 text-sm text-slate-100"
-                  onClick={onLoginClick}
-                >
-                  Login
-                </button>
-              </>
-            )}
-          </div>
+              <button
+                className="flex-1 border py-2 rounded-lg"
+                onClick={onLoginClick}
+              >
+                Login
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 
-      {/* Right panel */}
-      <section className="fixed inset-y-0 left-72 right-0 z-40 bg-slate-950/95 text-slate-50 border-l border-slate-800 overflow-y-auto p-4 md:p-6">
+      {/* RIGHT PANEL */}
+      <section className="fixed inset-y-0 right-0 z-30 w-full md:left-72 bg-slate-950 text-slate-50 overflow-y-auto p-4 md:p-6">
         {renderRightPanelContent()}
       </section>
     </>
