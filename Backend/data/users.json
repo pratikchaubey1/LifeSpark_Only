@@ -141,13 +141,16 @@
     "isActivated": true,
     "activationPackage": "Basic",
     "activatedAt": "2025-12-11T17:51:37.131Z",
-    "balance": 0,
-    "totalIncome": 0,
+    "balance": 150,
+    "totalIncome": 150,
     "withdrawal": 0,
     "freedomIncome": 0,
-    "dailyBonusIncome": 0,
+    "dailyBonusIncome": 150,
     "rankRewardIncome": 0,
-    "lastDailyCredit": "2025-12-11",
-    "createdAt": "2025-12-11T17:30:08.899Z"
+    "lastDailyCredit": "2025-12-14",
+    "createdAt": "2025-12-11T17:30:08.899Z",
+    "role": "franchise",
+    "roleAssignedBy": "admin",
+    "roleAssignedAt": "2025-12-14T07:51:56.491Z"
   }
 ]

@@ -1,10 +1,80 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
+
+const API_BASE = "http://localhost:5000";
 
 const ImageUpload = () => {
   const [profile, setProfile] = useState(null);
   const [pan, setPan] = useState(null);
   const [aadhaar, setAadhaar] = useState(null);
   const [bank, setBank] = useState(null);
+
+  const [existingKyc, setExistingKyc] = useState(null);
+  const [msg, setMsg] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/kyc`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.status === 404) return;
+        const data = await res.json();
+        if (res.ok) setExistingKyc(data.kyc);
+      } catch (e) {
+        // non-blocking
+      }
+    })();
+  }, []);
+
+  const handleSubmit = async () => {
+    setMsg("");
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setMsg("Please login again.");
+      return;
+    }
+
+    if (!profile && !pan && !aadhaar && !bank) {
+      setMsg("Please choose at least one file to upload.");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const fd = new FormData();
+      if (profile) fd.append("profile", profile);
+      if (pan) fd.append("pan", pan);
+      if (aadhaar) fd.append("aadhaar", aadhaar);
+      if (bank) fd.append("bank", bank);
+
+      const res = await fetch(`${API_BASE}/api/kyc`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMsg(data.message || "KYC upload failed");
+        return;
+      }
+
+      setExistingKyc(data.kyc);
+      setMsg("KYC uploaded successfully.");
+      // keep previews, but clear file inputs so user can re-upload if needed
+      setProfile(null);
+      setPan(null);
+      setAadhaar(null);
+      setBank(null);
+    } catch (e) {
+      setMsg("KYC upload failed. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const baseBoxClasses =
     "mt-3 h-40 w-full border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 flex flex-col items-center justify-center text-gray-400 text-sm transition hover:border-indigo-400 hover:bg-indigo-50/60";
@@ -26,10 +96,36 @@ const ImageUpload = () => {
               Upload your profile and document images. Make sure they are clear and readable.
             </p>
           </div>
-          <span className="inline-flex items-center self-start sm:self-auto px-3 py-1 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-100">
-            Step 2 of 3
-          </span>
+         
         </div>
+
+        {msg && (
+          <div className="mb-4 rounded-lg border bg-white px-3 py-2 text-sm">
+            {msg}
+          </div>
+        )}
+
+        {existingKyc?.documents && (
+          <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 p-3 text-xs">
+            <div className="font-semibold text-slate-800 mb-1">Existing KYC</div>
+            <div className="text-slate-600">Last updated: {existingKyc.updatedAt ? existingKyc.updatedAt.slice(0, 19).replace("T", " ") : "-"}</div>
+            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {Object.entries(existingKyc.documents)
+                .filter(([, v]) => v && v.filePath)
+                .map(([k, v]) => (
+                  <a
+                    key={k}
+                    href={`${API_BASE}${v.filePath}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline text-indigo-700"
+                  >
+                    {k} (view)
+                  </a>
+                ))}
+            </div>
+          </div>
+        )}
 
         {/* GRID */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
@@ -192,8 +288,12 @@ const ImageUpload = () => {
 
         {/* BUTTONS */}
         <div className="mt-10 flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-5">
-          <button className="w-full sm:w-auto px-8 py-3 bg-emerald-600 text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 active:scale-[0.98] shadow-sm">
-            Submit
+          <button
+            onClick={handleSubmit}
+            disabled={submitting}
+            className="w-full sm:w-auto px-8 py-3 bg-emerald-600 disabled:opacity-60 disabled:cursor-not-allowed text-white text-sm font-semibold rounded-xl hover:bg-emerald-700 active:scale-[0.98] shadow-sm"
+          >
+            {submitting ? "Submitting..." : "Submit"}
           </button>
 
           <button className="w-full sm:w-auto px-8 py-3 bg-red-500/90 text-white text-sm font-medium rounded-xl hover:bg-red-600 active:scale-[0.98]">

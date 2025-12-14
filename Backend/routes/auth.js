@@ -86,6 +86,10 @@ router.post('/register', async (req, res) => {
       sponsorId: sponsorId || '',
       sponsorName: sponsorName || '',
       inviteCode,
+      // Roles: member (default), franchise
+      role: 'member',
+      roleAssignedBy: null,
+      roleAssignedAt: null,
       // Activation status is controlled by separate E-Pin store (not per-member pin)
       isActivated: false,
       activationPackage: null,
@@ -98,6 +102,25 @@ router.post('/register', async (req, res) => {
       rankRewardIncome: 0,
       lastDailyCredit: new Date().toISOString().slice(0, 10),
       createdAt: new Date().toISOString(),
+      // Optional extended profile fields
+      gender: '',
+      city: '',
+      state: '',
+      pinCode: '',
+      age: '',
+      panNo: '',
+      aadhaarNo: '',
+      nomineeName: '',
+      nomineeRelation: '',
+      upiNo: '',
+      upiId: '',
+      bankDetails: {
+        accountHolder: '',
+        bankName: '',
+        accountNo: '',
+        ifsc: '',
+        branchName: '',
+      },
     };
 
     // Track who invited this user (direct downline) on sponsor record

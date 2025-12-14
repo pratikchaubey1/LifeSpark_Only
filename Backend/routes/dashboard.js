@@ -116,9 +116,15 @@ router.post('/activate-id', auth, (req, res) => {
     return res.status(400).json({ message: 'This ID is already activated.' });
   }
 
-  // Check E-Pin from central epins store
-  const epins = loadEpins();
-  const epinIndex = epins.findIndex((p) => String(p.code).trim() === String(epin).trim() && !p.used);
+  // Check E-Pin store
+  // Rule: pin must be unused AND either in admin pool (ownerUserId null/undefined) OR owned by this member.
+  const epins = loadEpins().map((e) => ({ ownerUserId: e.ownerUserId ?? null, ...e }));
+  const epinIndex = epins.findIndex((p) => {
+    const match = String(p.code).trim() === String(epin).trim();
+    const unused = !p.used;
+    const allowedOwner = p.ownerUserId === null || p.ownerUserId === user.id;
+    return match && unused && allowedOwner;
+  });
 
   if (epinIndex === -1) {
     return res.status(400).json({ message: 'Invalid or already used E-Pin.' });

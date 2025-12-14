@@ -1,5 +1,105 @@
 [
   {
+    "code": "5FT9-Y3PL-J27C",
+    "ownerUserId": null,
+    "used": false,
+    "usedByUserId": null,
+    "usedAt": null,
+    "packageId": null,
+    "createdAt": "2025-12-14T07:58:24.099Z"
+  },
+  {
+    "ownerUserId": null,
+    "code": "FWTZ-RERK-DSQZ",
+    "used": false,
+    "usedByUserId": null,
+    "usedAt": null,
+    "packageId": null,
+    "createdAt": "2025-12-14T07:58:24.088Z"
+  },
+  {
+    "ownerUserId": null,
+    "code": "HVZH-X886-3UIC",
+    "used": false,
+    "usedByUserId": null,
+    "usedAt": null,
+    "packageId": null,
+    "createdAt": "2025-12-14T07:58:22.865Z"
+  },
+  {
+    "ownerUserId": null,
+    "code": "FO6W-DNBL-UCVF",
+    "used": false,
+    "usedByUserId": null,
+    "usedAt": null,
+    "packageId": null,
+    "createdAt": "2025-12-14T07:58:22.679Z"
+  },
+  {
+    "ownerUserId": null,
+    "code": "ZS03-6G9F-4DRA",
+    "used": false,
+    "usedByUserId": null,
+    "usedAt": null,
+    "packageId": null,
+    "createdAt": "2025-12-14T06:28:29.622Z"
+  },
+  {
+    "ownerUserId": null,
+    "code": "UMWN-CLH4-ZFI3",
+    "used": false,
+    "usedByUserId": null,
+    "usedAt": null,
+    "packageId": null,
+    "createdAt": "2025-12-14T06:28:29.591Z"
+  },
+  {
+    "ownerUserId": null,
+    "code": "47BR-7UWI-2645",
+    "used": false,
+    "usedByUserId": null,
+    "usedAt": null,
+    "packageId": null,
+    "createdAt": "2025-12-14T06:28:29.560Z"
+  },
+  {
+    "ownerUserId": null,
+    "code": "HZ0U-6XLU-3B95",
+    "used": false,
+    "usedByUserId": null,
+    "usedAt": null,
+    "packageId": null,
+    "createdAt": "2025-12-14T06:28:29.529Z"
+  },
+  {
+    "ownerUserId": null,
+    "code": "B20C-MMHM-UCN2",
+    "used": false,
+    "usedByUserId": null,
+    "usedAt": null,
+    "packageId": null,
+    "createdAt": "2025-12-14T06:28:29.511Z"
+  },
+  {
+    "ownerUserId": null,
+    "code": "1J4M-LYY0-J5KI",
+    "used": false,
+    "usedByUserId": null,
+    "usedAt": null,
+    "packageId": null,
+    "createdAt": "2025-12-14T06:28:27.535Z"
+  },
+  {
+    "ownerUserId": null,
+    "code": "PCCM-BTZ5-TQAK",
+    "used": false,
+    "usedByUserId": null,
+    "usedAt": null,
+    "packageId": null,
+    "createdAt": "2025-12-14T06:28:27.308Z"
+  },
+  {
+    "ownerUserId": null,
     "code": "ZBG1-NR50-M5SJ",
     "used": false,
     "usedByUserId": null,
@@ -8,6 +108,7 @@
     "createdAt": "2025-12-11T17:56:00.352Z"
   },
   {
+    "ownerUserId": null,
     "code": "P3D2-XWK2-K3OX",
     "used": true,
     "usedByUserId": "1765474208899",

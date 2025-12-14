@@ -15,29 +15,39 @@ export default function ActivateID({ compact = false }) {
     if (!pkg) return setMsg("Please select a package.");
     if (!epin) return setMsg("Please enter E-Pin.");
 
-    const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+    const token =
+      typeof window !== "undefined" ? localStorage.getItem("token") : null;
+
     if (!token) {
       return setMsg("Please login again to activate your ID.");
     }
 
     try {
       setLoading(true);
-      const res = await fetch("http://localhost:5000/api/dashboard/activate-id", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ epin, packageId: pkg }),
-      });
+      const res = await fetch(
+        "http://localhost:5000/api/dashboard/activate-id",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ epin, packageId: pkg }),
+        }
+      );
 
       const data = await res.json();
 
       if (!res.ok) {
-        return setMsg(data.message || "Activation failed. Please check your E-Pin.");
+        return setMsg(
+          data.message || "Activation failed. Please check your E-Pin."
+        );
       }
 
-      setMsg(data.message || `Activated Successfully! Package: ${pkg}, E-Pin: ${epin}`);
+      setMsg(
+        data.message ||
+          `Activated Successfully! Package: ${pkg}, E-Pin: ${epin}`
+      );
       setEpin("");
     } catch (err) {
       console.error("Activation error", err);
@@ -85,7 +95,7 @@ export default function ActivateID({ compact = false }) {
           </h2>
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Package Selection (cards) */}
+            {/* Package Selection */}
             <div>
               <p className="block text-xs sm:text-sm font-medium text-slate-700 mb-2">
                 Select Package
@@ -110,7 +120,10 @@ export default function ActivateID({ compact = false }) {
                       <span className="font-semibold flex items-center gap-1.5">
                         {item.label}
                         {isActive && (
-                          <FiCheckCircle className="text-emerald-500" size={14} />
+                          <FiCheckCircle
+                            className="text-emerald-500"
+                            size={14}
+                          />
                         )}
                       </span>
                       <span className="text-[11px] sm:text-xs text-slate-500 mt-1">
@@ -122,7 +135,7 @@ export default function ActivateID({ compact = false }) {
               </div>
             </div>
 
-            {/* E-Pin Input */}
+            {/* E-Pin Input (FINAL FIX HERE) */}
             <div>
               <label className="block text-xs sm:text-sm font-medium text-slate-700 mb-1.5">
                 E-Pin
@@ -137,7 +150,7 @@ export default function ActivateID({ compact = false }) {
                     setMsg("");
                   }}
                   placeholder="Enter E-Pin"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-white text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-black placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
                 />
               </div>
               <p className="mt-1 text-[11px] text-slate-400">

@@ -33,31 +33,87 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
-    const name = path.basename(file.originalname, ext);
-    cb(null, `${name}-${Date.now()}${ext}`);
+    const safeField = String(file.fieldname || 'document').replace(/[^a-z0-9_-]/gi, '');
+    cb(null, `${req.user.id}-${safeField}-${Date.now()}${ext}`);
   },
 });
 
 const upload = multer({ storage });
 
-router.post('/', auth, upload.single('document'), (req, res) => {
-  try {
-    if (!req.file) {
-      return res.status(400).json({ message: 'KYC document file is required (field name: document)' });
-    }
+// Supports multiple docs:
+// - profile (image)
+// - pan (image)
+// - aadhaar (image)
+// - bank (image)
+// Backwards-compatible: also supports "document" single upload.
+const uploadAny = upload.fields([
+  { name: 'profile', maxCount: 1 },
+  { name: 'pan', maxCount: 1 },
+  { name: 'aadhaar', maxCount: 1 },
+  { name: 'bank', maxCount: 1 },
+  { name: 'document', maxCount: 1 },
+]);
 
-    const { kycType } = req.body;
+router.post('/', auth, uploadAny, (req, res) => {
+  try {
+    const files = req.files || {};
+
+    const getFile = (field) => {
+      const arr = files[field];
+      return Array.isArray(arr) && arr.length > 0 ? arr[0] : null;
+    };
+
+    const profile = getFile('profile');
+    const pan = getFile('pan');
+    const aadhaar = getFile('aadhaar');
+    const bank = getFile('bank');
+    const legacy = getFile('document');
+
+    if (!profile && !pan && !aadhaar && !bank && !legacy) {
+      return res.status(400).json({
+        message:
+          'At least one file is required: profile, pan, aadhaar, bank (or legacy field: document)',
+      });
+    }
 
     const records = loadKyc();
     const existingIdx = records.findIndex((r) => r.userId === req.user.id);
 
+    const prev = existingIdx === -1 ? null : records[existingIdx];
+
     const record = {
+      id: prev?.id || `KYC-${Date.now()}`,
       userId: req.user.id,
-      kycType: kycType || '',
-      fileName: req.file.filename,
-      filePath: `/uploads/${req.file.filename}`,
-      uploadedAt: new Date().toISOString(),
+      uploadedAt: prev?.uploadedAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      documents: {
+        profile: profile
+          ? { fileName: profile.filename, filePath: `/uploads/${profile.filename}` }
+          : prev?.documents?.profile || null,
+        pan: pan
+          ? { fileName: pan.filename, filePath: `/uploads/${pan.filename}` }
+          : prev?.documents?.pan || null,
+        aadhaar: aadhaar
+          ? { fileName: aadhaar.filename, filePath: `/uploads/${aadhaar.filename}` }
+          : prev?.documents?.aadhaar || null,
+        bank: bank
+          ? { fileName: bank.filename, filePath: `/uploads/${bank.filename}` }
+          : prev?.documents?.bank || null,
+        // keep legacy upload if used
+        document: legacy
+          ? { fileName: legacy.filename, filePath: `/uploads/${legacy.filename}` }
+          : prev?.documents?.document || null,
+      },
     };
+
+    // If old schema exists (fileName/filePath), keep it too for existing clients
+    if (legacy) {
+      record.fileName = legacy.filename;
+      record.filePath = `/uploads/${legacy.filename}`;
+    } else if (prev?.fileName || prev?.filePath) {
+      record.fileName = prev.fileName;
+      record.filePath = prev.filePath;
+    }
 
     if (existingIdx === -1) {
       records.push(record);

@@ -7,6 +7,12 @@ import FreedomBusiness from "./MyTeamBusiness/FreedomBusiness";
 import EditProfile from "./EditProfile";
 import EditBankDetail from "./Editbankdetail";
 import ImageUpload from "./Imageuploader";
+import Withdraw from "./Withdraw";
+import TransferPin from "./e-pin/TransferPin";
+import TransferToUser from "./e-pin/TransferToUser";
+import UsedPin from "./e-pin/UsedPin";
+
+const API_BASE = "http://localhost:5000";
 
 const DASHBOARD_ITEMS = [
   {
@@ -53,6 +59,7 @@ const DASHBOARD_ITEMS = [
       { label: "Wallet Ledger" },
     ],
   },
+  { label: "Withdraw" },
 ];
 
 export default function DashboardSidebar({
@@ -67,12 +74,29 @@ export default function DashboardSidebar({
   const [isLoggedIn, setIsLoggedIn] = useState(
     typeof window !== "undefined" ? !!localStorage.getItem("token") : false
   );
+  const [role, setRole] = useState(null);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow || "";
 
     if (typeof window !== "undefined") {
-      setIsLoggedIn(!!localStorage.getItem("token"));
+      const token = localStorage.getItem("token");
+      setIsLoggedIn(!!token);
+
+      // load member role so we can show/hide ePin section
+      if (open && token) {
+        (async () => {
+          try {
+            const res = await fetch(`${API_BASE}/api/profile`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            const data = await res.json();
+            if (res.ok) setRole(data.user?.role || "member");
+          } catch (e) {
+            // ignore
+          }
+        })();
+      }
     }
 
     if (open) {
@@ -87,8 +111,6 @@ export default function DashboardSidebar({
       document.body.style.overflow = previousOverflow;
     };
   }, [open]);
-
-  if (!open) return null;
 
   const handleLogout = () => {
     if (typeof window !== "undefined") {
@@ -107,6 +129,8 @@ export default function DashboardSidebar({
     } else {
       if (label === "Active ID") {
         setActivePanel("activate-id");
+      } else if (label === "Withdraw") {
+        setActivePanel("withdraw");
       } else {
         console.log("Clicked parent:", label);
       }
@@ -125,6 +149,21 @@ export default function DashboardSidebar({
       }
       if (childLabel === "Edit Bank Details") {
         setActivePanel("edit-bank-details");
+        return;
+      }
+    }
+
+    if (parentLabel === "ePin") {
+      if (childLabel === "Generate ePin") {
+        setActivePanel("epin-generate");
+        return;
+      }
+      if (childLabel === "ePin Transfer") {
+        setActivePanel("epin-transfer");
+        return;
+      }
+      if (childLabel === "ePin Report") {
+        setActivePanel("epin-report");
         return;
       }
     }
@@ -162,6 +201,20 @@ export default function DashboardSidebar({
     if (activePanel === "edit-bank-details") {
       return <EditBankDetail />;
     }
+    if (activePanel === "withdraw") {
+      return <Withdraw />;
+    }
+
+    if (activePanel === "epin-generate") {
+      // NOTE: currently a placeholder UI; wire to real e-pin generation/assignment API when available
+      return <TransferPin />;
+    }
+    if (activePanel === "epin-transfer") {
+      return <TransferToUser />;
+    }
+    if (activePanel === "epin-report") {
+      return <UsedPin />;
+    }
 
     if (activePanel === "team-business") {
       return <TeamBusiness />;
@@ -175,6 +228,18 @@ export default function DashboardSidebar({
 
     return children || null;
   };
+
+  const canSeeEpin = isLoggedIn && role === "franchise";
+  const visibleItems = canSeeEpin
+    ? DASHBOARD_ITEMS
+    : DASHBOARD_ITEMS.filter((i) => i.label !== "ePin");
+
+  // If user was on ePin section and role becomes non-franchise, kick them out
+  useEffect(() => {
+    if (!canSeeEpin && openParent === "ePin") setOpenParent(null);
+  }, [canSeeEpin, openParent]);
+
+  if (!open) return null;
 
   return (
     <>
@@ -208,7 +273,7 @@ export default function DashboardSidebar({
 
         {/* nav */}
         <nav className="flex-1 overflow-y-auto px-2 py-3 md:py-4 space-y-1 text-xs sm:text-sm">
-          {DASHBOARD_ITEMS.map((item) => {
+          {visibleItems.map((item) => {
             const isOpen = openParent === item.label;
             const hasChildren = !!item.children?.length;
             return (

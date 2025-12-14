@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 
-const EditBankDetail = () => {
+const API_BASE = "http://localhost:5000";
+
+export default function EditBankDetail() {
   const [form, setForm] = useState({
     accountHolder: "",
     bankName: "",
@@ -10,11 +12,47 @@ const EditBankDetail = () => {
   });
 
   const [errors, setErrors] = useState({});
-  const [submitting, setSubmitting] = useState(false);
+  const [msg, setMsg] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setMsg("Please login first.");
+      setLoading(false);
+      return;
+    }
+
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/profile`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setMsg(data.message || "Failed to load profile");
+          setLoading(false);
+          return;
+        }
+        const b = data.user?.bankDetails || {};
+        setForm({
+          accountHolder: b.accountHolder || "",
+          bankName: b.bankName || "",
+          accountNo: b.accountNo || "",
+          ifsc: b.ifsc || "",
+          branchName: b.branchName || "",
+        });
+      } catch (e) {
+        setMsg("Failed to load profile");
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-
     const newValue = name === "ifsc" ? value.toUpperCase() : value;
 
     setForm((prev) => ({
@@ -54,49 +92,79 @@ const EditBankDetail = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = () => {
+  const handleSave = async () => {
+    setMsg("");
     if (!validate()) return;
 
-    setSubmitting(true);
+    const token = localStorage.getItem("token");
+    if (!token) {
+      setMsg("Please login again.");
+      return;
+    }
 
-    setTimeout(() => {
-      console.log("Bank Details:", form);
-      alert("Bank details updated successfully!");
-      setSubmitting(false);
-    }, 500);
+    try {
+      setSaving(true);
+      const res = await fetch(`${API_BASE}/api/profile`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ bankDetails: form }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setMsg(data.message || "Failed to update bank details");
+        return;
+      }
+      setMsg("Bank details updated successfully.");
+      const b = data.user?.bankDetails || {};
+      setForm({
+        accountHolder: b.accountHolder || "",
+        bankName: b.bankName || "",
+        accountNo: b.accountNo || "",
+        ifsc: b.ifsc || "",
+        branchName: b.branchName || "",
+      });
+    } catch (e) {
+      setMsg("Failed to update bank details");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
-    setForm({
-      accountHolder: "",
-      bankName: "",
-      accountNo: "",
-      ifsc: "",
-      branchName: "",
-    });
     setErrors({});
+    setMsg("");
   };
 
   const inputBase =
     "w-full mt-1.5 p-2.5 rounded-xl border text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition";
   const labelBase = "text-gray-700 font-medium text-xs sm:text-sm";
 
+  if (loading) {
+    return (
+      <div className="w-full min-h-screen bg-slate-100 flex items-center justify-center p-6">
+        <div className="text-slate-600">Loading bank details...</div>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full min-h-screen bg-slate-100 flex items-start sm:items-center justify-center p-3 sm:p-4">
-      {/* Card */}
       <div className="w-full max-w-md sm:max-w-lg bg-white rounded-2xl shadow-md border border-slate-100 p-4 sm:p-6">
-        {/* Header */}
         <div className="mb-5 sm:mb-6">
-          <h1 className="text-lg sm:text-2xl font-semibold text-slate-900">
-            Edit Bank Details
-          </h1>
-          <p className="text-[11px] sm:text-xs text-slate-500 mt-1">
-            Make sure all details exactly match your bank records.
-          </p>
+          <h1 className="text-lg sm:text-2xl font-semibold text-slate-900">Edit Bank Details</h1>
+          <p className="text-[11px] sm:text-xs text-slate-500 mt-1">Bank account number must be unique across users.</p>
         </div>
 
+        {msg && (
+          <div className="mb-4 rounded-lg border bg-white px-3 py-2 text-sm">
+            {msg}
+          </div>
+        )}
+
         <div className="space-y-4">
-          {/* Account Holder */}
           <div>
             <label className={labelBase}>Account Holder</label>
             <input
@@ -105,18 +173,11 @@ const EditBankDetail = () => {
               value={form.accountHolder}
               onChange={handleChange}
               placeholder="Enter account holder name"
-              className={`${inputBase} ${
-                errors.accountHolder ? "border-red-400" : "border-gray-200"
-              }`}
+              className={`${inputBase} ${errors.accountHolder ? "border-red-400" : "border-gray-200"}`}
             />
-            {errors.accountHolder && (
-              <p className="mt-1 text-[11px] text-red-500">
-                {errors.accountHolder}
-              </p>
-            )}
+            {errors.accountHolder && <p className="mt-1 text-[11px] text-red-500">{errors.accountHolder}</p>}
           </div>
 
-          {/* Bank + Branch (2 columns on sm+) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
             <div>
               <label className={labelBase}>Bank Name</label>
@@ -126,15 +187,9 @@ const EditBankDetail = () => {
                 value={form.bankName}
                 onChange={handleChange}
                 placeholder="Enter bank name"
-                className={`${inputBase} ${
-                  errors.bankName ? "border-red-400" : "border-gray-200"
-                }`}
+                className={`${inputBase} ${errors.bankName ? "border-red-400" : "border-gray-200"}`}
               />
-              {errors.bankName && (
-                <p className="mt-1 text-[11px] text-red-500">
-                  {errors.bankName}
-                </p>
-              )}
+              {errors.bankName && <p className="mt-1 text-[11px] text-red-500">{errors.bankName}</p>}
             </div>
 
             <div>
@@ -145,19 +200,12 @@ const EditBankDetail = () => {
                 value={form.branchName}
                 onChange={handleChange}
                 placeholder="Enter branch name"
-                className={`${inputBase} ${
-                  errors.branchName ? "border-red-400" : "border-gray-200"
-                }`}
+                className={`${inputBase} ${errors.branchName ? "border-red-400" : "border-gray-200"}`}
               />
-              {errors.branchName && (
-                <p className="mt-1 text-[11px] text-red-500">
-                  {errors.branchName}
-                </p>
-              )}
+              {errors.branchName && <p className="mt-1 text-[11px] text-red-500">{errors.branchName}</p>}
             </div>
           </div>
 
-          {/* Account Number */}
           <div>
             <label className={labelBase}>Account Number</label>
             <input
@@ -167,18 +215,11 @@ const EditBankDetail = () => {
               value={form.accountNo}
               onChange={handleChange}
               placeholder="Enter account number"
-              className={`${inputBase} ${
-                errors.accountNo ? "border-red-400" : "border-gray-200"
-              }`}
+              className={`${inputBase} ${errors.accountNo ? "border-red-400" : "border-gray-200"}`}
             />
-            {errors.accountNo && (
-              <p className="mt-1 text-[11px] text-red-500">
-                {errors.accountNo}
-              </p>
-            )}
+            {errors.accountNo && <p className="mt-1 text-[11px] text-red-500">{errors.accountNo}</p>}
           </div>
 
-          {/* IFSC */}
           <div>
             <label className={labelBase}>IFSC Code</label>
             <input
@@ -187,26 +228,19 @@ const EditBankDetail = () => {
               value={form.ifsc}
               onChange={handleChange}
               placeholder="e.g. SBIN0123456"
-              className={`${inputBase} uppercase tracking-wide ${
-                errors.ifsc ? "border-red-400" : "border-gray-200"
-              }`}
+              className={`${inputBase} uppercase tracking-wide ${errors.ifsc ? "border-red-400" : "border-gray-200"}`}
             />
-            {errors.ifsc && (
-              <p className="mt-1 text-[11px] text-red-500">
-                {errors.ifsc}
-              </p>
-            )}
+            {errors.ifsc && <p className="mt-1 text-[11px] text-red-500">{errors.ifsc}</p>}
           </div>
         </div>
 
-        {/* Buttons */}
         <div className="mt-6 flex flex-col sm:flex-row gap-3">
           <button
             className="w-full sm:flex-1 bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed transition"
-            onClick={handleSubmit}
-            disabled={submitting}
+            onClick={handleSave}
+            disabled={saving}
           >
-            {submitting ? "Updating..." : "Update Details"}
+            {saving ? "Updating..." : "Update Details"}
           </button>
 
           <button
@@ -217,13 +251,8 @@ const EditBankDetail = () => {
           </button>
         </div>
 
-        <p className="mt-3 text-[10px] sm:text-[11px] text-slate-400">
-          Note: Withdrawals are processed to this bank account only. Double-check
-          before saving.
-        </p>
+        <p className="mt-3 text-[10px] sm:text-[11px] text-slate-400">Note: Withdrawals are processed to this bank account only.</p>
       </div>
     </div>
   );
-};
-
-export default EditBankDetail;
+}
