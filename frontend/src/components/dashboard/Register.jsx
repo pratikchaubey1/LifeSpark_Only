@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 
-const API_BASE = "http://localhost:5000";
+import config from "../../config/config";
+
+const API_BASE = config.apiUrl;
 import {
   FiMail,
   FiLock,

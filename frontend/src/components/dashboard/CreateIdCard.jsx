@@ -2,7 +2,9 @@ import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { FiArrowLeft, FiPrinter, FiArrowRight } from "react-icons/fi";
 
-const API_BASE = "http://localhost:5000";
+import config from "../../config/config";
+
+const API_BASE = config.apiUrl;
 
 const MotionDiv = motion.div;
 

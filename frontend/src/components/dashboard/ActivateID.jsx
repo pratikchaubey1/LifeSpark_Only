@@ -2,6 +2,10 @@
 import React, { useState } from "react";
 import { FiZap, FiKey, FiCheckCircle } from "react-icons/fi";
 
+import config from "../../config/config";
+
+const API_BASE = config.apiUrl;
+
 export default function ActivateID({ compact = false }) {
   const [epin, setEpin] = useState("");
   const [pkg, setPkg] = useState("");
@@ -25,7 +29,7 @@ export default function ActivateID({ compact = false }) {
     try {
       setLoading(true);
       const res = await fetch(
-        "http://localhost:5000/api/dashboard/activate-id",
+        `${API_BASE}/api/dashboard/activate-id`,
         {
           method: "POST",
           headers: {

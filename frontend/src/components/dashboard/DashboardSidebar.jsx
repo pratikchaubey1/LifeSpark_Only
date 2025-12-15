@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
+import config from "../../config/config";
+
 import ActivateID from "./ActivateID";
 import TeamBusiness from "./MyTeamBusiness/TeamBusiness";
 import RankRewardBusiness from "./MyTeamBusiness/RankRewardBusiness";
@@ -16,7 +18,7 @@ import UsedPin from "./e-pin/UsedPin";
 import WelcomeLetter from "./WelcomeLetter";
 import CreateIdCard from "./CreateIdCard";
 
-const API_BASE = "http://localhost:5000";
+const API_BASE = config.apiUrl;
 
 const DASHBOARD_ITEMS = [
   {

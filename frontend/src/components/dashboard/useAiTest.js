@@ -1,5 +1,7 @@
 import { useState } from "react";
 
+import config from "../../config/config";
+
 // Simple reusable hook for calling the backend /api/test endpoint.
 // You can use this inside any component where the user "gives the test".
 export function useAiTest() {
@@ -13,7 +15,7 @@ export function useAiTest() {
     setResult(null);
 
     try {
-      const res = await fetch("http://localhost:5000/api/test", {
+      const res = await fetch(`${config.apiUrl}/api/test`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ answers }),

@@ -2,8 +2,6 @@ import React, { useEffect, useState } from "react";
 
 import TransferToUser from "./e-pin/TransferToUser";
 
-const API_BASE = "http://localhost:5000";
-
 // =================== LEFT MENU ITEMS ===================
 const SIDE_MENU = [
   { id: "dashboard", label: "Dashboard" },
