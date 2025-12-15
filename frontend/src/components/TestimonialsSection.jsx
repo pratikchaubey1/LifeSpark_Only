@@ -3,7 +3,9 @@ import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import { fadeUp, sectionTitle } from "../config/motionConfig";
 
-const API_BASE = "http://localhost:5000";
+import config from "../config/config";
+
+const API_BASE = config.apiUrl;
 
 const fallbackTestimonials = [
   {

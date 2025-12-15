@@ -3,6 +3,8 @@ import React, { useEffect, useState } from "react";
 import Lenis from "@studio-freight/lenis";
 import { gsap } from "gsap";
 
+import config from "./config/config";
+
 import Header from "./components/Header";
 import HeroSection from "./components/HeroSection";
 import AboutSection from "./components/AboutSection";
@@ -48,7 +50,7 @@ export default function App() {
   }
 
   async function handleRegisterSubmit(payload) {
-    const res = await fetch("http://localhost:5000/api/auth/register", {
+    const res = await fetch(`${config.apiUrl}/api/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -74,7 +76,7 @@ export default function App() {
   }
 
   async function handleLoginSubmit(payload) {
-    const res = await fetch("http://localhost:5000/api/auth/login", {
+    const res = await fetch(`${config.apiUrl}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email: payload.email, password: payload.password }),

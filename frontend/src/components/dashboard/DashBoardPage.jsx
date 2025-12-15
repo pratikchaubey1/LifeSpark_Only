@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 
+import config from "../../config/config";
+
 /* ---------- COLOR CONFIG ---------- */
 
 const topStatConfig = [
@@ -100,7 +102,7 @@ function DashBoardPage() {
 
     (async () => {
       try {
-        const res = await fetch("http://localhost:5000/api/dashboard", {
+        const res = await fetch(`${config.apiUrl}/api/dashboard`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) return;

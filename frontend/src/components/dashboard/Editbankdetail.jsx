@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 
-const API_BASE = "http://localhost:5000";
+import config from "../../config/config";
+
+const API_BASE = config.apiUrl;
 
 export default function EditBankDetail() {
   const [form, setForm] = useState({

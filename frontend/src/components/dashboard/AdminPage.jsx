@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 
+import config from "../../config/config";
+
 /**
  * Final AdminPage.jsx (single-file)
  * - White + blue theme
@@ -195,7 +197,7 @@ export default function AdminPage() {
   const [paymentEdits, setPaymentEdits] = useState({}); // { [userId]: { upiId, upiNo, bankDetails: {...} } }
   const [savingPaymentUserId, setSavingPaymentUserId] = useState(null);
 
-  const API_BASE = "http://localhost:5000";
+  const API_BASE = config.apiUrl;
 
   // site name (optional)
   const [siteName, setSiteName] = useState("My Website");
