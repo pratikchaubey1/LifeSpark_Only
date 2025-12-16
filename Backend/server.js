@@ -42,7 +42,7 @@ app.use('/api/projects', projectsRoutes);
 app.use('/api/site', siteRoutes);
 app.use('/api/test', testRoutes);
 // Admin routes (no /api prefix as per requirement: /admin/login)
-app.use('/admin', adminRoutes);
+app.use('/api/admin', adminRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'LifeSpark backend is running' });
