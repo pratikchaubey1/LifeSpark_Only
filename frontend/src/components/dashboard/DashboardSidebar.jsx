@@ -95,7 +95,7 @@ export default function DashboardSidebar({
       if (open && token) {
         (async () => {
           try {
-            const res = await fetch(`${API_BASE}/api/profile`, {
+            const res = await fetch(`${API_BASE}/profile`, {
               headers: { Authorization: `Bearer ${token}` },
             });
             const data = await res.json();

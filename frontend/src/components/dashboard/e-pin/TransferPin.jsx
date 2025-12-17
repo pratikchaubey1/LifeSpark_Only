@@ -20,7 +20,7 @@ function TransferPin() {
 
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/api/epins`, {
+      const res = await fetch(`${API_BASE}/epins`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();

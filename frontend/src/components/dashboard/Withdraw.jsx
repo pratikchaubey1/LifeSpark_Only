@@ -28,10 +28,10 @@ export default function Withdraw() {
       setLoading(true);
 
       const [profileRes, listRes] = await Promise.all([
-        fetch(`${API_BASE}/api/profile`, {
+        fetch(`${API_BASE}/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
-        fetch(`${API_BASE}/api/withdrawals`, {
+        fetch(`${API_BASE}/withdrawals`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
       ]);
@@ -75,7 +75,7 @@ export default function Withdraw() {
 
     try {
       setSubmitting(true);
-      const res = await fetch(`${API_BASE}/api/withdrawals`, {
+      const res = await fetch(`${API_BASE}/withdrawals`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

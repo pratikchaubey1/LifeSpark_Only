@@ -28,7 +28,7 @@ export default function EditBankDetail() {
 
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/profile`, {
+        const res = await fetch(`${API_BASE}/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();
@@ -106,7 +106,7 @@ export default function EditBankDetail() {
 
     try {
       setSaving(true);
-      const res = await fetch(`${API_BASE}/api/profile`, {
+      const res = await fetch(`${API_BASE}/profile`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",

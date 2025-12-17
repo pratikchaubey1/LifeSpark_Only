@@ -216,7 +216,7 @@ const MemberLayout = () => {
 
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/profile`, {
+        const res = await fetch(`${API_BASE}/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         const data = await res.json();

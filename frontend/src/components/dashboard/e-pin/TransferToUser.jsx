@@ -19,7 +19,7 @@ function TransferToUser() {
     const token = localStorage.getItem("token");
     if (!token) return;
     try {
-      const res = await fetch(`${API_BASE}/api/epins`, {
+      const res = await fetch(`${API_BASE}/epins`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -32,7 +32,7 @@ function TransferToUser() {
     const token = localStorage.getItem("token");
     if (!token) return;
     try {
-      const res = await fetch(`${API_BASE}/api/epins/transfers`, {
+      const res = await fetch(`${API_BASE}/epins/transfers`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -44,7 +44,7 @@ function TransferToUser() {
     const token = localStorage.getItem("token");
     if (!token) return;
     try {
-      const res = await fetch(`${API_BASE}/api/profile`, {
+      const res = await fetch(`${API_BASE}/profile`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -56,7 +56,7 @@ function TransferToUser() {
     const token = localStorage.getItem("token");
     if (!token) return;
     try {
-      const res = await fetch(`${API_BASE}/api/team/direct`, {
+      const res = await fetch(`${API_BASE}/team/direct`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
@@ -86,7 +86,7 @@ function TransferToUser() {
 
     try {
       setSubmitting(true);
-      const res = await fetch(`${API_BASE}/api/epins/transfer`, {
+      const res = await fetch(`${API_BASE}/epins/transfer`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

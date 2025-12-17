@@ -20,7 +20,7 @@ const ImageUpload = () => {
 
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/kyc`, {
+        const res = await fetch(`${API_BASE}/kyc`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.status === 404) return;
@@ -53,7 +53,7 @@ const ImageUpload = () => {
       if (aadhaar) fd.append("aadhaar", aadhaar);
       if (bank) fd.append("bank", bank);
 
-      const res = await fetch(`${API_BASE}/api/kyc`, {
+      const res = await fetch(`${API_BASE}/kyc`, {
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
         body: fd,

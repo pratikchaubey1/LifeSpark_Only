@@ -37,7 +37,7 @@ const ProjectsSection = () => {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/projects`);
+        const res = await fetch(`${API_BASE}/projects`);
         const data = await res.json();
         if (res.ok && Array.isArray(data.projects)) {
           setProjects(data.projects);

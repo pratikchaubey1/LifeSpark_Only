@@ -35,7 +35,7 @@ const TestimonialsSection = () => {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/site/testimonials`);
+        const res = await fetch(`${API_BASE}/site/testimonials`);
         const data = await res.json();
         if (res.ok && Array.isArray(data.testimonials)) {
           setTestimonials(data.testimonials);

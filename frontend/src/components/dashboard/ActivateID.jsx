@@ -29,7 +29,7 @@ export default function ActivateID({ compact = false }) {
     try {
       setLoading(true);
       const res = await fetch(
-        `${API_BASE}/api/dashboard/activate-id`,
+        `${API_BASE}/dashboard/activate-id`,
         {
           method: "POST",
           headers: {

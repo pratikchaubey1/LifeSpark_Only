@@ -45,7 +45,7 @@ export default function OfficialRegisterPage({ onSubmit, onGoToLogin, onGoHome }
     const t = setTimeout(async () => {
       try {
         setSponsorLoading(true);
-        const res = await fetch(`${API_BASE}/api/auth/sponsor/${encodeURIComponent(code)}`);
+        const res = await fetch(`${API_BASE}/auth/sponsor/${encodeURIComponent(code)}`);
         const data = await res.json();
         if (!res.ok) {
           setSponsorName("");

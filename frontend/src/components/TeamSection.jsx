@@ -25,7 +25,7 @@ const TeamSection = () => {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch(`${API_BASE}/api/site/team-members`);
+        const res = await fetch(`${API_BASE}/site/team-members`);
         const data = await res.json();
         if (res.ok && Array.isArray(data.teamMembers)) {
           setTeam(data.teamMembers);

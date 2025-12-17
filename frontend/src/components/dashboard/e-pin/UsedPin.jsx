@@ -20,7 +20,7 @@ function UsedPin() {
 
     try {
       setLoading(true);
-      const res = await fetch(`${API_BASE}/api/epins/used`, {
+      const res = await fetch(`${API_BASE}/epins/used`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
