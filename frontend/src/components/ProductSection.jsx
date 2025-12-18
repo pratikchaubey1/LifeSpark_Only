@@ -19,10 +19,14 @@ const ProductSection = () => {
         >
           {sectionTitle("Our Product", "What Does Choosing a Product Do?")}
           <p className="text-sm text-slate-700 mb-3">
-            In today’s digital age, people spend a significant part of their day
-            using mobile phones, laptops, and other electronic devices. In such
-            a lifestyle, the radiation emitted from these devices should not be
-            taken lightly.
+            In today’s digital age, people spend a major part of their day using
+            mobile phones, laptops, smart watches, and other electronic devices.
+            With this lifestyle, the radiation emitted from these gadgets should
+            not be ignored. If your first product is an anti-radiation watch, it
+            is important to clearly explain how it can benefit individuals and
+            their families—such as helping reduce exposure to harmful radiation
+            coming from mobile phones, Wi-Fi routers, and other frequently used
+            electronic devices.
           </p>
 
           <p className="text-sm text-slate-700 mb-4">
@@ -51,9 +55,7 @@ const ProductSection = () => {
           <p className="text-xs uppercase tracking-[0.25em] text-emerald-600 mb-3">
             Flagship Product
           </p>
-          <h4 className="text-sm font-semibold text-slate-900 mb-2">
-            Anti-Radiation Chip
-          </h4>
+          <h4 className="text-sm font-semibold text-slate-900 mb-2">Watch</h4>
           <ul className="space-y-2 text-xs text-slate-700 mb-4">
             <li>• Helps reduce exposure to harmful gadget radiation.</li>
             <li>• Easy to apply on phones, laptops and Wi-Fi routers.</li>

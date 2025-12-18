@@ -47,37 +47,6 @@ function ensureActivationFlag(users) {
   if (changed) saveUsers(users);
 }
 
-/* -------------------- DAILY BONUS (FINAL) -------------------- */
-
-function applyDailyBonus(user) {
-  // Bonus sirf activated users ke liye
-  if (!user.isActivated || !user.activatedAt) return;
-
-  const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10); // YYYY-MM-DD
-
-  const activationDate = new Date(user.activatedAt);
-  const daysSinceActivation = Math.floor(
-    (today - activationDate) / (1000 * 60 * 60 * 24)
-  );
-
-  const MAX_DAYS = 30;
-
-  // 30 din ke baad bonus band
-  if (daysSinceActivation >= MAX_DAYS) return;
-
-  // Same day dobara credit nahi
-  if (user.lastDailyCredit === todayStr) return;
-
-  const DAILY_BONUS = 50;
-
-  user.balance = (user.balance || 0) + DAILY_BONUS;
-  user.dailyBonusIncome = (user.dailyBonusIncome || 0) + DAILY_BONUS;
-  user.totalIncome = (user.totalIncome || 0) + DAILY_BONUS;
-
-  user.lastDailyCredit = todayStr;
-}
-
 /* -------------------- ROUTES -------------------- */
 
 router.get('/', auth, (req, res) => {
@@ -90,12 +59,6 @@ router.get('/', auth, (req, res) => {
   }
 
   const user = users[idx];
-
-  // Apply daily bonus
-  applyDailyBonus(user);
-
-  users[idx] = user;
-  saveUsers(users);
 
   const { password, ...safeUser } = user;
 
@@ -165,7 +128,7 @@ router.post('/activate-id', auth, (req, res) => {
   user.isActivated = true;
   user.activationPackage = packageId;
   user.activatedAt = new Date().toISOString();
-  user.lastDailyCredit = null; // start fresh
+  user.lastDailyCredit = null;
 
   users[idx] = user;
   saveUsers(users);

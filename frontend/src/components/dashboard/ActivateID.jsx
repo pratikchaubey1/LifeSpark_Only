@@ -66,9 +66,9 @@ export default function ActivateID({ compact = false }) {
     : "px-3 sm:px-4 py-6 sm:py-8";
 
   const packages = [
-    { id: "Basic", label: "Basic", price: "₹499", desc: "Starter benefits" },
-    { id: "Standard", label: "Standard", price: "₹999", desc: "Better rewards" },
-    { id: "Premium", label: "Premium", price: "₹1999", desc: "Maximum benefits" },
+    { id: "Basic", label: "Basic", price: "₹1199", desc: "Starter benefits" },
+    { id: "Standard", label: "Standard", price: "₹2199", desc: "Better rewards" },
+    { id: "Premium", label: "Premium", price: "₹3199", desc: "Maximum benefits" },
   ];
 
   return (
