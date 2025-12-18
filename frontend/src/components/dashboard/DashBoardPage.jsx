@@ -102,7 +102,7 @@ function DashBoardPage() {
 
     (async () => {
       try {
-        const res = await fetch(`${config.apiUrl}/api/dashboard`, {
+        const res = await fetch(`${config.apiUrl}/dashboard`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) return;

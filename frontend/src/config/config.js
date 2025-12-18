@@ -8,7 +8,7 @@ function normalizeBaseUrl(url) {
 }
 
 const config = {
-  apiUrl: normalizeBaseUrl(import.meta.env.VITE_API_URL || "http://localhost:5000"),
+  apiUrl: normalizeBaseUrl(import.meta.env.VITE_API_URL),
 };
 
 export default config;

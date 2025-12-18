@@ -59,7 +59,7 @@ export default function App() {
 
   /* ---------------- REGISTER ---------------- */
   async function handleRegisterSubmit(payload) {
-    const res = await fetch(`${config.apiUrl}/api/auth/register`, {
+    const res = await fetch(`${config.apiUrl}/auth/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload),
@@ -84,7 +84,7 @@ export default function App() {
 
   /* ---------------- LOGIN ---------------- */
   async function handleLoginSubmit(payload) {
-    const res = await fetch(`${config.apiUrl}/api/auth/login`, {
+    const res = await fetch(`${config.apiUrl}/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
