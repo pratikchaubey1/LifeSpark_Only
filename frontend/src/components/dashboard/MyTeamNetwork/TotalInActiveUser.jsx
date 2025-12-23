@@ -1,12 +1,30 @@
 import React from "react";
 
-const TotalInactiveUser = () => {
+const TotalInactiveUser = ({ onMenuOpen, sidebarOpen }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 p-4 md:p-8 flex justify-center">
       <div className="w-full max-w-4xl bg-white shadow-2xl rounded-2xl p-6 md:p-10 border border-slate-200">
 
-        {/* HEADER */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-3">
+        {/* HEADER WITH MENU BUTTON */}
+        <div className="flex items-center gap-3 mb-8">
+
+          {/* MENU BUTTON */}
+          <button
+            onClick={() => onMenuOpen?.()}
+            className="p-2 rounded-lg bg-slate-200 hover:bg-slate-300 active:scale-95 transition"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6 text-slate-700"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+
+          {/* TITLE */}
           <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">
             Direct Inactive Users
           </h1>

@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from "react";
-
 import config from "../../config/config";
 
 const API_BASE = config.apiUrl;
 
-export default function EditBankDetail() {
+export default function EditBankDetail({ onMenuOpen }) {
   const [form, setForm] = useState({
     accountHolder: "",
     bankName: "",
@@ -31,12 +30,15 @@ export default function EditBankDetail() {
         const res = await fetch(`${API_BASE}/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+
         const data = await res.json();
+
         if (!res.ok) {
           setMsg(data.message || "Failed to load profile");
           setLoading(false);
           return;
         }
+
         const b = data.user?.bankDetails || {};
         setForm({
           accountHolder: b.accountHolder || "",
@@ -70,25 +72,23 @@ export default function EditBankDetail() {
   const validate = () => {
     const newErrors = {};
 
-    if (!form.accountHolder.trim()) {
-      newErrors.accountHolder = "Account holder name is required.";
-    }
-    if (!form.bankName.trim()) {
-      newErrors.bankName = "Bank name is required.";
-    }
+    if (!form.accountHolder.trim()) newErrors.accountHolder = "Account holder name is required.";
+
+    if (!form.bankName.trim()) newErrors.bankName = "Bank name is required.";
+
     if (!form.accountNo.trim()) {
       newErrors.accountNo = "Account number is required.";
     } else if (!/^\d{8,18}$/.test(form.accountNo.trim())) {
       newErrors.accountNo = "Enter a valid account number (8–18 digits).";
     }
+
     if (!form.ifsc.trim()) {
       newErrors.ifsc = "IFSC code is required.";
     } else if (!/^[A-Z]{4}0[A-Z0-9]{6}$/.test(form.ifsc.trim())) {
-      newErrors.ifsc = "Enter a valid IFSC code (e.g. SBIN0123456).";
+      newErrors.ifsc = "Enter valid IFSC (eg: SBIN0123456).";
     }
-    if (!form.branchName.trim()) {
-      newErrors.branchName = "Branch name is required.";
-    }
+
+    if (!form.branchName.trim()) newErrors.branchName = "Branch name is required.";
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -99,13 +99,11 @@ export default function EditBankDetail() {
     if (!validate()) return;
 
     const token = localStorage.getItem("token");
-    if (!token) {
-      setMsg("Please login again.");
-      return;
-    }
+    if (!token) return setMsg("Please login again.");
 
     try {
       setSaving(true);
+
       const res = await fetch(`${API_BASE}/profile`, {
         method: "PUT",
         headers: {
@@ -114,20 +112,15 @@ export default function EditBankDetail() {
         },
         body: JSON.stringify({ bankDetails: form }),
       });
+
       const data = await res.json();
+
       if (!res.ok) {
         setMsg(data.message || "Failed to update bank details");
         return;
       }
+
       setMsg("Bank details updated successfully.");
-      const b = data.user?.bankDetails || {};
-      setForm({
-        accountHolder: b.accountHolder || "",
-        bankName: b.bankName || "",
-        accountNo: b.accountNo || "",
-        ifsc: b.ifsc || "",
-        branchName: b.branchName || "",
-      });
     } catch (e) {
       setMsg("Failed to update bank details");
     } finally {
@@ -135,125 +128,142 @@ export default function EditBankDetail() {
     }
   };
 
-  const handleCancel = () => {
-    setErrors({});
-    setMsg("");
-  };
-
   const inputBase =
-    "w-full mt-1.5 p-2.5 rounded-xl border text-sm bg-gray-50 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition";
-  const labelBase = "text-gray-700 font-medium text-xs sm:text-sm";
+    "w-full p-3 mt-1 rounded-xl border border-slate-300 bg-slate-50 text-sm focus:ring-2 focus:ring-indigo-500 outline-none";
+
+  const labelBase = "text-sm font-medium text-slate-700";
 
   if (loading) {
     return (
-      <div className="w-full min-h-screen bg-slate-100 flex items-center justify-center p-6">
-        <div className="text-slate-600">Loading bank details...</div>
+      <div className="w-full min-h-screen flex items-center justify-center text-slate-600">
+        Loading bank details...
       </div>
     );
   }
 
   return (
-    <div className="w-full min-h-screen bg-slate-100 flex items-start sm:items-center justify-center p-3 sm:p-4">
-      <div className="w-full max-w-md sm:max-w-lg bg-white rounded-2xl shadow-md border border-slate-100 p-4 sm:p-6">
-        <div className="mb-5 sm:mb-6">
-          <h1 className="text-lg sm:text-2xl font-semibold text-slate-900">Edit Bank Details</h1>
-          <p className="text-[11px] sm:text-xs text-slate-500 mt-1">Bank account number must be unique across users.</p>
+    <div className="w-full min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 flex justify-center p-4">
+
+      <div className="w-full max-w-3xl bg-white border shadow-xl rounded-2xl p-6 sm:p-8 space-y-10">
+
+        {/* HEADER */}
+        <div className="flex items-center justify-between">
+
+          {/* MENU BUTTON */}
+          <button
+            onClick={() => onMenuOpen?.()}
+            className="p-2 rounded-lg bg-slate-200 hover:bg-slate-300 active:scale-95 transition"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6 text-slate-800"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+
+          <h1 className="text-xl sm:text-2xl font-bold text-slate-900">
+            Edit Bank Details
+          </h1>
         </div>
 
         {msg && (
-          <div className="mb-4 rounded-lg border bg-white px-3 py-2 text-sm">
+          <div className="p-3 rounded-xl border bg-slate-50 text-slate-700 text-sm">
             {msg}
           </div>
         )}
 
-        <div className="space-y-4">
+        {/* FORM */}
+        <div className="space-y-6">
+
           <div>
             <label className={labelBase}>Account Holder</label>
             <input
-              type="text"
               name="accountHolder"
+              className={inputBase}
+              placeholder="Enter account holder name"
               value={form.accountHolder}
               onChange={handleChange}
-              placeholder="Enter account holder name"
-              className={`${inputBase} ${errors.accountHolder ? "border-red-400" : "border-gray-200"}`}
             />
-            {errors.accountHolder && <p className="mt-1 text-[11px] text-red-500">{errors.accountHolder}</p>}
+            {errors.accountHolder && <p className="text-xs mt-1 text-red-500">{errors.accountHolder}</p>}
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
               <label className={labelBase}>Bank Name</label>
               <input
-                type="text"
                 name="bankName"
+                className={inputBase}
+                placeholder="Enter bank name"
                 value={form.bankName}
                 onChange={handleChange}
-                placeholder="Enter bank name"
-                className={`${inputBase} ${errors.bankName ? "border-red-400" : "border-gray-200"}`}
               />
-              {errors.bankName && <p className="mt-1 text-[11px] text-red-500">{errors.bankName}</p>}
+              {errors.bankName && <p className="text-xs mt-1 text-red-500">{errors.bankName}</p>}
             </div>
 
             <div>
               <label className={labelBase}>Branch Name</label>
               <input
-                type="text"
                 name="branchName"
+                className={inputBase}
+                placeholder="Enter branch name"
                 value={form.branchName}
                 onChange={handleChange}
-                placeholder="Enter branch name"
-                className={`${inputBase} ${errors.branchName ? "border-red-400" : "border-gray-200"}`}
               />
-              {errors.branchName && <p className="mt-1 text-[11px] text-red-500">{errors.branchName}</p>}
+              {errors.branchName && <p className="text-xs mt-1 text-red-500">{errors.branchName}</p>}
             </div>
           </div>
 
           <div>
             <label className={labelBase}>Account Number</label>
             <input
-              type="text"
-              inputMode="numeric"
               name="accountNo"
+              className={inputBase}
+              placeholder="Enter account number"
               value={form.accountNo}
               onChange={handleChange}
-              placeholder="Enter account number"
-              className={`${inputBase} ${errors.accountNo ? "border-red-400" : "border-gray-200"}`}
             />
-            {errors.accountNo && <p className="mt-1 text-[11px] text-red-500">{errors.accountNo}</p>}
+            {errors.accountNo && <p className="text-xs mt-1 text-red-500">{errors.accountNo}</p>}
           </div>
 
           <div>
             <label className={labelBase}>IFSC Code</label>
             <input
-              type="text"
               name="ifsc"
+              className={inputBase + " uppercase tracking-wide"}
+              placeholder="e.g. SBIN0123456"
               value={form.ifsc}
               onChange={handleChange}
-              placeholder="e.g. SBIN0123456"
-              className={`${inputBase} uppercase tracking-wide ${errors.ifsc ? "border-red-400" : "border-gray-200"}`}
             />
-            {errors.ifsc && <p className="mt-1 text-[11px] text-red-500">{errors.ifsc}</p>}
+            {errors.ifsc && <p className="text-xs mt-1 text-red-500">{errors.ifsc}</p>}
           </div>
+
         </div>
 
-        <div className="mt-6 flex flex-col sm:flex-row gap-3">
+        {/* BUTTONS */}
+        <div className="flex flex-col sm:flex-row gap-4">
           <button
-            className="w-full sm:flex-1 bg-indigo-600 text-white py-2.5 rounded-xl text-sm font-medium hover:bg-indigo-700 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed transition"
             onClick={handleSave}
             disabled={saving}
+            className="flex-1 bg-emerald-600 text-white py-3 rounded-xl hover:bg-emerald-700 active:scale-95 transition disabled:opacity-50"
           >
             {saving ? "Updating..." : "Update Details"}
           </button>
 
           <button
-            className="w-full sm:flex-1 bg-slate-100 text-slate-700 py-2.5 rounded-xl text-sm font-medium hover:bg-slate-200 active:scale-[0.98] transition border border-slate-200"
-            onClick={handleCancel}
+            onClick={() => setMsg("")}
+            className="flex-1 bg-slate-200 text-slate-700 py-3 rounded-xl hover:bg-slate-300 active:scale-95 transition"
           >
             Cancel
           </button>
         </div>
 
-        <p className="mt-3 text-[10px] sm:text-[11px] text-slate-400">Note: Withdrawals are processed to this bank account only.</p>
+        <p className="text-[11px] text-slate-500">
+          Withdrawals are sent only to this bank account.
+        </p>
       </div>
     </div>
   );

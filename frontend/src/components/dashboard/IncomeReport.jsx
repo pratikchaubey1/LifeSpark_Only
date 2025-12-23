@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 
-export default function IncomeReport() {
+export default function IncomeReport({ sidebarOpen, onMenuOpen }) {
   const tabs = [
     "Level Income",
     "AutoPool Income",
@@ -73,11 +73,31 @@ export default function IncomeReport() {
         background: "linear-gradient(to bottom, #ffffff, #d8ebff)",
       }}
     >
+
+      {/* ===================== MENU BUTTON ===================== */}
+      {!sidebarOpen && (
+        <button
+          onClick={() => onMenuOpen?.()}
+          className="mb-5 p-2 rounded-lg bg-white shadow-md hover:bg-slate-100 active:scale-95 transition inline-flex border border-slate-300"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6 text-slate-700"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
+              d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+      )}
+
       {/* HEADER */}
       <h1 className="text-3xl font-bold text-slate-900">Income Report</h1>
 
       <p className="text-slate-700 mt-1 text-sm">
-        Level, AutoPool, Re-purchase & Rank rewards — responsive and aesthetic
+        Level, AutoPool, Re-purchase & Rank rewards — responsive and beautiful UI
       </p>
 
       {/* TABS */}

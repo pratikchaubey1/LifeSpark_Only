@@ -1,5 +1,5 @@
-// App.jsx
 import React, { useEffect, useState } from "react";
+import { Routes, Route, useNavigate } from "react-router-dom";
 import Lenis from "@studio-freight/lenis";
 import { gsap } from "gsap";
 
@@ -40,21 +40,22 @@ export default function App() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const [authView, setAuthView] = useState(null);
-  // null | login | register | welcome | welcomeLetter | idCard | dashboard
-
   const [isAuthenticated, setIsAuthenticated] = useState(
     !!localStorage.getItem("token")
   );
-
   const [welcomeData, setWelcomeData] = useState(null);
+
+  const navigate = useNavigate();
 
   function handleLogout() {
     localStorage.removeItem("token");
     setIsAuthenticated(false);
     setAuthView(null);
     setWelcomeData(null);
+    navigate("/");
   }
 
+  // REGISTER SUBMIT
   async function handleRegisterSubmit(payload) {
     const res = await fetch(`${config.apiUrl}/auth/register`, {
       method: "POST",
@@ -76,8 +77,10 @@ export default function App() {
     });
 
     setAuthView("welcome");
+    navigate("/welcome");
   }
 
+  // LOGIN SUBMIT
   async function handleLoginSubmit(payload) {
     const res = await fetch(`${config.apiUrl}/auth/login`, {
       method: "POST",
@@ -90,9 +93,12 @@ export default function App() {
 
     localStorage.setItem("token", data.token);
     setIsAuthenticated(true);
+
     setAuthView("dashboard");
+    navigate("/dashboard");
   }
 
+  // Smooth scroll + GSAP animation
   useEffect(() => {
     const lenis = new Lenis();
     function raf(time) {
@@ -104,92 +110,123 @@ export default function App() {
     gsap.from(".hero-heading", { y: 40, opacity: 0, duration: 1 });
   }, []);
 
-  if (authView === "login") {
-    return (
-      <OfficialLoginPage
-        onSubmit={handleLoginSubmit}
-        onGoToRegister={() => setAuthView("register")}
-        onGoHome={() => setAuthView(null)}
-      />
-    );
-  }
-
-  if (authView === "register") {
-    return (
-      <OfficialRegisterPage
-        onSubmit={handleRegisterSubmit}
-        onGoToLogin={() => setAuthView("login")}
-        onGoHome={() => setAuthView(null)}
-      />
-    );
-  }
-
-  if (authView === "welcome" && welcomeData) {
-    return (
-      <WelcomePage
-        userName={welcomeData.name}
-        email={welcomeData.email}
-        password={welcomeData.password}
-        inviteCode={welcomeData.inviteCode}
-        onContinue={() => setAuthView("dashboard")}
-        onViewWelcomeLetter={() => setAuthView("welcomeLetter")}
-        onCreateIdCard={() => setAuthView("idCard")}
-      />
-    );
-  }
-
-  if (authView === "welcomeLetter" && welcomeData) {
-    return (
-      <WelcomeLetter
-        userName={welcomeData.name}
-        email={welcomeData.email}
-        inviteCode={welcomeData.inviteCode}
-        onBack={() => setAuthView("welcome")}
-        onCreateIdCard={() => setAuthView("idCard")}
-        onContinue={() => setAuthView("dashboard")}
-      />
-    );
-  }
-
-  if (authView === "idCard" && welcomeData) {
-    return (
-      <CreateIdCard
-        userName={welcomeData.name}
-        email={welcomeData.email}
-        inviteCode={welcomeData.inviteCode}
-        onBack={() => setAuthView("welcome")}
-        onContinue={() => setAuthView("dashboard")}
-      />
-    );
-  }
-
-  if (authView === "dashboard" && isAuthenticated) {
-    return <MemberLayout onLogout={handleLogout} />;
-  }
-
   return (
-    <div className="min-h-screen bg-slate-50">
-      <Header
-        activeSection={activeSection}
-        mobileOpen={mobileOpen}
-        setMobileOpen={setMobileOpen}
-        NAV_ITEMS={NAV_ITEMS}
-        onLoginClick={() => setAuthView("login")}
-        onRegisterClick={() => setAuthView("register")}
-        onLogoutClick={handleLogout}
-        isAuthenticated={isAuthenticated}
+    <Routes>
+      {/* HOME PAGE */}
+      <Route
+        path="/"
+        element={
+          <div className="min-h-screen bg-slate-50">
+            <Header
+              activeSection={activeSection}
+              mobileOpen={mobileOpen}
+              setMobileOpen={setMobileOpen}
+              NAV_ITEMS={NAV_ITEMS}
+              onLoginClick={() => navigate("/login")}
+              onRegisterClick={() => navigate("/register")}
+              onLogoutClick={handleLogout}
+              isAuthenticated={isAuthenticated}
+            />
+
+            <HeroSection />
+            <AboutSection />
+            <MissionVisionSection />
+            <ServicesSection />
+            <ProjectsSection />
+            <ProductSection />
+            <TeamSection />
+            <TestimonialsSection />
+            <FAQSection />
+            <FooterSection />
+          </div>
+        }
       />
 
-      <HeroSection />
-      <AboutSection />
-      <MissionVisionSection />
-      <ServicesSection />
-      <ProjectsSection />
-      <ProductSection />
-      <TeamSection />
-      <TestimonialsSection />
-      <FAQSection />
-      <FooterSection />
-    </div>
+      {/* LOGIN */}
+      <Route
+        path="/login"
+        element={
+          <OfficialLoginPage
+            onSubmit={handleLoginSubmit}
+            onGoToRegister={() => navigate("/register")}
+            onGoHome={() => navigate("/")}
+          />
+        }
+      />
+
+      {/* REGISTER */}
+      <Route
+        path="/register"
+        element={
+          <OfficialRegisterPage
+            onSubmit={handleRegisterSubmit}
+            onGoToLogin={() => navigate("/login")}
+            onGoHome={() => navigate("/")}
+          />
+        }
+      />
+
+      {/* WELCOME */}
+      <Route
+        path="/welcome"
+        element={
+          welcomeData ? (
+            <WelcomePage
+              userName={welcomeData.name}
+              email={welcomeData.email}
+              password={welcomeData.password}
+              inviteCode={welcomeData.inviteCode}
+              onContinue={() => navigate("/dashboard")}
+              onViewWelcomeLetter={() => navigate("/welcome-letter")}
+              onCreateIdCard={() => navigate("/create-id-card")}
+            />
+          ) : null
+        }
+      />
+
+      {/* WELCOME LETTER */}
+      <Route
+        path="/welcome-letter"
+        element={
+          welcomeData ? (
+            <WelcomeLetter
+              userName={welcomeData.name}
+              email={welcomeData.email}
+              inviteCode={welcomeData.inviteCode}
+              onBack={() => navigate("/welcome")}
+              onContinue={() => navigate("/dashboard")}
+            />
+          ) : null
+        }
+      />
+
+      {/* CREATE ID CARD */}
+      <Route
+        path="/create-id-card"
+        element={
+          welcomeData ? (
+            <CreateIdCard
+              userName={welcomeData.name}
+              email={welcomeData.email}
+              inviteCode={welcomeData.inviteCode}
+              onBack={() => navigate("/welcome")}
+              onContinue={() => navigate("/dashboard")}
+            />
+          ) : null
+        }
+      />
+
+      {/* DASHBOARD */}
+      <Route
+        path="/dashboard/*"
+        element={
+          isAuthenticated ? (
+            <MemberLayout onLogout={handleLogout} />
+          ) : (
+            <OfficialLoginPage onSubmit={handleLoginSubmit} />
+          )
+        }
+      />
+    </Routes>
   );
 }

@@ -1,10 +1,9 @@
 import React, { useEffect, useState } from "react";
-
 import config from "../../../config/config";
 
 const API_BASE = config.apiUrl;
 
-function TransferToUser() {
+export default function TransferToUser({ onMenuOpen }) {
   const [to, setTo] = useState("");
   const [count, setCount] = useState("1");
   const [submitting, setSubmitting] = useState(false);
@@ -36,7 +35,7 @@ function TransferToUser() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      if (res.ok) setTransfers(Array.isArray(data.transfers) ? data.transfers : []);
+      if (res.ok) setTransfers(data.transfers || []);
     } catch {}
   }
 
@@ -60,8 +59,7 @@ function TransferToUser() {
         headers: { Authorization: `Bearer ${token}` },
       });
       const data = await res.json();
-      if (res.ok)
-        setDirectMembers(Array.isArray(data.members) ? data.members : []);
+      if (res.ok) setDirectMembers(data.members || []);
     } catch {}
   }
 
@@ -80,7 +78,7 @@ function TransferToUser() {
     if (!token) return setMsg("Please login first.");
 
     const n = Number(count);
-    if (!to.trim()) return setMsg("Enter target User ID or Invite Code.");
+    if (!to.trim()) return setMsg("Enter User ID / Invite Code.");
     if (!Number.isFinite(n) || n < 1 || n > 10)
       return setMsg("Transfer count must be between 1 and 10.");
 
@@ -94,6 +92,7 @@ function TransferToUser() {
         },
         body: JSON.stringify({ to, count: n }),
       });
+
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Transfer failed");
 
@@ -111,18 +110,40 @@ function TransferToUser() {
   }
 
   return (
-    <div className="w-full p-6 bg-white text-black flex justify-center">
-      <div className="w-full max-w-4xl space-y-6">
+    <div className="w-full min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 p-5 flex justify-center">
+      <div className="w-full max-w-5xl space-y-8">
 
-        {/* Header */}
-        <div>
-          <h2 className="text-2xl font-semibold">ePin Transfer</h2>
-          <p className="text-sm text-gray-500">
-            Available Pins: <span className="font-medium">{availableCount}</span>
+        {/* TOP BAR WITH MENU BUTTON */}
+        <div className="flex items-center gap-3">
+          {/* MENU BUTTON */}
+          <button
+            onClick={() => onMenuOpen?.()}
+            className="p-2 rounded-lg bg-slate-200 hover:bg-slate-300 active:scale-95 transition"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-6 w-6 text-slate-700"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+                d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+
+          <h2 className="text-xl sm:text-2xl font-bold text-slate-800">ePin Transfer</h2>
+        </div>
+
+        {/* HEADER CARD */}
+        <div className="bg-white shadow-md rounded-xl border border-slate-200 p-5">
+          <p className="text-sm text-slate-500">
+            Available Pins: <span className="font-semibold">{availableCount}</span>
           </p>
+
           {me?.id && (
-            <p className="text-xs text-gray-500 mt-1">
-              Your User ID: <span className="font-mono">{me.id}</span>
+            <p className="text-xs text-slate-500 mt-1">
+              User ID: <span className="font-mono">{me.id}</span>
               {me.inviteCode && (
                 <> • Invite Code: <span className="font-mono">{me.inviteCode}</span></>
               )}
@@ -130,47 +151,47 @@ function TransferToUser() {
           )}
         </div>
 
-        {/* Message */}
+        {/* MESSAGE */}
         {msg && (
-          <div className="border border-black rounded-lg px-4 py-2 text-sm">
+          <div className="rounded-xl border border-slate-300 bg-white p-3 text-sm shadow-sm">
             {msg}
           </div>
         )}
 
-        {/* Transfer Box */}
-        <div className="bg-white border border-gray-300 rounded-xl p-5 shadow-sm space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        {/* TRANSFER BOX */}
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6 space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <input
               value={to}
               onChange={(e) => setTo(e.target.value)}
               placeholder="Target User ID / Invite Code"
-              className="border rounded-lg px-3 py-2 text-sm text-black focus:outline-none focus:ring-1 focus:ring-black"
+              className="p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-black/60 outline-none"
             />
             <input
               value={count}
               onChange={(e) => setCount(e.target.value)}
               placeholder="Count (1-10)"
-              className="border rounded-lg px-3 py-2 text-sm text-black focus:outline-none focus:ring-1 focus:ring-black"
+              className="p-3 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-black/60 outline-none"
             />
             <button
               onClick={handleTransfer}
               disabled={submitting}
-              className="border border-black rounded-lg px-4 py-2 text-sm font-medium hover:bg-black hover:text-white transition disabled:opacity-60"
+              className="px-4 py-3 rounded-lg text-sm font-medium bg-black text-white hover:bg-slate-800 transition disabled:opacity-60"
             >
               {submitting ? "Transferring..." : "Transfer Now"}
             </button>
           </div>
 
           {lastTransfer && (
-            <div className="text-sm">
+            <div className="text-sm bg-slate-50 p-4 rounded-lg border">
               <div className="font-semibold">
                 Sent {lastTransfer.count} pins to {lastTransfer.toUserName}
               </div>
-              <div className="flex flex-wrap gap-2 mt-2">
+              <div className="flex flex-wrap gap-2 mt-3">
                 {lastTransfer.codes.map((c) => (
                   <span
                     key={c}
-                    className="px-2 py-1 border rounded font-mono text-xs"
+                    className="px-2 py-1 border rounded font-mono text-xs bg-white"
                   >
                     {c}
                   </span>
@@ -180,13 +201,13 @@ function TransferToUser() {
           )}
         </div>
 
-        {/* Direct Members */}
-        <div className="bg-white border border-gray-300 rounded-xl p-5 shadow-sm">
-          <div className="flex justify-between mb-3">
-            <div className="font-semibold">My Direct Members</div>
+        {/* DIRECT MEMBERS */}
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+          <div className="flex justify-between mb-4">
+            <h3 className="font-semibold text-slate-800">My Direct Members</h3>
             <button
               onClick={loadDirectMembers}
-              className="border px-3 py-1.5 rounded text-xs hover:bg-black hover:text-white transition"
+              className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs hover:bg-black hover:text-white transition"
             >
               Refresh
             </button>
@@ -194,7 +215,7 @@ function TransferToUser() {
 
           <div className="overflow-auto">
             <table className="min-w-full text-sm">
-              <thead className="border-b">
+              <thead className="bg-slate-50 border-b">
                 <tr>
                   <th className="p-2 text-left">Name</th>
                   <th className="p-2 text-left">User ID</th>
@@ -213,16 +234,17 @@ function TransferToUser() {
                     <td className="p-2 text-right">
                       <button
                         onClick={() => setTo(String(m.id))}
-                        className="border px-3 py-1.5 rounded text-xs hover:bg-black hover:text-white transition"
+                        className="px-3 py-1.5 border rounded-lg text-xs hover:bg-black hover:text-white transition"
                       >
                         Use ID
                       </button>
                     </td>
                   </tr>
                 ))}
+
                 {directMembers.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="p-4 text-center text-gray-500">
+                    <td colSpan={5} className="p-4 text-center text-slate-500">
                       No direct members found.
                     </td>
                   </tr>
@@ -232,13 +254,13 @@ function TransferToUser() {
           </div>
         </div>
 
-        {/* Transfer History */}
-        <div className="bg-white border border-gray-300 rounded-xl p-5 shadow-sm">
-          <div className="flex justify-between mb-3">
-            <div className="font-semibold">Transfer History</div>
+        {/* TRANSFER HISTORY */}
+        <div className="bg-white border border-slate-200 rounded-xl shadow-sm p-6">
+          <div className="flex justify-between mb-4">
+            <h3 className="font-semibold text-slate-800">Transfer History</h3>
             <button
               onClick={loadTransfers}
-              className="border px-3 py-1.5 rounded text-xs hover:bg-black hover:text-white transition"
+              className="px-3 py-1.5 border border-slate-300 rounded-lg text-xs hover:bg-black hover:text-white transition"
             >
               Refresh
             </button>
@@ -246,12 +268,12 @@ function TransferToUser() {
 
           <div className="overflow-auto">
             <table className="min-w-full text-sm">
-              <thead className="border-b">
+              <thead className="bg-slate-50 border-b">
                 <tr>
                   <th className="p-2 text-left">From</th>
                   <th className="p-2 text-left">To</th>
                   <th className="p-2 text-right">Count</th>
-                  <th className="p-2 text-left">When</th>
+                  <th className="p-2 text-left">Time</th>
                 </tr>
               </thead>
               <tbody>
@@ -260,6 +282,7 @@ function TransferToUser() {
                     <td className="p-2">{t.fromUserName || "admin"}</td>
                     <td className="p-2">{t.toUserName || t.toUserId}</td>
                     <td className="p-2 text-right">{t.count}</td>
+
                     <td className="p-2">
                       {t.transferredAt
                         ? String(t.transferredAt).slice(0, 19).replace("T", " ")
@@ -267,10 +290,11 @@ function TransferToUser() {
                     </td>
                   </tr>
                 ))}
+
                 {transfers.length === 0 && (
                   <tr>
-                    <td colSpan={4} className="p-4 text-center text-gray-500">
-                      No transfers yet.
+                    <td colSpan={4} className="p-4 text-center text-slate-500">
+                      No transfers found.
                     </td>
                   </tr>
                 )}
@@ -283,5 +307,3 @@ function TransferToUser() {
     </div>
   );
 }
-
-export default TransferToUser;

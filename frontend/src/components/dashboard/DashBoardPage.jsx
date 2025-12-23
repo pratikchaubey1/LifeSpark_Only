@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from "react";
-
 import config from "../../config/config";
 
 /* ---------- COLOR CONFIG ---------- */
-
 const topStatConfig = [
   {
     label: "Total Income",
@@ -129,32 +127,77 @@ function DashBoardPage() {
       </div>
 
       <div className="px-4 py-6 max-w-6xl mx-auto">
-        {/* Profile Card */}
-        <div className="bg-white rounded-xl shadow border overflow-hidden">
-          <div className="bg-red-500 text-white font-semibold text-center py-2">
-            Congratulation!
-          </div>
-          <div className="bg-sky-500 text-white text-center py-6">
-            <div className="text-xl font-semibold">
-              {user ? user.name : "Member Name"}
+        {/* Profile + Referral Section */}
+        {/* Profile + Referral Section */}
+        <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* LEFT — Referral Link */}
+          <div className="bg-white rounded-xl shadow border overflow-hidden">
+            {/* Header */}
+            <div className="bg-red-500 text-white font-semibold text-center py-2">
+              Referral Link
             </div>
-            <div className="mt-1 text-sm">{user?.id || "User ID"}</div>
-            <div className="mt-1 text-sm">Post</div>
-            <div className="mt-4 text-xs">
-              Joining Date:{" "}
-              {user?.createdAt
-                ? user.createdAt.slice(0, 10)
-                : "--/--/----"}
-            </div>
-            <div className="text-xs">
-              Sponsor ID : {user?.sponsorId || "-"}
-            </div>
-            {user?.inviteCode && (
-              <div className="mt-1 text-xs">
-                Your Invite Code:{" "}
-                <span className="font-semibold">{user.inviteCode}</span>
+
+            {/* Body */}
+            <div className="bg-sky-500 text-white flex flex-col justify-center items-center p-6 h-[260px]">
+              <div className="text-sm mb-4 opacity-90">Your Referral Link</div>
+
+              <div className="flex w-4/5 max-w-md">
+                <input
+                  type="text"
+                  readOnly
+                  value={
+                    user?.inviteCode
+                      ? `${window.location.origin}/register/${user.inviteCode}`
+                      : "No referral link"
+                  }
+                  className="flex-1 rounded-l-lg p-2 text-sm bg-white text-black border-none outline-none"
+                />
+                <button
+                  onClick={() => {
+                    const link = `${window.location.origin}/register/${user?.inviteCode}`;
+                    navigator.clipboard.writeText(link);
+                    alert("Referral Link Copied!");
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 rounded-r-lg text-sm"
+                >
+                  Copy
+                </button>
               </div>
-            )}
+            </div>
+          </div>
+
+          {/* RIGHT — Member Profile */}
+          <div className="bg-white rounded-xl shadow border overflow-hidden">
+            {/* Header */}
+            <div className="bg-red-500 text-white font-semibold text-center py-2">
+              Congratulation!
+            </div>
+
+            {/* Body */}
+            <div className="bg-sky-500 text-white flex flex-col justify-center items-center p-6 h-[260px]">
+              <div className="text-xl font-semibold">
+                {user ? user.name : "Member Name"}
+              </div>
+
+              <div className="mt-1 text-sm">{user?.id || "User ID"}</div>
+              <div className="text-sm">Post</div>
+
+              <div className="mt-4 text-xs">
+                Joining Date:{" "}
+                {user?.createdAt ? user.createdAt.slice(0, 10) : "--/--/----"}
+              </div>
+
+              <div className="text-xs">
+                Sponsor ID : {user?.sponsorId || "-"}
+              </div>
+
+              {user?.inviteCode && (
+                <div className="mt-1 text-xs">
+                  Your Invite Code:{" "}
+                  <span className="font-semibold">{user.inviteCode}</span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
