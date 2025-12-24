@@ -4,7 +4,6 @@ const cors = require('cors');
 const path = require('path');
 const mongoose = require('mongoose');
 const cron = require("node-cron");
-const fs = require("fs");
 
 // ROUTES
 const authRoutes = require('./routes/auth');
@@ -57,50 +56,44 @@ app.get('/', (req, res) => {
     ⭐ DAILY BONUS CRON JOB – RUNS EVERY NIGHT AT 12
 ----------------------------------------------------- */
 
-const USERS_PATH = path.join(__dirname, "data", "users.json");
-
-// Load user data
-function loadUsers() {
-  if (!fs.existsSync(USERS_PATH)) return [];
-  return JSON.parse(fs.readFileSync(USERS_PATH, "utf-8") || "[]");
-}
-
-// Save user data
-function saveUsers(users) {
-  fs.writeFileSync(USERS_PATH, JSON.stringify(users, null, 2));
-}
+const User = require('./models/User');
 
 // CRON JOB — runs at 00:00 (midnight)
-cron.schedule("0 0 * * *", () => {
+cron.schedule("0 0 * * *", async () => {
   console.log("⏰ Midnight Daily Bonus Started...");
 
-  const users = loadUsers();
-  const todayStr = new Date().toISOString().slice(0, 10);
+  try {
+    const todayStr = new Date().toISOString().slice(0, 10);
 
-  users.forEach((user) => {
-    if (!user.isActivated || !user.activatedAt) return;
+    // Find all activated users
+    const users = await User.find({ isActivated: true, activatedAt: { $ne: null } });
 
-    const activationDate = new Date(user.activatedAt);
-    const daysSince = Math.floor(
-      (new Date() - activationDate) / (1000 * 60 * 60 * 24)
-    );
+    for (const user of users) {
+      const activationDate = new Date(user.activatedAt);
+      const daysSince = Math.floor(
+        (new Date() - activationDate) / (1000 * 60 * 60 * 24)
+      );
 
-    if (daysSince >= 30) return;
+      // Skip if more than 30 days since activation
+      if (daysSince >= 30) continue;
 
-    if (user.lastDailyCredit === todayStr) return;
+      // Skip if already credited today
+      if (user.lastDailyCredit === todayStr) continue;
 
-    const DAILY_BONUS = 50;
+      const DAILY_BONUS = 50;
 
-    user.balance = (user.balance || 0) + DAILY_BONUS;
-    user.dailyBonusIncome = (user.dailyBonusIncome || 0) + DAILY_BONUS;
-    user.totalIncome = (user.totalIncome || 0) + DAILY_BONUS;
+      user.balance = (user.balance || 0) + DAILY_BONUS;
+      user.dailyBonusIncome = (user.dailyBonusIncome || 0) + DAILY_BONUS;
+      user.totalIncome = (user.totalIncome || 0) + DAILY_BONUS;
+      user.lastDailyCredit = todayStr;
 
-    user.lastDailyCredit = todayStr;
-  });
+      await user.save();
+    }
 
-  saveUsers(users);
-
-  console.log("✔ Daily bonus added to all activated users");
+    console.log("✔ Daily bonus added to all activated users");
+  } catch (err) {
+    console.error("❌ Daily bonus cron job error:", err);
+  }
 });
 
 /* ------------------ START SERVER ------------------ */
