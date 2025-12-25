@@ -1,6 +1,14 @@
 import React, { useEffect, useState } from "react";
-
 import config from "../../config/config";
+
+import {
+  FiUser,
+  FiPhone,
+  FiMapPin,
+  FiHome,
+  FiClock,
+  FiHash,
+} from "react-icons/fi";
 
 const API_BASE = config.apiUrl;
 
@@ -13,15 +21,9 @@ const emptyForm = {
   state: "",
   pinCode: "",
   age: "",
-  panNo: "",
-  aadhaarNo: "",
-  nomineeName: "",
-  nomineeRelation: "",
-  upiNo: "",
-  upiId: "",
 };
 
-export default function EditProfile() {
+export default function EditProfile({ onMenuOpen }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState("");
@@ -58,12 +60,6 @@ export default function EditProfile() {
           state: data.user?.state || "",
           pinCode: data.user?.pinCode || "",
           age: data.user?.age || "",
-          panNo: data.user?.panNo || "",
-          aadhaarNo: data.user?.aadhaarNo || "",
-          nomineeName: data.user?.nomineeName || "",
-          nomineeRelation: data.user?.nomineeRelation || "",
-          upiNo: data.user?.upiNo || "",
-          upiId: data.user?.upiId || "",
         });
       } catch (e) {
         setMsg("Failed to load profile");
@@ -73,13 +69,8 @@ export default function EditProfile() {
     })();
   }, []);
 
-  const inputBase =
-    "w-full mt-1.5 p-2.5 rounded-xl border border-slate-200 bg-slate-50 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition";
-  const labelBase = "text-xs sm:text-sm font-medium text-slate-600";
-
-  const onChange = (field) => (e) => {
-    setForm((p) => ({ ...p, [field]: e.target.value }));
-  };
+  const onChange = (field) => (e) =>
+    setForm((prev) => ({ ...prev, [field]: e.target.value }));
 
   const handleSave = async () => {
     setMsg("");
@@ -99,11 +90,13 @@ export default function EditProfile() {
         },
         body: JSON.stringify(form),
       });
+
       const data = await res.json();
       if (!res.ok) {
         setMsg(data.message || "Failed to update profile");
         return;
       }
+
       setUser(data.user);
       setMsg("Profile updated successfully.");
     } catch (e) {
@@ -115,133 +108,143 @@ export default function EditProfile() {
 
   if (loading) {
     return (
-      <div className="w-full min-h-screen bg-slate-100 flex items-center justify-center p-6">
-        <div className="text-slate-600">Loading profile...</div>
+      <div className="w-full min-h-screen bg-slate-100 flex items-center justify-center">
+        <div className="text-slate-600 animate-pulse">Loading profile...</div>
       </div>
     );
   }
 
   return (
-    <div className="w-full min-h-screen bg-slate-100 flex items-start sm:items-center justify-center p-3 sm:p-6">
-      <div className="w-full max-w-5xl bg-white rounded-2xl shadow-md border border-slate-100 p-4 sm:p-6 lg:p-8">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
-          <div>
-            <h2 className="text-lg sm:text-xl font-semibold text-slate-900">Edit Profile</h2>
-            <div className="text-xs text-slate-500 mt-1">
-              ID: <span className="font-mono">{user?.id || "-"}</span> • Email: <span className="font-mono">{user?.email || "-"}</span> • Role: <span className="font-mono">{user?.role || "member"}</span>
-            </div>
-            <div className="text-xs text-slate-500 mt-1">
-              Status: {user?.isActivated ? "Active" : "Inactive"}
-            </div>
+    <div className="w-full min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 p-4 flex justify-center">
+      <div className="w-full max-w-5xl bg-white shadow-xl rounded-2xl border border-slate-200 p-6 space-y-10">
+        
+        {/* Header */}
+        <div className="flex justify-between items-center">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => onMenuOpen?.()}
+              className="p-2 rounded-lg bg-slate-200 hover:bg-slate-300 active:scale-95 transition"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="h-6 w-6 text-slate-700"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+
+            <h1 className="text-xl font-bold text-slate-800">Edit Profile</h1>
           </div>
+
           <button
             onClick={handleSave}
             disabled={saving}
-            className="px-4 sm:px-6 py-2 rounded-lg text-xs sm:text-sm font-medium bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-60 disabled:cursor-not-allowed"
+            className="px-5 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition disabled:opacity-50"
           >
-            {saving ? "Saving..." : "Update Profile"}
+            {saving ? "Saving..." : "Update"}
           </button>
         </div>
 
         {msg && (
-          <div className="mb-5 rounded-lg border bg-white px-3 py-2 text-sm">
+          <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">
             {msg}
           </div>
         )}
 
-        <div className="space-y-8">
-          <section>
-            <div className="border-b border-slate-100 pb-2 mb-4">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-800">Personal Information</h3>
-              <p className="text-[11px] sm:text-xs text-slate-500">Basic account details.</p>
-            </div>
+        {/* Form */}
+        <div className="space-y-10">
+          <Section title="Personal Information">
+            <Grid>
+              <IconField label="Name" icon={<FiUser />} value={form.name} onChange={onChange("name")} />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              <div>
-                <label className={labelBase}>Name</label>
-                <input value={form.name} onChange={onChange("name")} className={inputBase} />
-              </div>
-              <div>
-                <label className={labelBase}>Mobile No</label>
-                <input value={form.phone} onChange={onChange("phone")} className={inputBase} />
-              </div>
-              <div>
-                <label className={labelBase}>Gender</label>
-                <select value={form.gender} onChange={onChange("gender")} className={inputBase}>
-                  <option value="">Select</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
-                  <option value="Other">Other</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelBase}>Age</label>
-                <input value={form.age} onChange={onChange("age")} className={inputBase} />
-              </div>
-              <div className="md:col-span-2">
-                <label className={labelBase}>Address</label>
-                <input value={form.address} onChange={onChange("address")} className={inputBase} />
-              </div>
-              <div>
-                <label className={labelBase}>City</label>
-                <input value={form.city} onChange={onChange("city")} className={inputBase} />
-              </div>
-              <div>
-                <label className={labelBase}>State</label>
-                <input value={form.state} onChange={onChange("state")} className={inputBase} />
-              </div>
-              <div>
-                <label className={labelBase}>Pin Code</label>
-                <input value={form.pinCode} onChange={onChange("pinCode")} className={inputBase} />
-              </div>
-            </div>
-          </section>
+              <IconField label="Mobile No" icon={<FiPhone />} value={form.phone} onChange={onChange("phone")} />
 
-          <section>
-            <div className="border-b border-slate-100 pb-2 mb-4">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-800">KYC Details (Unique)</h3>
-              <p className="text-[11px] sm:text-xs text-slate-500">PAN / Aadhaar must be unique across users.</p>
-            </div>
+              <SelectField label="Gender" value={form.gender} onChange={onChange("gender")} options={["Male", "Female", "Other"]} />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              <div>
-                <label className={labelBase}>PAN No</label>
-                <input value={form.panNo} onChange={onChange("panNo")} className={inputBase} />
-              </div>
-              <div>
-                <label className={labelBase}>Aadhaar No</label>
-                <input value={form.aadhaarNo} onChange={onChange("aadhaarNo")} className={inputBase} />
-              </div>
-              <div>
-                <label className={labelBase}>Nominee Name</label>
-                <input value={form.nomineeName} onChange={onChange("nomineeName")} className={inputBase} />
-              </div>
-              <div>
-                <label className={labelBase}>Nominee Relation</label>
-                <input value={form.nomineeRelation} onChange={onChange("nomineeRelation")} className={inputBase} />
-              </div>
-            </div>
-          </section>
+              <IconField label="Age" icon={<FiClock />} value={form.age} onChange={onChange("age")} />
 
-          <section>
-            <div className="border-b border-slate-100 pb-2 mb-4">
-              <h3 className="text-sm sm:text-base font-semibold text-slate-800">UPI Details (Unique)</h3>
-              <p className="text-[11px] sm:text-xs text-slate-500">UPI ID must be unique across users.</p>
-            </div>
+              <FullIconField label="Address" icon={<FiHome />} value={form.address} onChange={onChange("address")} />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
-              <div>
-                <label className={labelBase}>UPI No</label>
-                <input value={form.upiNo} onChange={onChange("upiNo")} className={inputBase} />
-              </div>
-              <div>
-                <label className={labelBase}>UPI ID</label>
-                <input value={form.upiId} onChange={onChange("upiId")} className={inputBase} />
-              </div>
-            </div>
-          </section>
+              <IconField label="City" icon={<FiMapPin />} value={form.city} onChange={onChange("city")} />
+
+              <IconField label="State" icon={<FiMapPin />} value={form.state} onChange={onChange("state")} />
+
+              <IconField label="Pin Code" icon={<FiHash />} value={form.pinCode} onChange={onChange("pinCode")} />
+            </Grid>
+          </Section>
         </div>
+
       </div>
+    </div>
+  );
+}
+
+/* -------- REUSABLE COMPONENTS -------- */
+
+function Section({ title, children }) {
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+      <h3 className="text-lg font-semibold text-slate-800 mb-3">{title}</h3>
+      {children}
+    </div>
+  );
+}
+
+function Grid({ children }) {
+  return <div className="grid grid-cols-1 md:grid-cols-2 gap-5">{children}</div>;
+}
+
+function IconField({ label, value, onChange, icon }) {
+  return (
+    <div>
+      <label className="text-sm font-medium text-slate-700">{label}</label>
+      <div className="mt-1 flex items-center gap-2 bg-slate-200 p-3 rounded-xl border border-slate-300">
+        <span className="text-slate-600">{icon}</span>
+        <input
+          value={value}
+          onChange={onChange}
+          className="flex-1 bg-transparent outline-none text-sm text-slate-800"
+        />
+      </div>
+    </div>
+  );
+}
+
+function FullIconField({ label, value, onChange, icon }) {
+  return (
+    <div className="md:col-span-2">
+      <label className="text-sm font-medium text-slate-700">{label}</label>
+      <div className="mt-1 flex items-center gap-2 bg-slate-200 p-3 rounded-xl border border-slate-300">
+        <span className="text-slate-600">{icon}</span>
+        <input
+          value={value}
+          onChange={onChange}
+          className="flex-1 bg-transparent outline-none text-sm text-slate-800"
+        />
+      </div>
+    </div>
+  );
+}
+
+function SelectField({ label, value, onChange, options }) {
+  return (
+    <div>
+      <label className="text-sm font-medium text-slate-700">{label}</label>
+      <select
+        value={value}
+        onChange={onChange}
+        className="mt-1 w-full p-3 rounded-xl bg-slate-200 border border-slate-300 text-sm text-slate-800 outline-none"
+      >
+        <option value="">Select</option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }

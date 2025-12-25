@@ -1,34 +1,24 @@
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
 const auth = require('../middleware/auth');
+const User = require('../models/User');
 
 const router = express.Router();
 
-const USERS_PATH = path.join(__dirname, '..', 'data', 'users.json');
-
-function loadUsers() {
-  if (!fs.existsSync(USERS_PATH)) return [];
-  const raw = fs.readFileSync(USERS_PATH, 'utf-8');
-  try {
-    return JSON.parse(raw || '[]');
-  } catch (e) {
-    return [];
-  }
-}
-
 // Direct team members (users invited by current user)
-router.get('/direct', auth, (req, res) => {
-  const users = loadUsers();
-  const me = users.find((u) => u.id === req.user.id);
-  if (!me) return res.status(404).json({ message: 'User not found' });
+router.get('/direct', auth, async (req, res) => {
+  try {
+    const me = await User.findById(req.user._id);
+    if (!me) return res.status(404).json({ message: 'User not found' });
 
-  const ids = Array.isArray(me.directInviteIds) ? me.directInviteIds : [];
-  const direct = ids
-    .map((id) => users.find((u) => u.id === id))
-    .filter(Boolean)
-    .map((u) => ({
-      id: u.id,
+    const ids = Array.isArray(me.directInviteIds) ? me.directInviteIds : [];
+
+    // Find all users whose IDs are in the directInviteIds array
+    const directMembers = await User.find({
+      _id: { $in: ids }
+    }).select('_id name inviteCode isActivated role createdAt');
+
+    const members = directMembers.map((u) => ({
+      id: u._id.toString(),
       name: u.name,
       inviteCode: u.inviteCode,
       isActivated: !!u.isActivated,
@@ -36,7 +26,11 @@ router.get('/direct', auth, (req, res) => {
       createdAt: u.createdAt || null,
     }));
 
-  return res.json({ members: direct });
+    return res.json({ members });
+  } catch (err) {
+    console.error('Get team error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
 module.exports = router;

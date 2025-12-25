@@ -94,9 +94,8 @@ function SidebarButton({ label, active, icon, onClick }) {
   return (
     <button
       onClick={onClick}
-      className={`w-full flex items-center gap-3 p-2 text-left rounded-md ${
-        active ? "bg-blue-50 text-blue-700 border border-blue-100" : "hover:bg-slate-50 text-slate-700"
-      }`}
+      className={`w-full flex items-center gap-3 p-2 text-left rounded-md ${active ? "bg-blue-50 text-blue-700 border border-blue-100" : "hover:bg-slate-50 text-slate-700"
+        }`}
     >
       <div className="w-5">{icon}</div>
       <div className="flex-1">{label}</div>
@@ -135,7 +134,7 @@ export default function AdminPage() {
     try {
       const path = window.location.pathname.replace(/^\/+/, "");
       if (path.startsWith("admin/")) return path.replace("admin/", "");
-    } catch (e) {}
+    } catch (e) { }
     return "dashboard";
   });
 
@@ -152,6 +151,7 @@ export default function AdminPage() {
   const [creatingSiteTeamMember, setCreatingSiteTeamMember] = useState(false);
   const [loadingSiteTestimonials, setLoadingSiteTestimonials] = useState(false);
   const [creatingSiteTestimonial, setCreatingSiteTestimonial] = useState(false);
+  const [lookingSponsor, setLookingSponsor] = useState(false);
 
   // admin: create member
   const [creatingMember, setCreatingMember] = useState(false);
@@ -213,7 +213,7 @@ export default function AdminPage() {
       try {
         const p = window.location.pathname.replace(/^\/+/, "");
         if (p.startsWith("admin/")) setCurrentPage(p.replace("admin/", ""));
-      } catch (e) {}
+      } catch (e) { }
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
@@ -309,6 +309,31 @@ export default function AdminPage() {
     }
   }
 
+  // Auto-fill sponsor name when invite code is entered
+  async function lookupSponsor(inviteCode) {
+    if (!inviteCode || inviteCode.trim().length < 3) {
+      setNewMember((s) => ({ ...s, sponsorName: "" }));
+      return;
+    }
+
+    setLookingSponsor(true);
+    try {
+      const res = await fetch(`${API_BASE}/auth/sponsor/${encodeURIComponent(inviteCode.trim())}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.sponsor?.name) {
+          setNewMember((s) => ({ ...s, sponsorName: data.sponsor.name }));
+        }
+      } else {
+        setNewMember((s) => ({ ...s, sponsorName: "" }));
+      }
+    } catch (err) {
+      // Silent fail - user can still manually enter sponsor name
+    } finally {
+      setLookingSponsor(false);
+    }
+  }
+
   async function transferEpinsFromPool() {
     if (!adminToken) return;
     setTransferringEpins(true);
@@ -381,7 +406,7 @@ export default function AdminPage() {
       if (!res.ok) return;
       const data = await res.json();
       if (data.siteName) setSiteName(data.siteName);
-    } catch (e) {}
+    } catch (e) { }
   }
 
   function handleLogout() {
@@ -391,7 +416,7 @@ export default function AdminPage() {
     // optional: navigate to root
     try {
       window.history.pushState({}, "", "/");
-    } catch (e) {}
+    } catch (e) { }
   }
 
   async function copyToClipboard(text) {
@@ -635,21 +660,21 @@ export default function AdminPage() {
         prev.map((w) =>
           w.id === withdrawalId
             ? {
-                ...w,
-                ...data.withdrawal,
-                status: data.withdrawal?.status || "approved",
-                user: w.user
-                  ? {
-                      ...w.user,
-                      ...(data.user?.balance !== undefined
-                        ? { balance: data.user.balance }
-                        : {}),
-                      ...(data.user?.withdrawal !== undefined
-                        ? { withdrawal: data.user.withdrawal }
-                        : {}),
-                    }
-                  : w.user,
-              }
+              ...w,
+              ...data.withdrawal,
+              status: data.withdrawal?.status || "approved",
+              user: w.user
+                ? {
+                  ...w.user,
+                  ...(data.user?.balance !== undefined
+                    ? { balance: data.user.balance }
+                    : {}),
+                  ...(data.user?.withdrawal !== undefined
+                    ? { withdrawal: data.user.withdrawal }
+                    : {}),
+                }
+                : w.user,
+            }
             : w
         )
       );
@@ -747,14 +772,14 @@ export default function AdminPage() {
         prev.map((w) =>
           w.user?.id === userId
             ? {
-                ...w,
-                user: {
-                  ...(w.user || {}),
-                  upiId: data.user?.upiId || "",
-                  upiNo: data.user?.upiNo || "",
-                  bankDetails: data.user?.bankDetails || null,
-                },
-              }
+              ...w,
+              user: {
+                ...(w.user || {}),
+                upiId: data.user?.upiId || "",
+                upiNo: data.user?.upiNo || "",
+                bankDetails: data.user?.bankDetails || null,
+              },
+            }
             : w
         )
       );
@@ -769,7 +794,7 @@ export default function AdminPage() {
     setCurrentPage(page);
     try {
       window.history.pushState({}, "", `/admin/${page}`);
-    } catch (e) {}
+    } catch (e) { }
     // lazy-load users when going to members/bank details
     if ((page === "members" || page === "bank") && users.length === 0 && adminToken) {
       fetchUsers(adminToken);
@@ -927,16 +952,29 @@ export default function AdminPage() {
                   />
                   <input
                     value={newMember.sponsorId}
-                    onChange={(e) => setNewMember((s) => ({ ...s, sponsorId: e.target.value }))}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setNewMember((s) => ({ ...s, sponsorId: value }));
+                      // Auto-lookup sponsor after user stops typing
+                      if (value.trim()) {
+                        setTimeout(() => lookupSponsor(value), 500);
+                      }
+                    }}
                     className="border rounded px-3 py-2 text-sm"
-                    placeholder="Sponsor invite code (optional)"
+                    placeholder="Sponsor invite code (e.g., ADMIN1254)"
                   />
-                  <input
-                    value={newMember.sponsorName}
-                    onChange={(e) => setNewMember((s) => ({ ...s, sponsorName: e.target.value }))}
-                    className="border rounded px-3 py-2 text-sm"
-                    placeholder="Sponsor name (optional)"
-                  />
+                  <div className="relative">
+                    <input
+                      value={newMember.sponsorName}
+                      onChange={(e) => setNewMember((s) => ({ ...s, sponsorName: e.target.value }))}
+                      className="border rounded px-3 py-2 text-sm w-full"
+                      placeholder="Sponsor name (auto-filled)"
+                      readOnly={lookingSponsor}
+                    />
+                    {lookingSponsor && (
+                      <div className="absolute right-2 top-2.5 text-xs text-gray-500">Looking up...</div>
+                    )}
+                  </div>
                 </div>
                 <div className="mt-2 flex justify-end">
                   <button
@@ -1349,8 +1387,8 @@ export default function AdminPage() {
                               <td className="p-3">
                                 {w.requestedAt
                                   ? String(w.requestedAt)
-                                      .slice(0, 19)
-                                      .replace("T", " ")
+                                    .slice(0, 19)
+                                    .replace("T", " ")
                                   : "-"}
                               </td>
                               <td className="p-3 text-right">

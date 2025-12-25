@@ -1,23 +1,43 @@
 import React from "react";
 
-const TotalDirectUser = () => {
-  const directUsers = []; // <-- yaha API se data aa jayega future me
+const TotalDirectUser = ({ onMenuOpen, sidebarOpen }) => {
+  const directUsers = []; // API data will come here in future
 
   return (
     <div className="min-h-screen w-full bg-[#f3f4f6] p-5 md:p-10">
+
       {/* HEADER */}
-      <div className="mb-6">
-        <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">
-          My Direct Team
-        </h1>
-        <p className="text-slate-500 mt-1 text-sm md:text-base">
-          Your directly referred users list
-        </p>
+      <div className="flex items-center gap-3 mb-6">
+
+        {/* MENU BUTTON */}
+        <button
+          onClick={() => onMenuOpen?.()}
+          className="p-2 rounded-lg bg-slate-200 hover:bg-slate-300 active:scale-95 transition"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6 text-slate-700"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
+
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">
+            My Direct Team
+          </h1>
+          <p className="text-slate-500 mt-1 text-sm md:text-base">
+            Your directly referred users list
+          </p>
+        </div>
       </div>
 
       {/* CARD WRAPPER */}
       <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-5 md:p-6">
-        
+
         {/* TABLE HEADER */}
         <div className="grid grid-cols-3 md:grid-cols-4 gap-4 px-2 py-3 bg-slate-100 text-slate-600 rounded-lg font-medium text-sm md:text-base">
           <span>Name</span>
@@ -41,7 +61,7 @@ const TotalDirectUser = () => {
           </div>
         )}
 
-        {/* Example Records (future API) */}
+        {/* Future Records */}
         {directUsers.length > 0 &&
           directUsers.map((user, index) => (
             <div
