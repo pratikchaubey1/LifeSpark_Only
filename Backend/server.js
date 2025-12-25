@@ -57,50 +57,58 @@ app.get('/', (req, res) => {
     ⭐ DAILY BONUS CRON JOB – RUNS EVERY NIGHT AT 12
 ----------------------------------------------------- */
 
-const USERS_PATH = path.join(__dirname, "data", "users.json");
-
-// Load user data
-function loadUsers() {
-  if (!fs.existsSync(USERS_PATH)) return [];
-  return JSON.parse(fs.readFileSync(USERS_PATH, "utf-8") || "[]");
-}
-
-// Save user data
-function saveUsers(users) {
-  fs.writeFileSync(USERS_PATH, JSON.stringify(users, null, 2));
-}
+const User = require('./models/User');
 
 // CRON JOB — runs at 00:00 (midnight)
-cron.schedule("0 0 * * *", () => {
+cron.schedule("0 0 * * *", async () => {
   console.log("⏰ Midnight Daily Bonus Started...");
 
-  const users = loadUsers();
   const todayStr = new Date().toISOString().slice(0, 10);
+  const DAILY_BONUS = 50;
 
-  users.forEach((user) => {
-    if (!user.isActivated || !user.activatedAt) return;
+  try {
+    // Find users who are activated, not credited today, and activated < 30 days ago
+    // Note: iterating all users might be heavy if millions, but fine for now.
+    // Better: use cursor or bulkWrite.
 
-    const activationDate = new Date(user.activatedAt);
-    const daysSince = Math.floor(
-      (new Date() - activationDate) / (1000 * 60 * 60 * 24)
-    );
+    // We can filter in query:
+    // 1. isActivated: true
+    // 2. lastDailyCredit != today
+    // 3. activatedAt is within last 30 days
 
-    if (daysSince >= 30) return;
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    if (user.lastDailyCredit === todayStr) return;
+    // Fetch users eligible
+    const users = await User.find({
+      isActivated: true,
+      lastDailyCredit: { $ne: todayStr },
+      activatedAt: { $gt: thirtyDaysAgo } // strictly greater than 30 days ago inv
+    });
 
-    const DAILY_BONUS = 50;
+    let count = 0;
+    for (const user of users) {
+      // Double check days difference just in case
+      const activationDate = new Date(user.activatedAt);
+      const daysSince = Math.floor(
+        (new Date() - activationDate) / (1000 * 60 * 60 * 24)
+      );
 
-    user.balance = (user.balance || 0) + DAILY_BONUS;
-    user.dailyBonusIncome = (user.dailyBonusIncome || 0) + DAILY_BONUS;
-    user.totalIncome = (user.totalIncome || 0) + DAILY_BONUS;
+      if (daysSince >= 30) continue;
 
-    user.lastDailyCredit = todayStr;
-  });
+      user.balance = (user.balance || 0) + DAILY_BONUS;
+      user.dailyBonusIncome = (user.dailyBonusIncome || 0) + DAILY_BONUS;
+      user.totalIncome = (user.totalIncome || 0) + DAILY_BONUS;
+      user.lastDailyCredit = todayStr;
 
-  saveUsers(users);
+      await user.save();
+      count++;
+    }
 
-  console.log("✔ Daily bonus added to all activated users");
+    console.log(`✔ Daily bonus added to ${count} activated users`);
+  } catch (err) {
+    console.error("Error in daily bonus cron:", err);
+  }
 });
 
 /* ------------------ START SERVER ------------------ */

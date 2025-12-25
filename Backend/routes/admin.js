@@ -1,176 +1,37 @@
 const express = require('express');
 const jwt = require('jsonwebtoken');
-const fs = require('fs');
-const path = require('path');
+const User = require('../models/User');
+const Epin = require('../models/Epin');
+const EpinTransfer = require('../models/EpinTransfer');
+const Kyc = require('../models/Kyc');
+const Withdrawal = require('../models/Withdrawal');
+const Project = require('../models/Project');
+const TeamMember = require('../models/TeamMember');
+const Testimonial = require('../models/Testimonial');
 
 const router = express.Router();
-
-const USERS_PATH = path.join(__dirname, '..', 'data', 'users.json');
-const EPINS_PATH = path.join(__dirname, '..', 'data', 'epins.json');
-const EPIN_TRANSFERS_PATH = path.join(__dirname, '..', 'data', 'epinTransfers.json');
-const KYC_PATH = path.join(__dirname, '..', 'data', 'kyc.json');
-const WITHDRAWALS_PATH = path.join(__dirname, '..', 'data', 'withdrawals.json');
-const PROJECTS_PATH = path.join(__dirname, '..', 'data', 'projects.json');
-const TEAM_MEMBERS_PATH = path.join(__dirname, '..', 'data', 'teamMembers.json');
-const TESTIMONIALS_PATH = path.join(__dirname, '..', 'data', 'testimonials.json');
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_jwt_key_change_me';
 
-function loadUsers() {
-  if (!fs.existsSync(USERS_PATH)) return [];
-  const raw = fs.readFileSync(USERS_PATH, 'utf-8');
-  try {
-    return JSON.parse(raw || '[]');
-  } catch (e) {
-    return [];
-  }
-}
-
-function saveUsers(users) {
-  fs.writeFileSync(USERS_PATH, JSON.stringify(users, null, 2));
-}
-
-function loadKyc() {
-  if (!fs.existsSync(KYC_PATH)) return [];
-  const raw = fs.readFileSync(KYC_PATH, 'utf-8');
-  try {
-    return JSON.parse(raw || '[]');
-  } catch (e) {
-    return [];
-  }
-}
-
-function loadWithdrawals() {
-  if (!fs.existsSync(WITHDRAWALS_PATH)) return [];
-  const raw = fs.readFileSync(WITHDRAWALS_PATH, 'utf-8');
-  try {
-    return JSON.parse(raw || '[]');
-  } catch (e) {
-    return [];
-  }
-}
-
-function saveWithdrawals(items) {
-  fs.writeFileSync(WITHDRAWALS_PATH, JSON.stringify(items, null, 2));
-}
-
-function ensureWithdrawalsFile() {
-  if (!fs.existsSync(WITHDRAWALS_PATH)) {
-    saveWithdrawals([]);
-  }
-}
-
-function ensureProjectsFile() {
-  if (!fs.existsSync(PROJECTS_PATH)) {
-    fs.writeFileSync(PROJECTS_PATH, JSON.stringify([], null, 2));
-  }
-}
-
-function loadProjects() {
-  ensureProjectsFile();
-  const raw = fs.readFileSync(PROJECTS_PATH, 'utf-8');
-  try {
-    const arr = JSON.parse(raw || '[]');
-    return Array.isArray(arr) ? arr : [];
-  } catch (e) {
-    return [];
-  }
-}
-
-function saveProjects(projects) {
-  ensureProjectsFile();
-  fs.writeFileSync(PROJECTS_PATH, JSON.stringify(projects, null, 2));
-}
-
-function ensureTeamMembersFile() {
-  if (!fs.existsSync(TEAM_MEMBERS_PATH)) {
-    fs.writeFileSync(TEAM_MEMBERS_PATH, JSON.stringify([], null, 2));
-  }
-}
-
-function loadTeamMembers() {
-  ensureTeamMembersFile();
-  const raw = fs.readFileSync(TEAM_MEMBERS_PATH, 'utf-8');
-  try {
-    const arr = JSON.parse(raw || '[]');
-    return Array.isArray(arr) ? arr : [];
-  } catch (e) {
-    return [];
-  }
-}
-
-function saveTeamMembers(items) {
-  ensureTeamMembersFile();
-  fs.writeFileSync(TEAM_MEMBERS_PATH, JSON.stringify(items, null, 2));
-}
-
-function ensureTestimonialsFile() {
-  if (!fs.existsSync(TESTIMONIALS_PATH)) {
-    fs.writeFileSync(TESTIMONIALS_PATH, JSON.stringify([], null, 2));
-  }
-}
-
-function loadTestimonials() {
-  ensureTestimonialsFile();
-  const raw = fs.readFileSync(TESTIMONIALS_PATH, 'utf-8');
-  try {
-    const arr = JSON.parse(raw || '[]');
-    return Array.isArray(arr) ? arr : [];
-  } catch (e) {
-    return [];
-  }
-}
-
-function saveTestimonials(items) {
-  ensureTestimonialsFile();
-  fs.writeFileSync(TESTIMONIALS_PATH, JSON.stringify(items, null, 2));
-}
-
-function loadEpins() {
-  if (!fs.existsSync(EPINS_PATH)) return [];
-  const raw = fs.readFileSync(EPINS_PATH, 'utf-8');
-  try {
-    const arr = JSON.parse(raw || '[]');
-    // Back-compat: ensure ownerUserId exists (null means "admin pool")
-    return (Array.isArray(arr) ? arr : []).map((e) => ({
-      ownerUserId: e.ownerUserId ?? null,
-      ...e,
-    }));
-  } catch (e) {
-    return [];
-  }
-}
-
-function saveEpins(epins) {
-  fs.writeFileSync(EPINS_PATH, JSON.stringify(epins, null, 2));
-}
-
-function loadEpinTransfers() {
-  if (!fs.existsSync(EPIN_TRANSFERS_PATH)) return [];
-  const raw = fs.readFileSync(EPIN_TRANSFERS_PATH, 'utf-8');
-  try {
-    return JSON.parse(raw || '[]');
-  } catch (e) {
-    return [];
-  }
-}
-
-function saveEpinTransfers(items) {
-  fs.writeFileSync(EPIN_TRANSFERS_PATH, JSON.stringify(items, null, 2));
-}
-
-function generateInviteCode(users) {
+// Helper: Generate codes
+async function generateUniqueInviteCode() { // Modified to be async/db-aware
   let code;
-  do {
+  let exists = true;
+  while (exists) {
     code = 'LS' + Math.floor(100000 + Math.random() * 900000);
-  } while (users.some((u) => u.inviteCode === code));
+    const user = await User.findOne({ inviteCode: code });
+    if (!user) exists = false;
+  }
   return code;
 }
 
-function generateUserId(users) {
+async function generateUniqueUserId() {
   let id;
-  do {
+  let exists = true;
+  while (exists) {
     id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-  } while (users.some((u) => String(u.id) === id));
+    const user = await User.findOne({ id });
+    if (!user) exists = false;
+  }
   return id;
 }
 
@@ -218,248 +79,250 @@ function normalizeIdValue(v) {
   return String(v).trim();
 }
 
-function assertUnique(users, field, value, currentUserId) {
+async function checkUnique(field, value, currentUserId) {
   const v = normalizeIdValue(value);
   if (!v) return null;
 
-  const clash = users.find((u) => u.id !== currentUserId && normalizeIdValue(u[field]) === v);
+  const clash = await User.findOne({
+    [field]: v,
+    id: { $ne: currentUserId }
+  });
+
   if (clash) {
     return `${field} already used by another user.`;
   }
   return null;
 }
+
 // Create a new member from admin panel
-// Note: This is separate from /api/auth/register and is intended for "company dedicated" creation.
-router.post('/users', adminAuth, (req, res) => {
-  const { name, email, password, phone, address, sponsorId, sponsorName } = req.body || {};
+router.post('/users', adminAuth, async (req, res) => {
+  try {
+    const { name, email, password, phone, address, sponsorId, sponsorName } = req.body || {};
 
-  if (!name || !email || !password) {
-    return res.status(400).json({ message: 'name, email, password are required' });
-  }
-
-  const users = loadUsers();
-  const existing = users.find((u) => String(u.email).toLowerCase() === String(email).toLowerCase());
-  if (existing) {
-    return res.status(409).json({ message: 'Email already registered' });
-  }
-
-  const normalizePhone = (v) => {
-    const digits = String(v || '').replace(/\D/g, '');
-    if (!digits) return '';
-    return digits.length > 10 ? digits.slice(-10) : digits;
-  };
-
-  const normalizedPhone = normalizePhone(phone);
-  if (normalizedPhone) {
-    const existingPhone = users.find((u) => normalizePhone(u.phone) === normalizedPhone);
-    if (existingPhone) {
-      return res.status(409).json({ message: 'Phone number already registered' });
+    if (!name || !email || !password) {
+      return res.status(400).json({ message: 'name, email, password are required' });
     }
+
+    const existingEmail = await User.findOne({ email: String(email).toLowerCase() });
+    if (existingEmail) {
+      return res.status(409).json({ message: 'Email already registered' });
+    }
+
+    const normalizePhone = (v) => {
+      const digits = String(v || '').replace(/\D/g, '');
+      if (!digits) return '';
+      return digits.length > 10 ? digits.slice(-10) : digits;
+    };
+
+    const normalizedPhone = normalizePhone(phone);
+    if (normalizedPhone) {
+      const existingPhone = await User.findOne({ phone: phone }); // Simple check
+      if (existingPhone) {
+        return res.status(409).json({ message: 'Phone number already registered' });
+      }
+    }
+
+    const inviteCode = await generateUniqueInviteCode();
+    const newId = await generateUniqueUserId();
+
+    const newUser = new User({
+      id: newId,
+      name,
+      email: String(email).toLowerCase(),
+      password, // stored as plain text per original logic for this endpoint (though not recommended)
+      phone: normalizedPhone || (phone || ''),
+      address: address || '',
+      sponsorId: sponsorId || 'WSE-COMPANY',
+      sponsorName: sponsorName || 'WSE Company',
+      inviteCode,
+      role: 'member',
+      roleAssignedBy: 'admin',
+      roleAssignedAt: new Date(),
+      lastDailyCredit: new Date().toISOString().slice(0, 10),
+      createdAt: new Date(),
+    });
+
+    await newUser.save();
+
+    const userObj = newUser.toObject();
+    const { password: _pw, ...userWithoutSensitive } = userObj;
+    return res.status(201).json({ user: userWithoutSensitive });
+  } catch (err) {
+    console.error('Admin create user error', err);
+    res.status(500).json({ message: 'Server error' });
   }
-
-  const inviteCode = generateInviteCode(users);
-
-  const newUser = {
-    id: generateUserId(users),
-    name,
-    email,
-    // NOTE: For parity with the current codebase (file-backed), keep password as plain text here.
-    // If you want this to be secure, we should switch this endpoint to bcrypt hashing like /api/auth/register.
-    password,
-    phone: normalizedPhone || (phone || ''),
-    address: address || '',
-    sponsorId: sponsorId || 'WSE-COMPANY',
-    sponsorName: sponsorName || 'WSE Company',
-    inviteCode,
-    role: 'member',
-    roleAssignedBy: 'admin',
-    roleAssignedAt: new Date().toISOString(),
-    isActivated: false,
-    activationPackage: null,
-    activatedAt: null,
-    balance: 0,
-    totalIncome: 0,
-    withdrawal: 0,
-    freedomIncome: 0,
-    dailyBonusIncome: 0,
-    rankRewardIncome: 0,
-    lastDailyCredit: new Date().toISOString().slice(0, 10),
-    createdAt: new Date().toISOString(),
-    gender: '',
-    city: '',
-    state: '',
-    pinCode: '',
-    age: '',
-    panNo: '',
-    aadhaarNo: '',
-    nomineeName: '',
-    nomineeRelation: '',
-    upiNo: '',
-    upiId: '',
-    bankDetails: {
-      accountHolder: '',
-      bankName: '',
-      accountNo: '',
-      ifsc: '',
-      branchName: '',
-    },
-  };
-
-  users.push(newUser);
-  saveUsers(users);
-
-  const { password: _pw, ...userWithoutSensitive } = newUser;
-  return res.status(201).json({ user: userWithoutSensitive });
 });
 
 // Get all users with invite stats for admin panel
-router.get('/users', adminAuth, (req, res) => {
-  const users = loadUsers();
+router.get('/users', adminAuth, async (req, res) => {
+  try {
+    // Fetch all users to memory to process relationships
+    // If dataset grows large, this needs pagination and aggregation
+    const users = await User.find().lean();
 
-  const result = users.map((user) => {
-    const userInvitees = users.filter((u) => u.sponsorId === user.inviteCode);
+    const result = users.map((user) => {
+      // Find invitees in memory suitable for small dataset
+      const userInvitees = users.filter((u) => u.sponsorId === user.inviteCode);
 
-    return {
-      id: user.id,
-      name: user.name,
-      email: user.email,
-      phone: user.phone || '',
-      address: user.address || '',
-      sponsorId: user.sponsorId || '',
-      sponsorName: user.sponsorName || '',
-      inviteCode: user.inviteCode,
-      role: user.role || 'member',
-      isActivated: !!user.isActivated,
-      activationPackage: user.activationPackage || null,
-      balance: user.balance || 0,
-      totalIncome: user.totalIncome || 0,
-      withdrawal: user.withdrawal || 0,
-      freedomIncome: user.freedomIncome || 0,
-      dailyBonusIncome: user.dailyBonusIncome || 0,
-      rankRewardIncome: user.rankRewardIncome || 0,
-      createdAt: user.createdAt || null,
-      // payment info (for admin viewing)
-      upiId: user.upiId || '',
-      upiNo: user.upiNo || '',
-      bankDetails: user.bankDetails || null,
-      directInviteCount: userInvitees.length,
-      invitees: userInvitees.map((inv) => ({
-        id: inv.id,
-        name: inv.name,
-        email: inv.email,
-        phone: inv.phone || '',
-        balance: inv.balance || 0,
-        inviteCode: inv.inviteCode,
-      })),
-    };
-  });
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone || '',
+        address: user.address || '',
+        sponsorId: user.sponsorId || '',
+        sponsorName: user.sponsorName || '',
+        inviteCode: user.inviteCode,
+        role: user.role || 'member',
+        isActivated: !!user.isActivated,
+        activationPackage: user.activationPackage || null,
+        balance: user.balance || 0,
+        totalIncome: user.totalIncome || 0,
+        withdrawal: user.withdrawal || 0,
+        freedomIncome: user.freedomIncome || 0,
+        dailyBonusIncome: user.dailyBonusIncome || 0,
+        rankRewardIncome: user.rankRewardIncome || 0,
+        createdAt: user.createdAt || null,
+        // payment info (for admin viewing)
+        upiId: user.upiId || '',
+        upiNo: user.upiNo || '',
+        bankDetails: user.bankDetails || null,
+        directInviteCount: userInvitees.length,
+        invitees: userInvitees.map((inv) => ({
+          id: inv.id,
+          name: inv.name,
+          email: inv.email,
+          phone: inv.phone || '',
+          balance: inv.balance || 0,
+          inviteCode: inv.inviteCode,
+        })),
+      };
+    });
 
-  res.json({ users: result });
+    res.json({ users: result });
+  } catch (err) {
+    console.error('Admin users fetch error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
 // Update a user's payment details (admin-only)
-// Useful when paying withdrawal requests.
-router.put('/users/:id/payment-details', adminAuth, (req, res) => {
-  const users = loadUsers();
-  const idx = users.findIndex((u) => u.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ message: 'User not found' });
+router.put('/users/:id/payment-details', adminAuth, async (req, res) => {
+  try {
+    const user = await User.findOne({ id: req.params.id });
+    if (!user) return res.status(404).json({ message: 'User not found' });
 
-  // Optional uniqueness checks similar to /api/profile
-  const upiErr = assertUnique(users, 'upiId', req.body.upiId, req.params.id);
-  if (upiErr) return res.status(409).json({ message: upiErr });
+    // Optional uniqueness checks
+    const upiErr = await checkUnique('upiId', req.body.upiId, user.id);
+    if (upiErr) return res.status(409).json({ message: upiErr });
 
-  const nextBankAccountNo = normalizeIdValue(req.body?.bankDetails?.accountNo);
-  if (nextBankAccountNo) {
-    const clash = users.find(
-      (u) =>
-        u.id !== req.params.id &&
-        normalizeIdValue(u?.bankDetails?.accountNo) === nextBankAccountNo
-    );
-    if (clash) {
-      return res.status(409).json({ message: 'bankDetails.accountNo already used by another user.' });
+    const nextBankAccountNo = normalizeIdValue(req.body?.bankDetails?.accountNo);
+    if (nextBankAccountNo) {
+      const clash = await User.findOne({
+        'bankDetails.accountNo': nextBankAccountNo,
+        id: { $ne: user.id }
+      });
+      if (clash) {
+        return res.status(409).json({ message: 'bankDetails.accountNo already used by another user.' });
+      }
     }
+
+    if (req.body.upiId !== undefined) user.upiId = req.body.upiId;
+    if (req.body.upiNo !== undefined) user.upiNo = req.body.upiNo;
+
+    if (req.body.bankDetails && typeof req.body.bankDetails === 'object') {
+      user.bankDetails = {
+        ...(user.bankDetails || {}),
+        accountHolder: req.body.bankDetails.accountHolder ?? user.bankDetails?.accountHolder ?? '',
+        bankName: req.body.bankDetails.bankName ?? user.bankDetails?.bankName ?? '',
+        accountNo: req.body.bankDetails.accountNo ?? user.bankDetails?.accountNo ?? '',
+        ifsc: req.body.bankDetails.ifsc ?? user.bankDetails?.ifsc ?? '',
+        branchName: req.body.bankDetails.branchName ?? user.bankDetails?.branchName ?? '',
+      };
+    }
+
+    await user.save();
+
+    const userObj = user.toObject();
+    const { password, ...userWithoutPassword } = userObj;
+    return res.json({ user: userWithoutPassword });
+  } catch (err) {
+    console.error('Admin update payment error', err);
+    res.status(500).json({ message: 'Server error' });
   }
-
-  const updated = { ...users[idx] };
-
-  if (req.body.upiId !== undefined) updated.upiId = req.body.upiId;
-  if (req.body.upiNo !== undefined) updated.upiNo = req.body.upiNo;
-
-  if (req.body.bankDetails && typeof req.body.bankDetails === 'object') {
-    updated.bankDetails = {
-      ...(updated.bankDetails || {}),
-      accountHolder: req.body.bankDetails.accountHolder ?? updated.bankDetails?.accountHolder ?? '',
-      bankName: req.body.bankDetails.bankName ?? updated.bankDetails?.bankName ?? '',
-      accountNo: req.body.bankDetails.accountNo ?? updated.bankDetails?.accountNo ?? '',
-      ifsc: req.body.bankDetails.ifsc ?? updated.bankDetails?.ifsc ?? '',
-      branchName: req.body.bankDetails.branchName ?? updated.bankDetails?.branchName ?? '',
-    };
-  }
-
-  users[idx] = updated;
-  saveUsers(users);
-
-  const { password, ...userWithoutPassword } = updated;
-  return res.json({ user: userWithoutPassword });
 });
 
-// Set role (admin-only) e.g. member | franchise
-router.put('/users/:id/role', adminAuth, (req, res) => {
-  const { role } = req.body || {};
-  const allowed = new Set(['member', 'franchise']);
-  if (!role || !allowed.has(String(role))) {
-    return res.status(400).json({ message: 'Invalid role. Allowed: member, franchise' });
+// Set role (admin-only)
+router.put('/users/:id/role', adminAuth, async (req, res) => {
+  try {
+    const { role } = req.body || {};
+    const allowed = new Set(['member', 'franchise']);
+    if (!role || !allowed.has(String(role))) {
+      return res.status(400).json({ message: 'Invalid role. Allowed: member, franchise' });
+    }
+
+    const user = await User.findOne({ id: req.params.id });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.role = role;
+    user.roleAssignedBy = 'admin';
+    user.roleAssignedAt = new Date();
+    await user.save();
+
+    const userObj = user.toObject();
+    const { password, ...userWithoutPassword } = userObj;
+    return res.json({ user: userWithoutPassword });
+  } catch (err) {
+    console.error('Admin role update error', err);
+    res.status(500).json({ message: 'Server error' });
   }
-
-  const users = loadUsers();
-  const idx = users.findIndex((u) => u.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ message: 'User not found' });
-
-  users[idx].role = role;
-  users[idx].roleAssignedBy = 'admin';
-  users[idx].roleAssignedAt = new Date().toISOString();
-  saveUsers(users);
-
-  const { password, ...userWithoutPassword } = users[idx];
-  return res.json({ user: userWithoutPassword });
 });
 
 // Get KYC uploads for admin panel
-router.get('/kyc', adminAuth, (req, res) => {
-  const users = loadUsers();
-  const kycs = loadKyc();
+router.get('/kyc', adminAuth, async (req, res) => {
+  try {
+    const kycs = await Kyc.find().lean();
+    // Populate user info manually since we track userId as string, not ObjectId ref
+    // Could use $lookup in future
+    const userIds = kycs.map(k => k.userId);
+    const users = await User.find({ id: { $in: userIds } }).lean();
 
-  const result = kycs.map((k) => {
-    const user = users.find((u) => u.id === k.userId);
-    return {
-      ...k,
-      user: user
-        ? {
+    const result = kycs.map((k) => {
+      const user = users.find((u) => u.id === k.userId);
+      return {
+        ...k,
+        user: user
+          ? {
             id: user.id,
             name: user.name,
             email: user.email,
             phone: user.phone || '',
             role: user.role || 'member',
           }
-        : null,
-    };
-  });
+          : null,
+      };
+    });
 
-  res.json({ kycs: result });
+    res.json({ kycs: result });
+  } catch (err) {
+    console.error('Admin kyc fetch error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
 // Withdrawal requests for admin
-router.get('/withdrawals', adminAuth, (req, res) => {
-  ensureWithdrawalsFile();
-  const users = loadUsers();
-  const items = loadWithdrawals();
+router.get('/withdrawals', adminAuth, async (req, res) => {
+  try {
+    const items = await Withdrawal.find().sort({ requestedAt: -1 }).lean();
+    const userIds = items.map(w => w.userId);
+    const users = await User.find({ id: { $in: userIds } }).lean();
 
-  const result = items.map((w) => {
-    const user = users.find((u) => u.id === w.userId);
-    return {
-      ...w,
-      user: user
-        ? {
+    const result = items.map((w) => {
+      const user = users.find((u) => u.id === w.userId);
+      return {
+        ...w,
+        user: user
+          ? {
             id: user.id,
             name: user.name,
             email: user.email,
@@ -470,256 +333,271 @@ router.get('/withdrawals', adminAuth, (req, res) => {
             upiNo: user.upiNo || '',
             bankDetails: user.bankDetails || null,
           }
-        : null,
-    };
-  });
+          : null,
+      };
+    });
 
-  return res.json({ withdrawals: result });
-});
-
-// Approve withdrawal (after payment complete)
-router.post('/withdrawals/:id/approve', adminAuth, (req, res) => {
-  ensureWithdrawalsFile();
-  const users = loadUsers();
-  const items = loadWithdrawals();
-
-  const wIdx = items.findIndex((w) => w.id === req.params.id);
-  if (wIdx === -1) return res.status(404).json({ message: 'Withdrawal request not found' });
-
-  const w = items[wIdx];
-  if (w.status !== 'pending') {
-    return res.status(400).json({ message: `Cannot approve withdrawal in status: ${w.status}` });
+    return res.json({ withdrawals: result });
+  } catch (err) {
+    console.error('Admin withdrawals fetch error', err);
+    res.status(500).json({ message: 'Server error' });
   }
+});
 
-  const uIdx = users.findIndex((u) => u.id === w.userId);
-  if (uIdx === -1) return res.status(404).json({ message: 'User not found' });
+// Approve withdrawal
+router.post('/withdrawals/:id/approve', adminAuth, async (req, res) => {
+  try {
+    const w = await Withdrawal.findOne({ id: req.params.id });
+    if (!w) return res.status(404).json({ message: 'Withdrawal request not found' });
 
-  const user = users[uIdx];
-  const balance = Number(user.balance) || 0;
-  const amount = Number(w.amount) || 0;
+    if (w.status !== 'pending') {
+      return res.status(400).json({ message: `Cannot approve withdrawal in status: ${w.status}` });
+    }
 
-  if (amount <= 0) return res.status(400).json({ message: 'Invalid withdrawal amount' });
-  if (amount > balance) {
-    return res.status(400).json({ message: 'User has insufficient balance to approve this withdrawal.' });
+    const user = await User.findOne({ id: w.userId });
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const balance = Number(user.balance) || 0;
+    const amount = Number(w.amount) || 0;
+
+    if (amount <= 0) return res.status(400).json({ message: 'Invalid withdrawal amount' });
+    if (amount > balance) {
+      return res.status(400).json({ message: 'User has insufficient balance to approve this withdrawal.' });
+    }
+
+    // Deduct balance
+    user.balance = balance - amount;
+    user.withdrawal = (Number(user.withdrawal) || 0) + amount;
+    await user.save();
+
+    w.status = 'approved';
+    w.approvedAt = new Date();
+    w.approvedBy = 'admin';
+    await w.save();
+
+    return res.json({ withdrawal: w, user: { id: user.id, balance: user.balance, withdrawal: user.withdrawal } });
+  } catch (err) {
+    console.error('Withdrawal approve error', err);
+    res.status(500).json({ message: 'Server error' });
   }
-
-  // Deduct balance and track total withdrawal
-  user.balance = balance - amount;
-  user.withdrawal = (Number(user.withdrawal) || 0) + amount;
-  users[uIdx] = user;
-  saveUsers(users);
-
-  w.status = 'approved';
-  w.approvedAt = new Date().toISOString();
-  w.approvedBy = 'admin';
-  items[wIdx] = w;
-  saveWithdrawals(items);
-
-  return res.json({ withdrawal: w, user: { id: user.id, balance: user.balance, withdrawal: user.withdrawal } });
 });
 
-// Simple stats endpoint used by the admin panel for site name and active members
-router.get('/stats', adminAuth, (req, res) => {
-  const users = loadUsers();
-
-  const siteName = process.env.SITE_NAME || 'Life Spark Associates';
-  // For now, treat all registered users as "active" for this simple summary.
-  const activeMembers = Array.isArray(users) ? users.length : 0;
-
-  res.json({ siteName, activeMembers });
-});
-
-// Projects management for admin panel
-router.get('/projects', adminAuth, (req, res) => {
-  const projects = loadProjects();
-  return res.json({ projects });
-});
-
-router.post('/projects', adminAuth, (req, res) => {
-  const { title, desc, imageUrl, href } = req.body || {};
-
-  if (!title || !desc) {
-    return res.status(400).json({ message: 'title and desc are required' });
+// Simple stats endpoint
+router.get('/stats', adminAuth, async (req, res) => {
+  try {
+    const count = await User.countDocuments();
+    const siteName = process.env.SITE_NAME || 'Life Spark Associates';
+    res.json({ siteName, activeMembers: count });
+  } catch (err) {
+    console.error('Admin stats error', err);
+    res.status(500).json({ message: 'Server error' });
   }
-
-  const projects = loadProjects();
-  const now = new Date().toISOString();
-
-  const project = {
-    id: `PRJ-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    title: String(title).trim(),
-    desc: String(desc).trim(),
-    imageUrl: imageUrl ? String(imageUrl).trim() : '',
-    href: href ? String(href).trim() : '',
-    createdAt: now,
-  };
-
-  projects.unshift(project);
-  saveProjects(projects);
-
-  return res.status(201).json({ project });
 });
 
-// Site content management: Team Members
-router.get('/site/team-members', adminAuth, (req, res) => {
-  const teamMembers = loadTeamMembers();
-  return res.json({ teamMembers });
-});
-
-router.post('/site/team-members', adminAuth, (req, res) => {
-  const { name, role, imageUrl } = req.body || {};
-
-  if (!name || !role) {
-    return res.status(400).json({ message: 'name and role are required' });
+// Projects management
+router.get('/projects', adminAuth, async (req, res) => {
+  try {
+    const projects = await Project.find().sort({ createdAt: -1 });
+    return res.json({ projects });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
   }
-
-  const items = loadTeamMembers();
-  const now = new Date().toISOString();
-
-  const member = {
-    id: `TEAM-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    name: String(name).trim(),
-    role: String(role).trim(),
-    imageUrl: imageUrl ? String(imageUrl).trim() : '',
-    createdAt: now,
-  };
-
-  items.unshift(member);
-  saveTeamMembers(items);
-
-  return res.status(201).json({ member });
 });
 
-// Site content management: Testimonials
-router.get('/site/testimonials', adminAuth, (req, res) => {
-  const testimonials = loadTestimonials();
-  return res.json({ testimonials });
+router.post('/projects', adminAuth, async (req, res) => {
+  try {
+    const { title, desc, imageUrl, href } = req.body || {};
+
+    if (!title || !desc) {
+      return res.status(400).json({ message: 'title and desc are required' });
+    }
+
+    const project = new Project({
+      id: `PRJ-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      title: String(title).trim(),
+      desc: String(desc).trim(),
+      imageUrl: imageUrl ? String(imageUrl).trim() : '',
+      href: href ? String(href).trim() : '',
+      createdAt: new Date(),
+    });
+    await project.save();
+
+    return res.status(201).json({ project });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
-router.post('/site/testimonials', adminAuth, (req, res) => {
-  const { text, name, role } = req.body || {};
-
-  if (!text || !name || !role) {
-    return res.status(400).json({ message: 'text, name and role are required' });
+// Team Members
+router.get('/site/team-members', adminAuth, async (req, res) => {
+  try {
+    const items = await TeamMember.find().sort({ createdAt: -1 });
+    return res.json({ teamMembers: items });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
   }
-
-  const items = loadTestimonials();
-  const now = new Date().toISOString();
-
-  const testimonial = {
-    id: `TST-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    text: String(text).trim(),
-    name: String(name).trim(),
-    role: String(role).trim(),
-    createdAt: now,
-  };
-
-  items.unshift(testimonial);
-  saveTestimonials(items);
-
-  return res.status(201).json({ testimonial });
 });
 
-// E-Pin management for admin panel (central pool of pins)
-// Admin should NOT see used pins; also hide pins already transferred to members.
-router.get('/epins', adminAuth, (req, res) => {
-  const epins = loadEpins();
-  const pool = epins.filter((e) => !e.used && (e.ownerUserId === null || e.ownerUserId === undefined));
-  const codes = pool.map((e) => e.code);
-  res.json({ epins: codes, available: codes.length });
+router.post('/site/team-members', adminAuth, async (req, res) => {
+  try {
+    const { name, role, imageUrl } = req.body || {};
+
+    if (!name || !role) {
+      return res.status(400).json({ message: 'name and role are required' });
+    }
+
+    const member = new TeamMember({
+      id: `TEAM-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      name: String(name).trim(),
+      role: String(role).trim(),
+      imageUrl: imageUrl ? String(imageUrl).trim() : '',
+      createdAt: new Date(),
+    });
+    await member.save();
+
+    return res.status(201).json({ member });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
-// Transfer up to 10 pins from admin pool to a member
-router.post('/epins/transfer', adminAuth, (req, res) => {
-  const { toUserId, count } = req.body || {};
-  const howMany = Math.min(Math.max(parseInt(count || 1, 10) || 1, 1), 10);
-
-  if (!toUserId) {
-    return res.status(400).json({ message: 'toUserId is required' });
+// Testimonials
+router.get('/site/testimonials', adminAuth, async (req, res) => {
+  try {
+    const items = await Testimonial.find().sort({ createdAt: -1 });
+    return res.json({ testimonials: items });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
   }
+});
 
-  const users = loadUsers();
-  const target = users.find((u) => u.id === String(toUserId));
-  if (!target) {
-    return res.status(404).json({ message: 'Target user not found' });
+router.post('/site/testimonials', adminAuth, async (req, res) => {
+  try {
+    const { text, name, role } = req.body || {};
+
+    if (!text || !name || !role) {
+      return res.status(400).json({ message: 'text, name and role are required' });
+    }
+
+    const testimonial = new Testimonial({
+      id: `TST-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      text: String(text).trim(),
+      name: String(name).trim(),
+      role: String(role).trim(),
+      createdAt: new Date(),
+    });
+    await testimonial.save();
+
+    return res.status(201).json({ testimonial });
+  } catch (err) {
+    res.status(500).json({ message: 'Server error' });
   }
+});
 
-  const epins = loadEpins();
-  const available = epins.filter((e) => !e.used && (e.ownerUserId === null || e.ownerUserId === undefined));
-  if (available.length < howMany) {
-    return res.status(400).json({ message: `Not enough available pins in pool. Available: ${available.length}` });
+// E-Pin management for admin panel
+router.get('/epins', adminAuth, async (req, res) => {
+  try {
+    const pool = await Epin.find({ used: false, ownerUserId: null });
+    const codes = pool.map((e) => e.code);
+    res.json({ epins: codes, available: codes.length });
+  } catch (err) {
+    console.error('Admin epins fetch error', err);
+    res.status(500).json({ message: 'Server error' });
   }
+});
 
-  const now = new Date().toISOString();
-  const selectedCodes = [];
+router.post('/epins/transfer', adminAuth, async (req, res) => {
+  try {
+    const { toUserId, count } = req.body || {};
+    const howMany = Math.min(Math.max(parseInt(count || 1, 10) || 1, 1), 10);
 
-  let remaining = howMany;
-  for (let i = 0; i < epins.length && remaining > 0; i++) {
-    const e = epins[i];
-    const inPool = !e.used && (e.ownerUserId === null || e.ownerUserId === undefined);
-    if (!inPool) continue;
-    epins[i] = {
-      ...e,
-      ownerUserId: target.id,
+    if (!toUserId) {
+      return res.status(400).json({ message: 'toUserId is required' });
+    }
+
+    const target = await User.findOne({ id: String(toUserId) });
+    if (!target) {
+      return res.status(404).json({ message: 'Target user not found' });
+    }
+
+    // Available Admin Pins
+    // Limit search to howMany to avoid fetching all
+    const available = await Epin.find({ used: false, ownerUserId: null }).limit(howMany);
+
+    if (available.length < howMany) {
+      const total = await Epin.countDocuments({ used: false, ownerUserId: null });
+      return res.status(400).json({ message: `Not enough available pins in pool. Available: ${total}` });
+    }
+
+    const now = new Date();
+    const selectedCodes = [];
+
+    for (const e of available) {
+      e.ownerUserId = target.id;
+      e.transferredAt = now;
+      e.transferredBy = 'admin';
+      await e.save();
+      selectedCodes.push(e.code);
+    }
+
+    const transferRecord = new EpinTransfer({
+      id: `EPTR-${Date.now()}`,
+      fromUserId: null,
+      toUserId: target.id,
+      toUserName: target.name,
+      codes: selectedCodes,
+      count: selectedCodes.length,
       transferredAt: now,
       transferredBy: 'admin',
-    };
-    selectedCodes.push(e.code);
-    remaining--;
+    });
+    await transferRecord.save();
+
+    return res.status(201).json({ transfer: transferRecord });
+
+  } catch (err) {
+    console.error('Admin epin transfer error', err);
+    res.status(500).json({ message: 'Server error' });
   }
-
-  saveEpins(epins);
-
-  const transfers = loadEpinTransfers();
-  const transferRecord = {
-    id: `EPTR-${Date.now()}`,
-    fromUserId: null,
-    toUserId: target.id,
-    toUserName: target.name,
-    codes: selectedCodes,
-    count: selectedCodes.length,
-    transferredAt: now,
-    transferredBy: 'admin',
-  };
-  transfers.unshift(transferRecord);
-  saveEpinTransfers(transfers);
-
-  return res.status(201).json({ transfer: transferRecord });
 });
 
-router.post('/epins', adminAuth, (req, res) => {
-  const { count } = req.body || {};
-  const howMany = Math.min(Math.max(parseInt(count || 1, 10) || 1, 1), 100);
+router.post('/epins', adminAuth, async (req, res) => {
+  try {
+    const { count } = req.body || {};
+    const howMany = Math.min(Math.max(parseInt(count || 1, 10) || 1, 1), 100);
 
-  const existing = loadEpins();
-  const codesSet = new Set(existing.map((e) => e.code));
-  const newEpins = [];
+    const newEpins = [];
 
-  function generateCode() {
-    const part = () => Math.random().toString(36).substring(2, 6).toUpperCase();
-    return `${part()}-${part()}-${part()}`;
-  }
-
-  while (newEpins.length < howMany) {
-    const code = generateCode();
-    if (!codesSet.has(code)) {
-      codesSet.add(code);
-      newEpins.push({
-        code,
-        ownerUserId: null,
-        used: false,
-        usedByUserId: null,
-        usedAt: null,
-        packageId: null,
-        createdAt: new Date().toISOString(),
-      });
+    // Simple code generator
+    function generateCode() {
+      const part = () => Math.random().toString(36).substring(2, 6).toUpperCase();
+      return `${part()}-${part()}-${part()}`;
     }
+
+    // Generate in checking loop
+    let created = 0;
+    while (created < howMany) {
+      const code = generateCode();
+      // Check uniqueness 
+      // Note: Checking deeply inside loop for DB is slow, but assuming rare collisions for now.
+      // For strictness, catch E11000 duplicate error
+      const exists = await Epin.findOne({ code });
+      if (!exists) {
+        await Epin.create({
+          code,
+          ownerUserId: null,
+          used: false,
+          createdAt: new Date()
+        });
+        newEpins.push({ code });
+        created++;
+      }
+    }
+
+    res.status(201).json({ epins: newEpins.map((e) => e.code) });
+  } catch (err) {
+    console.error('Admin create epin error', err);
+    res.status(500).json({ message: 'Server error' });
   }
-
-  const all = [...newEpins, ...existing];
-  saveEpins(all);
-
-  res.status(201).json({ epins: newEpins.map((e) => e.code) });
 });
 
 module.exports = router;

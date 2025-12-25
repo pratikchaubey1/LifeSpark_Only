@@ -2,31 +2,18 @@ const express = require('express');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const Kyc = require('../models/Kyc');
 const auth = require('../middleware/auth');
 
 const router = express.Router();
 
-const KYC_PATH = path.join(__dirname, '..', 'data', 'kyc.json');
 const UPLOAD_DIR = path.join(__dirname, '..', 'uploads');
 
 if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
-function loadKyc() {
-  if (!fs.existsSync(KYC_PATH)) return [];
-  const raw = fs.readFileSync(KYC_PATH, 'utf-8');
-  try {
-    return JSON.parse(raw || '[]');
-  } catch (e) {
-    return [];
-  }
-}
-
-function saveKyc(records) {
-  fs.writeFileSync(KYC_PATH, JSON.stringify(records, null, 2));
-}
-
+// Ensure unique filenames for uploads
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, UPLOAD_DIR);
@@ -40,12 +27,6 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// Supports multiple docs:
-// - profile (image)
-// - pan (image)
-// - aadhaar (image)
-// - bank (image)
-// Backwards-compatible: also supports "document" single upload.
 const uploadAny = upload.fields([
   { name: 'profile', maxCount: 1 },
   { name: 'pan', maxCount: 1 },
@@ -54,7 +35,7 @@ const uploadAny = upload.fields([
   { name: 'document', maxCount: 1 },
 ]);
 
-router.post('/', auth, uploadAny, (req, res) => {
+router.post('/', auth, uploadAny, async (req, res) => {
   try {
     const files = req.files || {};
 
@@ -76,65 +57,44 @@ router.post('/', auth, uploadAny, (req, res) => {
       });
     }
 
-    const records = loadKyc();
-    const existingIdx = records.findIndex((r) => r.userId === req.user.id);
+    // Find existing or new
+    let kyc = await Kyc.findOne({ userId: req.user.id });
 
-    const prev = existingIdx === -1 ? null : records[existingIdx];
-
-    const record = {
-      id: prev?.id || `KYC-${Date.now()}`,
-      userId: req.user.id,
-      uploadedAt: prev?.uploadedAt || new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      documents: {
-        profile: profile
-          ? { fileName: profile.filename, filePath: `/uploads/${profile.filename}` }
-          : prev?.documents?.profile || null,
-        pan: pan
-          ? { fileName: pan.filename, filePath: `/uploads/${pan.filename}` }
-          : prev?.documents?.pan || null,
-        aadhaar: aadhaar
-          ? { fileName: aadhaar.filename, filePath: `/uploads/${aadhaar.filename}` }
-          : prev?.documents?.aadhaar || null,
-        bank: bank
-          ? { fileName: bank.filename, filePath: `/uploads/${bank.filename}` }
-          : prev?.documents?.bank || null,
-        // keep legacy upload if used
-        document: legacy
-          ? { fileName: legacy.filename, filePath: `/uploads/${legacy.filename}` }
-          : prev?.documents?.document || null,
-      },
-    };
-
-    // If old schema exists (fileName/filePath), keep it too for existing clients
-    if (legacy) {
-      record.fileName = legacy.filename;
-      record.filePath = `/uploads/${legacy.filename}`;
-    } else if (prev?.fileName || prev?.filePath) {
-      record.fileName = prev.fileName;
-      record.filePath = prev.filePath;
+    if (!kyc) {
+      kyc = new Kyc({
+        id: `KYC-${Date.now()}`,
+        userId: req.user.id,
+        uploadedAt: new Date(),
+        documents: {}
+      });
     }
 
-    if (existingIdx === -1) {
-      records.push(record);
-    } else {
-      records[existingIdx] = record;
-    }
+    // Update documents if provided
+    if (profile) kyc.documents.profile = { fileName: profile.filename, filePath: `/uploads/${profile.filename}` };
+    if (pan) kyc.documents.pan = { fileName: pan.filename, filePath: `/uploads/${pan.filename}` };
+    if (aadhaar) kyc.documents.aadhaar = { fileName: aadhaar.filename, filePath: `/uploads/${aadhaar.filename}` };
+    if (bank) kyc.documents.bank = { fileName: bank.filename, filePath: `/uploads/${bank.filename}` };
+    if (legacy) kyc.documents.document = { fileName: legacy.filename, filePath: `/uploads/${legacy.filename}` };
 
-    saveKyc(records);
+    kyc.updatedAt = new Date();
+    await kyc.save();
 
-    res.status(201).json({ kyc: record });
+    res.status(201).json({ kyc });
   } catch (err) {
     console.error('KYC upload error', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
-router.get('/', auth, (req, res) => {
-  const records = loadKyc();
-  const record = records.find((r) => r.userId === req.user.id);
-  if (!record) return res.status(404).json({ message: 'No KYC record found' });
-  res.json({ kyc: record });
+router.get('/', auth, async (req, res) => {
+  try {
+    const kyc = await Kyc.findOne({ userId: req.user.id });
+    if (!kyc) return res.status(404).json({ message: 'No KYC record found' });
+    res.json({ kyc });
+  } catch (err) {
+    console.error('KYC fetch error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
 });
 
 module.exports = router;
