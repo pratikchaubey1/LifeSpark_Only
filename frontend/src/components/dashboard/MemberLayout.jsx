@@ -24,7 +24,7 @@ import FreedomBusiness from "./MyTeamBusiness/FreedomBusiness";
 
 import TotalActiveUser from "./MyTeamNetwork/TotalActiveUser";
 import TotalDirectUser from "./MyTeamNetwork/TotalDirectUser";
-import TotalInactiveUser from "./MyTeamNetwork/TotalInactiveUser";
+import TotalInactiveUser from "./MyTeamNetwork/TotalInActiveUser";
 
 import IncomeReport from "./IncomeReport";
 
