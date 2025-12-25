@@ -122,8 +122,17 @@ function DashBoardPage() {
       </div>
 
       {/* Activation notice */}
-      <div className="text-center text-red-600 text-sm mt-2 cursor-pointer">
-        Click here to activate your account!
+      {/* Activation status badge */}
+      <div className="flex justify-center mt-3">
+        {user?.isActivated ? (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 border border-green-200">
+            ✅ Status: Active
+          </span>
+        ) : (
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 border border-red-200">
+            ⚠️ Status: Inactive
+          </span>
+        )}
       </div>
 
       <div className="px-4 py-6 max-w-6xl mx-auto">

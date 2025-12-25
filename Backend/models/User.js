@@ -60,8 +60,7 @@ const userSchema = new mongoose.Schema({
 });
 
 // Indexes for performance
-userSchema.index({ email: 1 });
-userSchema.index({ inviteCode: 1 });
+// Note: 'email' and 'inviteCode' already have unique indexes from schema definition
 userSchema.index({ phone: 1 });
 
 module.exports = mongoose.model('User', userSchema);

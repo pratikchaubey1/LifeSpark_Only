@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const cron = require("node-cron");
 
 // ROUTES
+const newroute = require('./test/path');
 const authRoutes = require('./routes/auth');
 const profileRoutes = require('./routes/profile');
 const kycRoutes = require('./routes/kyc');
@@ -98,15 +99,25 @@ cron.schedule("0 0 * * *", async () => {
 
 /* ------------------ START SERVER ------------------ */
 
+console.log('🔄 Connecting to MongoDB...');
+console.log('MongoDB URI:', process.env.MONGO_URI ? process.env.MONGO_URI.replace(/\/\/([^:]+):([^@]+)@/, '//$1:****@') : 'NOT SET');
+
 mongoose
   .connect(process.env.MONGO_URI)
   .then(() => {
-    console.log('MongoDB connected');
+    console.log('✅ MongoDB connected successfully');
     app.listen(PORT, () => {
-      console.log(`Server listening on http://localhost:${PORT}`);
+      console.log(`🚀 Server listening on http://localhost:${PORT}`);
+      console.log(`📡 API endpoints available at http://localhost:${PORT}/api`);
     });
   })
   .catch((err) => {
-    console.error('MongoDB connection error', err);
+    console.error('❌ MongoDB connection error:', err.message);
+    console.error('');
+    console.error('💡 Possible solutions:');
+    console.error('   1. If using local MongoDB: Make sure MongoDB is running');
+    console.error('   2. If using MongoDB Atlas: Check your connection string in .env');
+    console.error('   3. Check your internet connection if using cloud database');
+    console.error('');
     process.exit(1);
   });

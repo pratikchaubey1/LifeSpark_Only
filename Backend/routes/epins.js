@@ -44,12 +44,18 @@ router.post('/transfer', auth, async (req, res) => {
       return res.status(400).json({ message: 'to is required (user id or invite code)' });
     }
 
-    const target = await User.findOne({
-      $or: [
-        { _id: String(to) },
-        { inviteCode: String(to) }
-      ]
-    });
+    const mongoose = require('mongoose');
+    let target;
+
+    // Check if 'to' is a valid ObjectId
+    if (mongoose.Types.ObjectId.isValid(to)) {
+      target = await User.findById(to);
+    }
+
+    // If not found by ID, try invite code
+    if (!target) {
+      target = await User.findOne({ inviteCode: to });
+    }
 
     if (!target) {
       return res.status(404).json({ message: 'Target user not found' });

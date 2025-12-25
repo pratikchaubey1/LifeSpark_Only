@@ -1,57 +1,118 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import config from "../../../config/config";
+import { FiAlertCircle } from "react-icons/fi";
 
-const TotalInactiveUser = ({ onMenuOpen, sidebarOpen }) => {
+const TotalInactiveUser = ({ onMenuOpen }) => {
+  const [inactiveUsers, setInactiveUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTeam = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        const res = await fetch(`${config.apiUrl}/dashboard/direct-team`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          // Filter for Inactive users
+          const inactive = data.filter(u => u.status !== "Active");
+          setInactiveUsers(inactive);
+        }
+      } catch (error) {
+        console.error("Failed to fetch inactive team", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeam();
+  }, []);
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 p-4 md:p-8 flex justify-center">
-      <div className="w-full max-w-4xl bg-white shadow-2xl rounded-2xl p-6 md:p-10 border border-slate-200">
+    <div className="min-h-screen w-full bg-[#f3f4f6] p-5 md:p-10">
 
-        {/* HEADER WITH MENU BUTTON */}
-        <div className="flex items-center gap-3 mb-8">
-
-          {/* MENU BUTTON */}
-          <button
-            onClick={() => onMenuOpen?.()}
-            className="p-2 rounded-lg bg-slate-200 hover:bg-slate-300 active:scale-95 transition"
+      {/* HEADER */}
+      <div className="flex items-center gap-3 mb-6">
+        <button
+          onClick={() => onMenuOpen?.()}
+          className="p-2 rounded-lg bg-slate-200 hover:bg-slate-300 active:scale-95 transition"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6 text-slate-700"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-6 w-6 text-slate-700"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
 
-          {/* TITLE */}
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight">
-            Direct Inactive Users
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
+            My Inactive Team <FiAlertCircle className="text-red-500" />
           </h1>
-        </div>
-
-        {/* EMPTY STATE CARD */}
-        <div className="w-full bg-red-50 border border-red-200 rounded-2xl p-8 flex flex-col items-center text-center shadow-sm">
-
-          {/* Illustration */}
-          <img
-            src="https://cdn-icons-png.flaticon.com/512/7486/7486802.png"
-            alt="No Data"
-            className="w-32 h-32 opacity-80 mb-4"
-          />
-
-          {/* Title */}
-          <h2 className="text-xl font-semibold text-red-700 mb-2">
-            No Inactive Records Found
-          </h2>
-
-          {/* Description */}
-          <p className="text-red-600 text-sm md:text-base max-w-md">
-            Currently all your direct members are active.  
-            Once a member becomes inactive, their details will appear here.
+          <p className="text-slate-500 mt-1 text-sm md:text-base">
+            Your directly referred inactive members
           </p>
         </div>
+      </div>
 
+      {/* CARD WRAPPER */}
+      <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-5 md:p-6">
+
+        {/* TABLE HEADER */}
+        <div className="grid grid-cols-3 md:grid-cols-4 gap-4 px-2 py-3 bg-red-50 text-red-800 rounded-lg font-medium text-sm md:text-base border border-red-100">
+          <span>Name</span>
+          <span>User ID</span>
+          <span>Status</span>
+          <span className="hidden md:block">Joining Date</span>
+        </div>
+
+        {/* Loading State */}
+        {loading && (
+          <div className="py-10 text-center text-slate-500">Loading inactive members...</div>
+        )}
+
+        {/* If No Records */}
+        {!loading && inactiveUsers.length === 0 && (
+          <div className="w-full py-14 flex flex-col items-center justify-center text-gray-500">
+            <div className="bg-red-50 p-4 rounded-full mb-4">
+              <FiAlertCircle size={48} className="text-red-300" />
+            </div>
+            <p className="text-lg md:text-xl font-medium">No Inactive Members Found...</p>
+            <p className="text-sm text-gray-400 mt-1">
+              Great! All your direct referrals are active.
+            </p>
+          </div>
+        )}
+
+        {/* Records */}
+        {!loading && inactiveUsers.length > 0 &&
+          inactiveUsers.map((user, index) => (
+            <div
+              key={index}
+              className="grid grid-cols-3 md:grid-cols-4 gap-4 px-3 py-4 border-b last:border-none hover:bg-slate-50 transition"
+            >
+              <div className="flex flex-col">
+                <span className="font-medium text-slate-800">{user.name}</span>
+                <span className="text-xs text-slate-400 md:hidden">{user.joined}</span>
+              </div>
+              <span className="text-slate-600 text-sm font-mono truncate" title={user.userId}>{user.inviteCode}</span>
+
+              <span className="px-3 py-1 text-xs rounded-full w-fit h-fit bg-red-100 text-red-700 font-medium">
+                Inactive
+              </span>
+
+              <span className="hidden md:block text-slate-500 text-sm">
+                {user.joined}
+              </span>
+            </div>
+          ))}
       </div>
     </div>
   );

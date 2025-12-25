@@ -22,9 +22,9 @@ import TeamBusiness from "./MyTeamBusiness/TeamBusiness";
 import RankRewardBusiness from "./MyTeamBusiness/RankRewardBusiness";
 import FreedomBusiness from "./MyTeamBusiness/FreedomBusiness";
 
-import TotalActitiveUser from "./MyTeamNetwork/TotalActitiveUser";
+import TotalActiveUser from "./MyTeamNetwork/TotalActiveUser";
 import TotalDirectUser from "./MyTeamNetwork/TotalDirectUser";
-import TotalInactiveUser from "./MyTeamNetwork/TotalActitiveUser";
+import TotalInactiveUser from "./MyTeamNetwork/TotalInactiveUser";
 
 import IncomeReport from "./IncomeReport";
 
@@ -63,11 +63,10 @@ export default function MemberLayout({ onLogout }) {
       {/* Dashboard + Logout Buttons */}
       <div
         className={`fixed top-3 right-4 z-50 flex gap-2 transition-all duration-300 
-        ${
-          hideButtons || sidebarOpen
+        ${hideButtons || sidebarOpen
             ? "opacity-0 pointer-events-none"
             : "opacity-100"
-        }`}
+          }`}
       >
         {isLoggedIn && !sidebarOpen && (
           <button
@@ -86,7 +85,7 @@ export default function MemberLayout({ onLogout }) {
             }}
             className=""
           >
-            
+
           </button>
         )}
       </div>
@@ -151,7 +150,7 @@ export default function MemberLayout({ onLogout }) {
 
           <Route
             path="total-Active"
-            element={<TotalActitiveUser onMenuOpen={() => setSidebarOpen(true)} />}
+            element={<TotalActiveUser onMenuOpen={() => setSidebarOpen(true)} />}
           />
           <Route
             path="total-Direct"

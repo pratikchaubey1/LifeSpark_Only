@@ -125,7 +125,8 @@ router.post('/users', adminAuth, async (req, res) => {
       return res.status(400).json({ message: 'name, email, password are required' });
     }
 
-    const existing = await User.findOne({ email: email.toLowerCase() });
+    const normalizedEmail = email.toLowerCase().trim();
+    const existing = await User.findOne({ email: normalizedEmail });
     if (existing) {
       return res.status(409).json({ message: 'Email already registered' });
     }
@@ -147,21 +148,56 @@ router.post('/users', adminAuth, async (req, res) => {
 
     const inviteCode = await generateUniqueInviteCode();
 
+    // Clean sponsorId
+    const cleanSponsorId = sponsorId ? String(sponsorId).trim() : 'WSE-COMPANY';
+
     const newUser = new User({
-      name,
-      email,
+      name: name.trim(),
+      email: normalizedEmail,
       password, // Plain text for admin-created users
       phone: normalizedPhone || (phone || ''),
       address: address || '',
-      sponsorId: sponsorId || 'WSE-COMPANY',
+      sponsorId: cleanSponsorId,
       sponsorName: sponsorName || 'WSE Company',
       inviteCode,
       role: 'member',
       roleAssignedBy: 'admin',
       roleAssignedAt: new Date(),
+      balance: 50, // Initial Signing Bonus
+      totalIncome: 50,
+      directInviteIds: [],
     });
 
     await newUser.save();
+
+    // Update Sponsor if exists
+    if (cleanSponsorId && cleanSponsorId !== 'WSE-COMPANY') {
+      const sponsorUser = await User.findOne({ inviteCode: cleanSponsorId });
+      if (sponsorUser) {
+        if (!Array.isArray(sponsorUser.directInviteIds)) {
+          sponsorUser.directInviteIds = [];
+        }
+        sponsorUser.directInviteIds.push(newUser._id.toString());
+
+        // BONUS LOGIC: ₹56 (50+6) if sponsor joined < 30 days ago, else ₹6
+        let reward = 6;
+        if (sponsorUser.createdAt) {
+          const joinDate = new Date(sponsorUser.createdAt);
+          const now = new Date();
+          const diffTime = Math.abs(now - joinDate);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          if (diffDays <= 30) {
+            reward = 56;
+          }
+        }
+
+        sponsorUser.balance = (Number(sponsorUser.balance) || 0) + reward;
+        sponsorUser.totalIncome = (Number(sponsorUser.totalIncome) || 0) + reward;
+
+        await sponsorUser.save();
+      }
+    }
 
     const userObj = newUser.toObject();
     delete userObj.password;
@@ -288,6 +324,27 @@ router.put('/users/:id/role', adminAuth, async (req, res) => {
     return res.json({ user: userObj });
   } catch (err) {
     console.error('Set role error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Manual user activation (admin-only)
+router.put('/users/:id/activate', adminAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.isActivated = true;
+    if (!user.activationPackage) user.activationPackage = 'AdminManual';
+    if (!user.activatedAt) user.activatedAt = new Date();
+
+    await user.save();
+
+    const userObj = user.toObject();
+    delete userObj.password;
+    return res.json({ user: userObj });
+  } catch (err) {
+    console.error('Activate user error', err);
     res.status(500).json({ message: 'Server error' });
   }
 });

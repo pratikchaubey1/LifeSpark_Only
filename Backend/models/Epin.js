@@ -15,7 +15,7 @@ const epinSchema = new mongoose.Schema({
 });
 
 // Indexes for performance
-epinSchema.index({ code: 1 });
+// Note: 'code' already has a unique index from schema definition
 epinSchema.index({ ownerUserId: 1 });
 epinSchema.index({ used: 1 });
 
