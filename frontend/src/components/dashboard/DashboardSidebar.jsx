@@ -22,10 +22,9 @@ const DASHBOARD_ITEMS = [
       { label: "Generate ePin", path: "/dashboard/epin-generate" },
       { label: "ePin Transfer", path: "/dashboard/epin-transfer" },
       { label: "ePin Report", path: "/dashboard/epin-report" },
+      { label: "Activate Member", path: "/dashboard/activate-id" },
     ],
   },
-
-  { label: "Active ID", path: "/dashboard/activate-id" },
 
   {
     label: "My Team Network",
@@ -144,8 +143,8 @@ export default function DashboardSidebar({ open = true, onClose }) {
               onClick={() => onClose && onClose()}
               className="w-full block text-center bg-emerald-600 hover:bg-emerald-700 py-2 rounded-lg font-medium text-white"
             >
-              
-               Home
+
+              Home
             </Link>
           </div>
         )}

@@ -24,12 +24,24 @@ async function generateUniqueInviteCode() {
 // Public helper: lookup sponsor by invite code (for auto-fill sponsor name on register page)
 router.get('/sponsor/:code', async (req, res) => {
   try {
-    const code = String(req.params.code || '').trim();
-    if (!code) return res.status(400).json({ message: 'Invite code is required' });
+    const code = String(req.params.code || '').trim().toUpperCase(); // Normalize to uppercase
+    console.log('🔍 Sponsor lookup request for code:', code);
 
-    const sponsorUser = await User.findOne({ inviteCode: code });
-    if (!sponsorUser) return res.status(404).json({ message: 'Invalid invite code' });
+    if (!code) {
+      console.log('❌ Sponsor lookup failed: No code provided');
+      return res.status(400).json({ message: 'Invite code is required' });
+    }
 
+    const sponsorUser = await User.findOne({
+      inviteCode: { $regex: new RegExp(`^${code}$`, 'i') } // Case-insensitive search
+    });
+
+    if (!sponsorUser) {
+      console.log('❌ Sponsor not found for code:', code);
+      return res.status(404).json({ message: 'Invalid invite code' });
+    }
+
+    console.log('✅ Sponsor found:', sponsorUser.name, '(', sponsorUser.inviteCode, ')');
     return res.json({
       sponsor: {
         id: sponsorUser._id,
@@ -38,13 +50,16 @@ router.get('/sponsor/:code', async (req, res) => {
       }
     });
   } catch (err) {
-    console.error('Sponsor lookup error', err);
+    console.error('❌ Sponsor lookup error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
 
 router.post('/register', async (req, res) => {
   try {
+    console.log('=== REGISTRATION REQUEST ===');
+    console.log('Request body:', JSON.stringify(req.body, null, 2));
+
     const {
       name,
       email,
@@ -56,38 +71,42 @@ router.post('/register', async (req, res) => {
     } = req.body;
 
     if (!name || !email || !password) {
+      console.log('Validation failed: Missing required fields');
       return res.status(400).json({ message: 'Name, email and password are required' });
     }
 
     // For the first-ever user allow signup without sponsor.
     // For all others sponsorId must be a valid invite code.
+    console.log('Checking user count...');
     const userCount = await User.countDocuments();
     const hasExistingUsers = userCount > 0;
+    console.log(`User count: ${userCount}, hasExistingUsers: ${hasExistingUsers}`);
 
     if (hasExistingUsers && !sponsorId) {
+      console.log('Validation failed: Sponsor ID required for non-first user');
       return res.status(400).json({ message: 'Invite code (Sponsor ID) is required' });
     }
 
     // Find sponsor
     let sponsorUser = null;
     if (hasExistingUsers) {
+      console.log('Looking up sponsor with code:', sponsorId);
       const code = String(sponsorId || '').trim();
-      sponsorUser = await User.findOne({
-        $or: [
-          { inviteCode: code },
-          { _id: code },
-          { sponsorId: code }
-        ]
-      });
+      // Only search by inviteCode (not _id, as that would cause CastError)
+      sponsorUser = await User.findOne({ inviteCode: code });
+      console.log('Sponsor found:', sponsorUser ? `Yes (${sponsorUser.name})` : 'No');
       if (!sponsorUser) {
+        console.log('Validation failed: Invalid invite code');
         return res.status(400).json({ message: 'Invalid invite code' });
       }
     }
 
     // Uniqueness: email (case-insensitive)
+    console.log('Checking email uniqueness...');
     const normalizedEmail = String(email).trim().toLowerCase();
     const existingEmail = await User.findOne({ email: normalizedEmail });
     if (existingEmail) {
+      console.log('Validation failed: Email already exists');
       return res.status(409).json({ message: 'Email already registered' });
     }
 
@@ -100,16 +119,23 @@ router.post('/register', async (req, res) => {
 
     const normalizedPhone = normalizePhone(phone);
     if (normalizedPhone) {
+      console.log('Checking phone uniqueness...');
       const phoneRegex = new RegExp(normalizedPhone + '$');
       const existingPhone = await User.findOne({ phone: phoneRegex });
       if (existingPhone) {
+        console.log('Validation failed: Phone already exists');
         return res.status(409).json({ message: 'Phone number already registered' });
       }
     }
 
+    console.log('Hashing password...');
     const hashed = await bcrypt.hash(password, 10);
-    const inviteCode = await generateUniqueInviteCode();
 
+    console.log('Generating unique invite code...');
+    const inviteCode = await generateUniqueInviteCode();
+    console.log('Generated invite code:', inviteCode);
+
+    console.log('Creating new user object...');
     const newUser = new User({
       name,
       email: normalizedEmail,
@@ -129,8 +155,8 @@ router.post('/register', async (req, res) => {
       isActivated: false,
       activationPackage: null,
       activatedAt: null,
-      balance: 0,
-      totalIncome: 0,
+      balance: 50, // Initial Signing Bonus
+      totalIncome: 50, // Reflect initial bonus in income?
       withdrawal: 0,
       freedomIncome: 0,
       dailyBonusIncome: 0,
@@ -155,34 +181,65 @@ router.post('/register', async (req, res) => {
         ifsc: '',
         branchName: '',
       },
+      directInviteIds: [], // Initialize empty array
     });
 
+    console.log('Saving new user to database...');
     await newUser.save();
+    console.log('User saved successfully with ID:', newUser._id);
 
     // Track who invited this user (direct downline) on sponsor record
     if (sponsorUser) {
+      console.log('Updating sponsor record...');
       if (!Array.isArray(sponsorUser.directInviteIds)) {
         sponsorUser.directInviteIds = [];
       }
       sponsorUser.directInviteIds.push(newUser._id.toString());
 
-      // Reward inviter ₹6 when someone registers using their invite code
-      const reward = 6;
+      // BONUS LOGIC: ₹50 if sponsor joined < 30 days ago, else ₹6
+      let reward = 6;
+      if (sponsorUser.createdAt) {
+        const joinDate = new Date(sponsorUser.createdAt);
+        const now = new Date();
+        const diffTime = Math.abs(now - joinDate);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays <= 30) {
+          reward = 56;
+          console.log(`Sponsor joined ${diffDays} days ago. Eligible for ₹50 + ₹6 = ₹56 bonus.`);
+        } else {
+          console.log(`Sponsor joined ${diffDays} days ago. Getting standard ₹6 reward.`);
+        }
+      }
+
       sponsorUser.balance = (Number(sponsorUser.balance) || 0) + reward;
       sponsorUser.totalIncome = (Number(sponsorUser.totalIncome) || 0) + reward;
 
+      console.log(`Crediting sponsor ${sponsorUser.name} with ₹${reward}`);
       await sponsorUser.save();
+      console.log('Sponsor record updated successfully');
     }
 
+    console.log('Generating JWT token...');
     const token = jwt.sign({ id: newUser._id }, JWT_SECRET, { expiresIn: '7d' });
     const userObj = newUser.toObject();
     delete userObj.password;
 
+    console.log('Registration successful!');
+    console.log('=== END REGISTRATION ===');
     res.status(201).json({ user: userObj, token });
   } catch (err) {
-    console.error('Register error', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error('❌ REGISTRATION ERROR:', err);
+    console.error('Error stack:', err.stack);
+    console.error('Error name:', err.name);
+    console.error('Error message:', err.message);
+    res.status(500).json({ message: 'Server error', error: err.message, stack: err.stack });
   }
+});
+
+// Health check endpoint
+router.get('/health', (req, res) => {
+  res.json({ status: 'ok', message: 'Auth routes are working' });
 });
 
 router.post('/login', async (req, res) => {

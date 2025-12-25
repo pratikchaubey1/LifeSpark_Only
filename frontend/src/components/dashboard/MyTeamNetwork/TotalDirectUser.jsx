@@ -1,7 +1,33 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
+import config from "../../../config/config";
 
 const TotalDirectUser = ({ onMenuOpen, sidebarOpen }) => {
-  const directUsers = []; // API data will come here in future
+  const [directUsers, setDirectUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchTeam = async () => {
+      try {
+        const token = localStorage.getItem("token");
+        if (!token) return;
+
+        const res = await fetch(`${config.apiUrl}/dashboard/direct-team`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          setDirectUsers(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch direct team", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTeam();
+  }, []);
 
   return (
     <div className="min-h-screen w-full bg-[#f3f4f6] p-5 md:p-10">
@@ -46,8 +72,13 @@ const TotalDirectUser = ({ onMenuOpen, sidebarOpen }) => {
           <span className="hidden md:block">Joining Date</span>
         </div>
 
+        {/* Loading State */}
+        {loading && (
+          <div className="py-10 text-center text-slate-500">Loading team...</div>
+        )}
+
         {/* If No Records */}
-        {directUsers.length === 0 && (
+        {!loading && directUsers.length === 0 && (
           <div className="w-full py-14 flex flex-col items-center justify-center text-gray-500">
             <img
               className="h-28 opacity-70 mb-4"
@@ -61,27 +92,29 @@ const TotalDirectUser = ({ onMenuOpen, sidebarOpen }) => {
           </div>
         )}
 
-        {/* Future Records */}
-        {directUsers.length > 0 &&
+        {/* Records */}
+        {!loading && directUsers.length > 0 &&
           directUsers.map((user, index) => (
             <div
               key={index}
               className="grid grid-cols-3 md:grid-cols-4 gap-4 px-3 py-4 border-b last:border-none hover:bg-slate-50 transition"
             >
-              <span className="font-medium text-slate-800">{user.name}</span>
-              <span className="text-slate-600">{user.userId}</span>
+              <div className="flex flex-col">
+                <span className="font-medium text-slate-800">{user.name}</span>
+                <span className="text-xs text-slate-400 md:hidden">{user.joined}</span>
+              </div>
+              <span className="text-slate-600 text-sm font-mono truncate" title={user.userId}>{user.inviteCode}</span>
 
               <span
-                className={`px-3 py-1 text-xs rounded-full w-fit ${
-                  user.status === "Active"
-                    ? "bg-emerald-100 text-emerald-700"
-                    : "bg-red-100 text-red-700"
-                }`}
+                className={`px-3 py-1 text-xs rounded-full w-fit h-fit ${user.status === "Active"
+                  ? "bg-emerald-100 text-emerald-700"
+                  : "bg-red-100 text-red-700"
+                  }`}
               >
                 {user.status}
               </span>
 
-              <span className="hidden md:block text-slate-500">
+              <span className="hidden md:block text-slate-500 text-sm">
                 {user.joined}
               </span>
             </div>

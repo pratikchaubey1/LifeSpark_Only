@@ -35,56 +35,106 @@ router.get('/', auth, async (req, res) => {
 
 router.post('/activate-id', auth, async (req, res) => {
   try {
-    const { epin, packageId } = req.body || {};
+    const { epin, packageId, targetUserId } = req.body || {};
 
     if (!epin || !packageId) {
       return res.status(400).json({ message: 'E-Pin and package are required' });
     }
 
-    const user = await User.findById(req.user._id);
-    if (!user) {
+    const spender = await User.findById(req.user._id);
+    if (!spender) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    if (user.isActivated) {
-      return res.status(400).json({ message: 'This ID is already activated.' });
+    // Determine beneficiary (target user or self)
+    let beneficiary;
+    if (targetUserId) {
+      // Try to find by ID or Invite Code
+      // Check if valid ObjectId
+      const mongoose = require('mongoose');
+      if (mongoose.Types.ObjectId.isValid(targetUserId)) {
+        beneficiary = await User.findById(targetUserId);
+      }
+
+      // If not found by ID, try invite code
+      if (!beneficiary) {
+        beneficiary = await User.findOne({ inviteCode: targetUserId });
+      }
+
+      if (!beneficiary) {
+        return res.status(404).json({ message: 'Target user not found (invalid ID or Invite Code)' });
+      }
+    } else {
+      beneficiary = spender;
     }
 
+    if (beneficiary.isActivated) {
+      return res.status(400).json({ message: `User ${beneficiary.name} (${beneficiary.inviteCode}) is already activated.` });
+    }
+
+    // Check E-Pin ownership (must be owned by SPENDER)
     const epinObj = await Epin.findOne({
       code: String(epin).trim(),
       used: false,
       $or: [
-        { ownerUserId: null },
-        { ownerUserId: user._id.toString() }
+        { ownerUserId: null }, // System pool
+        { ownerUserId: spender._id.toString() } // Owned by logged-in user
       ]
     });
 
     if (!epinObj) {
-      return res.status(400).json({ message: 'Invalid or already used E-Pin.' });
+      return res.status(400).json({ message: 'Invalid or E-Pin not found in your wallet.' });
     }
 
     // Mark E-Pin as used
     epinObj.used = true;
-    epinObj.usedByUserId = user._id.toString();
+    epinObj.usedByUserId = beneficiary._id.toString(); // Used for beneficiary
     epinObj.usedAt = new Date();
     epinObj.packageId = packageId;
     await epinObj.save();
 
-    // Activate user
-    user.isActivated = true;
-    user.activationPackage = packageId;
-    user.activatedAt = new Date();
-    user.lastDailyCredit = null;
-    await user.save();
+    // Activate beneficiary
+    beneficiary.isActivated = true;
+    beneficiary.activationPackage = packageId;
+    beneficiary.activatedAt = new Date();
+    beneficiary.lastDailyCredit = null;
+    await beneficiary.save();
 
-    const { password, ...safeUser } = user.toObject();
+    const { password, ...safeUser } = beneficiary.toObject();
 
     res.json({
-      message: 'ID activated successfully.',
+      message: `Successfully activated user: ${beneficiary.name} (${beneficiary.inviteCode})`,
       user: safeUser,
     });
   } catch (err) {
     console.error('Activate ID error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+/* -------------------- DIRECT TEAM -------------------- */
+router.get('/direct-team', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Fetch details of all users in directInviteIds
+    const team = await User.find({
+      _id: { $in: user.directInviteIds || [] }
+    }).select('name email phone isActivated createdAt role inviteCode');
+
+    const mappedTeam = team.map(u => ({
+      userId: u._id,
+      name: u.name,
+      email: u.email,
+      inviteCode: u.inviteCode,
+      status: u.isActivated ? 'Active' : 'Inactive',
+      joined: u.createdAt ? u.createdAt.toISOString().slice(0, 10) : 'N/A'
+    }));
+
+    res.json(mappedTeam);
+  } catch (err) {
+    console.error('Direct Team Fetch Error', err);
     res.status(500).json({ message: 'Server error' });
   }
 });

@@ -44,6 +44,14 @@ function IconUsers() {
     </svg>
   );
 }
+function IconCheckCircle() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M22 4L12 14.01l-3-3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
 function IconKey() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -151,7 +159,9 @@ export default function AdminPage() {
   const [creatingSiteTeamMember, setCreatingSiteTeamMember] = useState(false);
   const [loadingSiteTestimonials, setLoadingSiteTestimonials] = useState(false);
   const [creatingSiteTestimonial, setCreatingSiteTestimonial] = useState(false);
+
   const [lookingSponsor, setLookingSponsor] = useState(false);
+  const [activatingUserId, setActivatingUserId] = useState(null);
 
   // admin: create member
   const [creatingMember, setCreatingMember] = useState(false);
@@ -207,6 +217,11 @@ export default function AdminPage() {
       // fetch epins & site stats eagerly (users are loaded lazily when Members clicked)
       fetchEpins(adminToken);
       fetchStats(adminToken);
+
+      // If we are on a page that needs users, fetch them
+      if (currentPage === "members" || currentPage === "bank" || currentPage === "activateUsers") {
+        fetchUsers(adminToken);
+      }
     }
     // handle browser back/forward
     const onPop = () => {
@@ -790,13 +805,34 @@ export default function AdminPage() {
     }
   }
 
+  async function activateUser(userId) {
+    if (!adminToken || !userId) return;
+    setActivatingUserId(userId);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/admin/users/${userId}/activate`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to activate user");
+
+      // Update local state
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, isActivated: true, ...data.user } : u));
+    } catch (err) {
+      setError(err.message || "Failed to activate user");
+    } finally {
+      setActivatingUserId(null);
+    }
+  }
+
   function openPage(page) {
     setCurrentPage(page);
     try {
       window.history.pushState({}, "", `/admin/${page}`);
     } catch (e) { }
-    // lazy-load users when going to members/bank details
-    if ((page === "members" || page === "bank") && users.length === 0 && adminToken) {
+    // lazy-load users when going to members/bank details/activate
+    if ((page === "members" || page === "bank" || page === "activateUsers") && users.length === 0 && adminToken) {
       fetchUsers(adminToken);
     }
     if (page === "kyc" && kycs.length === 0 && adminToken) {
@@ -845,6 +881,87 @@ export default function AdminPage() {
     );
   }
 
+  function renderActivationPage() {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <h2 className="text-2xl font-bold mb-2">User Activation</h2>
+        <p className="text-sm text-slate-500 mb-6">Manually activate registered users.</p>
+
+        {loadingUsers && <div className="p-4 text-center">Loading users...</div>}
+
+        {!loadingUsers && (
+          <div className="bg-white rounded-lg shadowoverflow-hidden border border-slate-200">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-xs">
+                  <tr>
+                    <th className="px-4 py-3">Name</th>
+                    <th className="px-4 py-3">Email</th>
+                    <th className="px-4 py-3">Phone</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3 text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {(() => {
+                    const adminUser = users.find(u => u.role === "admin" || u.name === "admin" || u.email === "admin@gmail.com");
+                    const adminCode = adminUser?.inviteCode;
+
+                    const visibleUsers = users.filter(u => {
+                      if (u.id === adminUser?.id) return true;
+                      if (!u.sponsorId) return true;
+                      if (adminCode && u.sponsorId && u.sponsorId.trim() === adminCode.trim()) return true;
+                      return false;
+                    });
+
+                    return visibleUsers.map((u) => (
+                      <tr key={u.id} className="hover:bg-slate-50">
+                        <td className="px-4 py-3 font-medium text-slate-800">{u.name}</td>
+                        <td className="px-4 py-3 text-slate-500">{u.email}</td>
+                        <td className="px-4 py-3 text-slate-500">{u.phone}</td>
+                        <td className="px-4 py-3">
+                          {u.isActivated ? (
+                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-50 text-green-700">
+                              Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-50 text-red-700">
+                              Inactive
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          {u.isActivated ? (
+                            <span className="text-xs text-slate-400 font-medium px-3 py-1">Activated</span>
+                          ) : (
+                            <button
+                              onClick={() => activateUser(u.id)}
+                              disabled={activatingUserId === u.id}
+                              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded px-3 py-1 text-xs font-medium transition-colors"
+                            >
+                              {activatingUserId === u.id ? "Activating..." : "Activate Now"}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    ));
+                  })()}
+                  {users.length === 0 && (
+                    <tr>
+                      <td colSpan="5" className="px-4 py-8 text-center text-slate-400">
+                        No users found.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
+
   /* Main admin UI */
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex">
@@ -872,6 +989,18 @@ export default function AdminPage() {
           <SidebarButton label="Testimonials" active={currentPage === "testimonials"} icon={<IconFile />} onClick={() => openPage("testimonials")} />
           <SidebarButton label="E-Pin" active={currentPage === "epin"} icon={<IconKey />} onClick={() => openPage("epin")} />
           <SidebarButton label="Income" active={currentPage === "income"} icon={<IconDollar />} onClick={() => openPage("income")} />
+          <SidebarButton
+            label="Site Content"
+            active={currentPage === "site"}
+            icon={<IconFile />}
+            onClick={() => openPage("site")}
+          />
+          <SidebarButton
+            label="User Activation"
+            active={currentPage === "activateUsers"}
+            icon={<IconCheckCircle />}
+            onClick={() => openPage("activateUsers")}
+          />
         </nav>
 
         <div className="mt-6">
@@ -1007,120 +1136,139 @@ export default function AdminPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {users.map((u) => {
-                        const inviteCount = u.directInviteCount ?? (Array.isArray(u.invitees) ? u.invitees.length : 0);
-                        const isExpanded = expandedInviteUserId === u.id;
+                      {(() => {
+                        // Filter users to show only Admin and Admin's direct referrals
+                        // We assume the "admin" user is the one with role='admin' or name='admin'
+                        // Adjust criteria if necessary.
+                        const adminUser = users.find(u => u.role === "admin" || u.name === "admin" || u.email === "admin@gmail.com");
+                        const adminCode = adminUser?.inviteCode;
 
-                        return (
-                          <React.Fragment key={u.id}>
-                            <tr className="border-t hover:bg-slate-50">
-                              <td className="p-3">{u.name}</td>
-                              <td className="p-3 font-mono text-xs">{u.id}</td>
-                              <td className="p-3">{u.email}</td>
-                              <td className="p-3">
-                                <button
-                                  type="button"
-                                  onClick={() => copyToClipboard(u.inviteCode)}
-                                  className="font-mono text-blue-600 hover:underline"
-                                  title="Copy invite code"
-                                >
-                                  {u.inviteCode}
-                                </button>
-                              </td>
-                              <td className="p-3">
-                                <div className="flex items-center gap-2">
-                                  <span className="text-xs text-slate-600">{inviteCount}</span>
+                        const visibleUsers = users.filter(u => {
+                          // Always show admin
+                          if (u.id === adminUser?.id) return true;
+                          // Show if no sponsor (root)
+                          if (!u.sponsorId) return true;
+                          // Show if sponsored by admin (handle whitespace)
+                          if (adminCode && u.sponsorId && u.sponsorId.trim() === adminCode.trim()) return true;
+
+                          return false;
+                        });
+
+                        return visibleUsers.map((u) => {
+                          const inviteCount = u.directInviteCount ?? (Array.isArray(u.invitees) ? u.invitees.length : 0);
+                          const isExpanded = expandedInviteUserId === u.id;
+
+                          return (
+                            <React.Fragment key={u.id}>
+                              <tr className="border-t hover:bg-slate-50">
+                                <td className="p-3">{u.name}</td>
+                                <td className="p-3 font-mono text-xs">{u.id}</td>
+                                <td className="p-3">{u.email}</td>
+                                <td className="p-3">
                                   <button
                                     type="button"
-                                    onClick={() => setExpandedInviteUserId((prev) => (prev === u.id ? null : u.id))}
-                                    className="border px-2 py-1 rounded text-xs hover:bg-white"
+                                    onClick={() => copyToClipboard(u.inviteCode)}
+                                    className="font-mono text-blue-600 hover:underline"
+                                    title="Copy invite code"
                                   >
-                                    {isExpanded ? "Hide" : "View"}
+                                    {u.inviteCode}
                                   </button>
-                                </div>
-                              </td>
-                              <td className="p-3">
-                                <select
-                                  value={u.role || "member"}
-                                  onChange={(e) => updateUserRole(u.id, e.target.value)}
-                                  className="border rounded px-2 py-1 text-xs"
-                                >
-                                  <option value="member">member</option>
-                                  <option value="franchise">franchise</option>
-                                </select>
-                              </td>
-                              <td className="p-3 font-mono">{u.activationPin || "-"}</td>
-                              <td className="p-3">
-                                {u.isActivated ? (
-                                  <span className="text-green-600 font-semibold">Active</span>
-                                ) : (
-                                  <span className="text-slate-500">Inactive</span>
-                                )}
-                              </td>
-                              <td className="p-3 text-right">{u.balance ?? 0}</td>
-                              <td className="p-3 text-right font-semibold text-green-600">{u.totalIncome ?? 0}</td>
-                            </tr>
-
-                            {isExpanded && (
-                              <tr className="border-t bg-slate-50/60">
-                                <td colSpan={10} className="p-3">
-                                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                                    <div className="bg-white border rounded p-3">
-                                      <div className="text-sm font-semibold mb-1">Invite People</div>
-                                      <div className="text-xs text-slate-600">
-                                        Share this invite code with new members (they will enter it in Sponsor Invite Code during registration).
-                                      </div>
-                                      <div className="mt-2 flex items-center gap-2">
-                                        <div className="font-mono text-sm px-2 py-1 border rounded bg-slate-50">
-                                          {u.inviteCode}
-                                        </div>
-                                        <button
-                                          type="button"
-                                          onClick={() => copyToClipboard(u.inviteCode)}
-                                          className="border px-3 py-1.5 rounded text-xs hover:bg-slate-50"
-                                        >
-                                          Copy
-                                        </button>
-                                      </div>
-                                    </div>
-
-                                    <div className="bg-white border rounded p-3">
-                                      <div className="text-sm font-semibold mb-2">Direct Invitees</div>
-                                      <div className="overflow-auto max-h-48">
-                                        <table className="min-w-full text-xs">
-                                          <thead className="bg-slate-50 sticky top-0">
-                                            <tr>
-                                              <th className="p-2 text-left">Name</th>
-                                              <th className="p-2 text-left">User ID</th>
-                                              <th className="p-2 text-left">Invite Code</th>
-                                            </tr>
-                                          </thead>
-                                          <tbody>
-                                            {(u.invitees || []).map((m) => (
-                                              <tr key={m.id} className="border-t">
-                                                <td className="p-2">{m.name}</td>
-                                                <td className="p-2 font-mono">{m.id}</td>
-                                                <td className="p-2 font-mono text-blue-700">{m.inviteCode}</td>
-                                              </tr>
-                                            ))}
-                                            {(u.invitees || []).length === 0 && (
-                                              <tr>
-                                                <td colSpan={3} className="p-3 text-center text-slate-500">
-                                                  No invitees yet.
-                                                </td>
-                                              </tr>
-                                            )}
-                                          </tbody>
-                                        </table>
-                                      </div>
-                                    </div>
+                                </td>
+                                <td className="p-3">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-xs text-slate-600">{inviteCount}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setExpandedInviteUserId((prev) => (prev === u.id ? null : u.id))}
+                                      className="border px-2 py-1 rounded text-xs hover:bg-white"
+                                    >
+                                      {isExpanded ? "Hide" : "View"}
+                                    </button>
                                   </div>
                                 </td>
+                                <td className="p-3">
+                                  <select
+                                    value={u.role || "member"}
+                                    onChange={(e) => updateUserRole(u.id, e.target.value)}
+                                    className="border rounded px-2 py-1 text-xs"
+                                  >
+                                    <option value="member">member</option>
+                                    <option value="franchise">franchise</option>
+                                  </select>
+                                </td>
+                                <td className="p-3 font-mono">{u.activationPin || "-"}</td>
+                                <td className="p-3">
+                                  {u.isActivated ? (
+                                    <span className="text-green-600 font-semibold">Active</span>
+                                  ) : (
+                                    <span className="text-slate-500">Inactive</span>
+                                  )}
+                                </td>
+                                <td className="p-3 text-right">{u.balance ?? 0}</td>
+                                <td className="p-3 text-right font-semibold text-green-600">{u.totalIncome ?? 0}</td>
                               </tr>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
+
+                              {isExpanded && (
+                                <tr className="border-t bg-slate-50/60">
+                                  <td colSpan={10} className="p-3">
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                      <div className="bg-white border rounded p-3">
+                                        <div className="text-sm font-semibold mb-1">Invite People</div>
+                                        <div className="text-xs text-slate-600">
+                                          Share this invite code with new members (they will enter it in Sponsor Invite Code during registration).
+                                        </div>
+                                        <div className="mt-2 flex items-center gap-2">
+                                          <div className="font-mono text-sm px-2 py-1 border rounded bg-slate-50">
+                                            {u.inviteCode}
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => copyToClipboard(u.inviteCode)}
+                                            className="border px-3 py-1.5 rounded text-xs hover:bg-slate-50"
+                                          >
+                                            Copy
+                                          </button>
+                                        </div>
+                                      </div>
+
+                                      <div className="bg-white border rounded p-3">
+                                        <div className="text-sm font-semibold mb-2">Direct Invitees</div>
+                                        <div className="overflow-auto max-h-48">
+                                          <table className="min-w-full text-xs">
+                                            <thead className="bg-slate-50 sticky top-0">
+                                              <tr>
+                                                <th className="p-2 text-left">Name</th>
+                                                <th className="p-2 text-left">User ID</th>
+                                                <th className="p-2 text-left">Invite Code</th>
+                                              </tr>
+                                            </thead>
+                                            <tbody>
+                                              {(u.invitees || []).map((m) => (
+                                                <tr key={m.id} className="border-t">
+                                                  <td className="p-2">{m.name}</td>
+                                                  <td className="p-2 font-mono">{m.id}</td>
+                                                  <td className="p-2 font-mono text-blue-700">{m.inviteCode}</td>
+                                                </tr>
+                                              ))}
+                                              {(u.invitees || []).length === 0 && (
+                                                <tr>
+                                                  <td colSpan={3} className="p-3 text-center text-slate-500">
+                                                    No invitees yet.
+                                                  </td>
+                                                </tr>
+                                              )}
+                                            </tbody>
+                                          </table>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </React.Fragment>
+                          );
+                        })
+                      })()}
                       {users.length === 0 && (
                         <tr>
                           <td colSpan={10} className="p-6 text-center text-slate-500">
@@ -1837,7 +1985,7 @@ export default function AdminPage() {
                     value={epinTransfer.toUserId}
                     onChange={(e) => setEpinTransfer((s) => ({ ...s, toUserId: e.target.value }))}
                     className="border rounded px-3 py-2 text-sm"
-                    placeholder="Member User ID"
+                    placeholder="User ID or Invite Code"
                   />
                   <input
                     value={epinTransfer.count}
@@ -1852,6 +2000,9 @@ export default function AdminPage() {
                   >
                     {transferringEpins ? "Transferring..." : "Transfer"}
                   </button>
+                </div>
+                <div className="mt-2 text-xs text-slate-600">
+                  💡 Tip: You can use the member's <span className="font-semibold">Invite Code</span> (e.g., LS123456), <span className="font-semibold">User ID</span>, or <span className="font-semibold">Email</span> to transfer e-pins.
                 </div>
 
                 {lastEpinTransfer && (
@@ -1920,6 +2071,9 @@ export default function AdminPage() {
               </div>
             </div>
           )}
+
+          {/* User Activation page */}
+          {currentPage === "activateUsers" && renderActivationPage()}
 
         </div>
 

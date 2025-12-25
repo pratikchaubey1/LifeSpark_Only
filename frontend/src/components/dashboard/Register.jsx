@@ -67,8 +67,11 @@ export default function OfficialRegisterPage({ onSubmit, onGoToLogin, onGoHome }
   function validate() {
     const e = {};
 
-    if (!sponsorId.trim()) e.sponsorId = "Invite code is required.";
-    else if (!sponsorName.trim()) e.sponsorId = sponsorError || "Invalid invite code";
+    // Sponsor code is optional (backend will handle first user case)
+    // Only validate if user has entered a sponsor code
+    if (sponsorId.trim() && !sponsorName.trim()) {
+      e.sponsorId = sponsorError || "Invalid invite code";
+    }
 
     if (!name.trim()) e.name = "Name is required.";
 
@@ -159,7 +162,7 @@ export default function OfficialRegisterPage({ onSubmit, onGoToLogin, onGoHome }
 
             <div>
               <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">
-                Create your Life Spark ID 
+                Create your Life Spark ID
               </h1>
               <p className="text-sm md:text-[13px] text-slate-400 mt-1">
                 Set up your account to unlock{" "}
@@ -198,7 +201,7 @@ export default function OfficialRegisterPage({ onSubmit, onGoToLogin, onGoHome }
               <label className="block">
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-xs font-medium tracking-wide text-slate-200">
-                    Invite Code
+                    Invite Code <span className="text-slate-500 font-normal">(Optional for first user)</span>
                   </span>
                   <span className="text-[10px] text-slate-500">
                     Enter your sponsor's invite code
@@ -213,11 +216,10 @@ export default function OfficialRegisterPage({ onSubmit, onGoToLogin, onGoHome }
                       // clear old sponsor name until verified
                       setSponsorName("");
                     }}
-                    className={`w-full rounded-xl border bg-slate-900/60 px-3.5 py-2.5 pr-10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition ${
-                      errors.sponsorId
-                        ? "border-red-400/70"
-                        : "border-slate-700"
-                    }`}
+                    className={`w-full rounded-xl border bg-slate-900/60 px-3.5 py-2.5 pr-10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition ${errors.sponsorId
+                      ? "border-red-400/70"
+                      : "border-slate-700"
+                      }`}
                     placeholder="e.g. LS443938"
                   />
                   <FiCreditCard className="w-4 h-4 absolute right-3.5 top-3 text-slate-500" />
@@ -244,11 +246,10 @@ export default function OfficialRegisterPage({ onSubmit, onGoToLogin, onGoHome }
                     type="text"
                     value={sponsorName}
                     readOnly
-                    className={`w-full rounded-xl border bg-slate-900/60 px-3.5 py-2.5 pr-10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition ${
-                      errors.sponsorId
-                        ? "border-red-400/70"
-                        : "border-slate-700"
-                    }`}
+                    className={`w-full rounded-xl border bg-slate-900/60 px-3.5 py-2.5 pr-10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition ${errors.sponsorId
+                      ? "border-red-400/70"
+                      : "border-slate-700"
+                      }`}
                     placeholder="Auto from invite code"
                   />
                   <FiUser className="w-4 h-4 absolute right-3.5 top-3 text-slate-500" />
@@ -270,9 +271,8 @@ export default function OfficialRegisterPage({ onSubmit, onGoToLogin, onGoHome }
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className={`w-full rounded-xl border bg-slate-900/60 px-3.5 py-2.5 pr-10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition ${
-                      errors.name ? "border-red-400/70" : "border-slate-700"
-                    }`}
+                    className={`w-full rounded-xl border bg-slate-900/60 px-3.5 py-2.5 pr-10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition ${errors.name ? "border-red-400/70" : "border-slate-700"
+                      }`}
                     placeholder="Your full name"
                   />
                   <FiUser className="w-4 h-4 absolute right-3.5 top-3 text-slate-500" />
@@ -299,9 +299,8 @@ export default function OfficialRegisterPage({ onSubmit, onGoToLogin, onGoHome }
                     type="tel"
                     value={phone}
                     onChange={(e) => setPhone(e.target.value)}
-                    className={`w-full rounded-xl border bg-slate-900/60 px-3.5 py-2.5 pr-10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition ${
-                      errors.phone ? "border-red-400/70" : "border-slate-700"
-                    }`}
+                    className={`w-full rounded-xl border bg-slate-900/60 px-3.5 py-2.5 pr-10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition ${errors.phone ? "border-red-400/70" : "border-slate-700"
+                      }`}
                     placeholder="10-digit mobile number"
                   />
                   <FiPhone className="w-4 h-4 absolute right-3.5 top-3 text-slate-500" />
@@ -325,9 +324,8 @@ export default function OfficialRegisterPage({ onSubmit, onGoToLogin, onGoHome }
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className={`w-full rounded-xl border bg-slate-900/60 px-3.5 py-2.5 pr-10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition ${
-                      errors.email ? "border-red-400/70" : "border-slate-700"
-                    }`}
+                    className={`w-full rounded-xl border bg-slate-900/60 px-3.5 py-2.5 pr-10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition ${errors.email ? "border-red-400/70" : "border-slate-700"
+                      }`}
                     placeholder="you@example.com"
                   />
                   <FiMail className="w-4 h-4 absolute right-3.5 top-3 text-slate-500" />
@@ -350,9 +348,8 @@ export default function OfficialRegisterPage({ onSubmit, onGoToLogin, onGoHome }
                   <textarea
                     value={address}
                     onChange={(e) => setAddress(e.target.value)}
-                    className={`w-full rounded-xl border bg-slate-900/60 px-3.5 py-2.5 pr-10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition min-h-[80px] ${
-                      errors.address ? "border-red-400/70" : "border-slate-700"
-                    }`}
+                    className={`w-full rounded-xl border bg-slate-900/60 px-3.5 py-2.5 pr-10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition min-h-[80px] ${errors.address ? "border-red-400/70" : "border-slate-700"
+                      }`}
                     placeholder="House no, street, city, state, pincode"
                   />
                   <FiMapPin className="w-4 h-4 absolute right-3.5 top-3 text-slate-500" />
@@ -379,11 +376,10 @@ export default function OfficialRegisterPage({ onSubmit, onGoToLogin, onGoHome }
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className={`w-full rounded-xl border bg-slate-900/60 px-3.5 py-2.5 pr-10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition ${
-                      errors.password
-                        ? "border-red-400/70"
-                        : "border-slate-700"
-                    }`}
+                    className={`w-full rounded-xl border bg-slate-900/60 px-3.5 py-2.5 pr-10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-400 transition ${errors.password
+                      ? "border-red-400/70"
+                      : "border-slate-700"
+                      }`}
                     placeholder="Create a strong password"
                   />
                   <FiLock className="w-4 h-4 absolute left-3.5 top-3 text-slate-500" />

@@ -24,7 +24,7 @@ export default function TransferToUser({ onMenuOpen }) {
       const data = await res.json();
       if (res.ok)
         setAvailableCount(Array.isArray(data.epins) ? data.epins.length : 0);
-    } catch {}
+    } catch { }
   }
 
   async function loadTransfers() {
@@ -36,7 +36,7 @@ export default function TransferToUser({ onMenuOpen }) {
       });
       const data = await res.json();
       if (res.ok) setTransfers(data.transfers || []);
-    } catch {}
+    } catch { }
   }
 
   async function loadMe() {
@@ -48,7 +48,7 @@ export default function TransferToUser({ onMenuOpen }) {
       });
       const data = await res.json();
       if (res.ok) setMe(data.user);
-    } catch {}
+    } catch { }
   }
 
   async function loadDirectMembers() {
@@ -60,7 +60,7 @@ export default function TransferToUser({ onMenuOpen }) {
       });
       const data = await res.json();
       if (res.ok) setDirectMembers(data.members || []);
-    } catch {}
+    } catch { }
   }
 
   useEffect(() => {
@@ -110,7 +110,7 @@ export default function TransferToUser({ onMenuOpen }) {
   }
 
   return (
-    <div className="w-full min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 p-5 flex justify-center">
+    <div className="w-full min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 p-5 flex justify-center text-slate-800">
       <div className="w-full max-w-5xl space-y-8">
 
         {/* TOP BAR WITH MENU BUTTON */}
@@ -127,7 +127,7 @@ export default function TransferToUser({ onMenuOpen }) {
               viewBox="0 0 24 24"
               stroke="currentColor"
             >
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" 
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2"
                 d="M4 6h16M4 12h16M4 18h16" />
             </svg>
           </button>
