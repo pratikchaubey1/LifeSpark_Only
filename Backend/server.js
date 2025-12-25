@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const cron = require("node-cron");
 
 // ROUTES
+const newroute = require('./test/path');
 const authRoutes = require('./routes/auth');
 const profileRoutes = require('./routes/profile');
 const kycRoutes = require('./routes/kyc');
