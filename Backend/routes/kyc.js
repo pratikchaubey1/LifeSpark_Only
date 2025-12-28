@@ -109,4 +109,39 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+// Text-based KYC data (PAN, Aadhaar etc.)
+router.post('/text', auth, async (req, res) => {
+  try {
+    const { pan, aadhaar, aadhaarAddress, issuedState } = req.body;
+
+    if (!pan || !aadhaar || !aadhaarAddress || !issuedState) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
+
+    let record = await Kyc.findOne({ userId: req.user._id.toString() });
+
+    if (!record) {
+      record = new Kyc({
+        userId: req.user._id.toString(),
+        documents: {},
+        status: 'pending'
+      });
+    }
+
+    record.panNo = pan;
+    record.aadhaarNo = aadhaar;
+    record.aadhaarAddress = aadhaarAddress;
+    record.issuedState = issuedState;
+    record.status = 'pending'; // Reset to pending when updating data?
+    record.submittedAt = Date.now();
+
+    await record.save();
+
+    res.status(200).json({ message: 'KYC text details updated successfully', kyc: record });
+  } catch (err) {
+    console.error('KYC text submission error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 module.exports = router;

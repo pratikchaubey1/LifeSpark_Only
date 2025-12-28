@@ -2,6 +2,7 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const { sendWelcomeEmail } = require('../utils/email');
 
 const router = express.Router();
 
@@ -188,6 +189,13 @@ router.post('/register', async (req, res) => {
     await newUser.save();
     console.log('User saved successfully with ID:', newUser._id);
 
+    // Send Welcome Email (Non-blocking or catch error to not fail registration)
+    try {
+      await sendWelcomeEmail(newUser, password);
+    } catch (mailErr) {
+      console.error('Failed to send welcome email:', mailErr);
+    }
+
     // Track who invited this user (direct downline) on sponsor record
     if (sponsorUser) {
       console.log('Updating sponsor record...');
@@ -245,20 +253,20 @@ router.get('/health', (req, res) => {
 router.post('/login', async (req, res) => {
   try {
     console.log('Login request body:', req.body);
-    const { email, username, password } = req.body;
-    const loginIdentifier = username || email;
+    const { email, username, inviteCode, password } = req.body;
+    const loginIdentifier = inviteCode || username || email;
 
     if (!loginIdentifier || !password) {
       console.log('Login failed: Missing credentials');
-      return res.status(400).json({ message: 'Username and password are required' });
+      return res.status(400).json({ message: 'Invite Code / Email and password are required' });
     }
 
-    const normalizedIdentifier = String(loginIdentifier).trim().toLowerCase();
+    const normalizedIdentifier = String(loginIdentifier).trim();
     console.log('Login identifier:', normalizedIdentifier);
 
     const user = await User.findOne({
       $or: [
-        { email: normalizedIdentifier },
+        { email: normalizedIdentifier.toLowerCase() },
         { inviteCode: { $regex: new RegExp('^' + normalizedIdentifier + '$', 'i') } },
         { name: { $regex: new RegExp('^' + normalizedIdentifier + '$', 'i') } }
       ]

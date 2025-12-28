@@ -165,6 +165,16 @@ export default function App() {
           />
         }
       />
+      <Route
+        path="/register/:sponsorId"
+        element={
+          <OfficialRegisterPage
+            onSubmit={handleRegisterSubmit}
+            onGoToLogin={() => navigate("/login")}
+            onGoHome={() => navigate("/")}
+          />
+        }
+      />
 
       {/* WELCOME */}
       <Route

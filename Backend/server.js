@@ -6,7 +6,6 @@ const mongoose = require('mongoose');
 const cron = require("node-cron");
 
 // ROUTES
-const newroute = require('./test/path');
 const authRoutes = require('./routes/auth');
 const profileRoutes = require('./routes/profile');
 const kycRoutes = require('./routes/kyc');
@@ -14,9 +13,12 @@ const dashboardRoutes = require('./routes/dashboard');
 const withdrawalsRoutes = require('./routes/withdrawals');
 const epinsRoutes = require('./routes/epins');
 const teamRoutes = require('./routes/team');
+const levelIncomeRoutes = require('./routes/levelIncome');
 const projectsRoutes = require('./routes/projects');
 const siteRoutes = require('./routes/site');
 const adminRoutes = require('./routes/admin');
+const rewardsRoutes = require('./routes/rewards');
+const settingsRoutes = require('./routes/settings');
 const testRoutes = require('./routes/test');
 
 const app = express();
@@ -44,10 +46,13 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/withdrawals', withdrawalsRoutes);
 app.use('/api/epins', epinsRoutes);
 app.use('/api/team', teamRoutes);
+app.use('/api/level-income', levelIncomeRoutes);
 app.use('/api/projects', projectsRoutes);
 app.use('/api/site', siteRoutes);
 app.use('/api/test', testRoutes);
 app.use('/api/admin', adminRoutes);
+app.use('/api/rewards', rewardsRoutes);
+app.use('/api/settings', settingsRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'LifeSpark backend is running' });

@@ -44,6 +44,7 @@ const DASHBOARD_ITEMS = [
         path: "/dashboard/level-team",
       },
       { label: "Freedom Business", path: "/dashboard/genealogy" },
+      { label: "Level Income", path: "/dashboard/level-income" },
     ],
   },
 

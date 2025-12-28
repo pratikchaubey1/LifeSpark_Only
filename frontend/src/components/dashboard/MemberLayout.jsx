@@ -21,10 +21,11 @@ import UsedPin from "./e-pin/UsedPin";
 import TeamBusiness from "./MyTeamBusiness/TeamBusiness";
 import RankRewardBusiness from "./MyTeamBusiness/RankRewardBusiness";
 import FreedomBusiness from "./MyTeamBusiness/FreedomBusiness";
+import LevelIncome from "./MyTeamBusiness/LevelIncome";
 
 import TotalActiveUser from "./MyTeamNetwork/TotalActiveUser";
 import TotalDirectUser from "./MyTeamNetwork/TotalDirectUser";
-import TotalInactiveUser from "./MyTeamNetwork/TotalInactiveUser";
+import TotalInactiveUser from "./MyTeamNetwork/TotalInActiveUser";
 
 import IncomeReport from "./IncomeReport";
 
@@ -146,6 +147,10 @@ export default function MemberLayout({ onLogout }) {
           <Route
             path="genealogy"
             element={<FreedomBusiness onMenuOpen={() => setSidebarOpen(true)} />}
+          />
+          <Route
+            path="level-income"
+            element={<LevelIncome sidebarOpen={sidebarOpen} onMenuOpen={() => setSidebarOpen(true)} />}
           />
 
           <Route

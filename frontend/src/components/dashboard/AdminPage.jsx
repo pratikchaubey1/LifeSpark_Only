@@ -97,6 +97,41 @@ function IconBank() {
   );
 }
 
+function IconAward() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="12" cy="8" r="7" stroke="currentColor" strokeWidth="1.6" />
+      <path d="M8.21 13.89L7 23l5-3 5 3-1.21-9.11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconRefresh({ className }) {
+  return (
+    <svg className={className} width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M23 4v6h-6M1 20v-6h6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function IconSpeaker() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M11 5L6 9H2v6h4l5 4V5zM19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07" />
+    </svg>
+  );
+}
+
+function IconSettings() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+    </svg>
+  );
+}
+
 /* -------------------- Reusable small UI components -------------------- */
 function SidebarButton({ label, active, icon, onClick }) {
   return (
@@ -132,16 +167,17 @@ export default function AdminPage() {
   const [epins, setEpins] = useState([]);
   const [kycs, setKycs] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
-  const [projects, setProjects] = useState([]);
-  const [siteTeamMembers, setSiteTeamMembers] = useState([]);
-  const [siteTestimonials, setSiteTestimonials] = useState([]);
 
   // ui
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [currentPage, setCurrentPage] = useState(() => {
     try {
       const path = window.location.pathname.replace(/^\/+/, "");
-      if (path.startsWith("admin/")) return path.replace("admin/", "");
+      if (path.startsWith("admin/")) {
+        const sub = path.replace("admin/", "");
+        return sub || "dashboard";
+      }
+      if (path === "admin") return "dashboard";
     } catch (e) { }
     return "dashboard";
   });
@@ -153,15 +189,22 @@ export default function AdminPage() {
   const [loadingKycs, setLoadingKycs] = useState(false);
   const [loadingWithdrawals, setLoadingWithdrawals] = useState(false);
   const [approvingWithdrawalId, setApprovingWithdrawalId] = useState(null);
-  const [loadingProjects, setLoadingProjects] = useState(false);
-  const [creatingProject, setCreatingProject] = useState(false);
-  const [loadingSiteTeamMembers, setLoadingSiteTeamMembers] = useState(false);
-  const [creatingSiteTeamMember, setCreatingSiteTeamMember] = useState(false);
-  const [loadingSiteTestimonials, setLoadingSiteTestimonials] = useState(false);
-  const [creatingSiteTestimonial, setCreatingSiteTestimonial] = useState(false);
+
+  const [loadingRewards, setLoadingRewards] = useState(false);
+  const [pendingRewards, setPendingRewards] = useState([]);
+  const [processingRewardId, setProcessingRewardId] = useState(null);
 
   const [lookingSponsor, setLookingSponsor] = useState(false);
   const [activatingUserId, setActivatingUserId] = useState(null);
+
+  const [loadingSettings, setLoadingSettings] = useState(false);
+  const [siteSettings, setSiteSettings] = useState({
+    marqueeText: "",
+    marqueeEnabled: true,
+    popupImageUrl: "",
+    popupEnabled: false,
+  });
+  const [savingSettings, setSavingSettings] = useState(false);
 
   // admin: create member
   const [creatingMember, setCreatingMember] = useState(false);
@@ -172,26 +215,6 @@ export default function AdminPage() {
     phone: "",
     sponsorId: "",
     sponsorName: "",
-  });
-
-  // admin: create project
-  const [newProject, setNewProject] = useState({
-    title: "",
-    desc: "",
-    imageUrl: "",
-    href: "",
-  });
-
-  const [newSiteTeamMember, setNewSiteTeamMember] = useState({
-    name: "",
-    role: "",
-    imageUrl: "",
-  });
-
-  const [newSiteTestimonial, setNewSiteTestimonial] = useState({
-    text: "",
-    name: "",
-    role: "",
   });
 
   // admin: transfer epins
@@ -206,6 +229,12 @@ export default function AdminPage() {
   const [expandedPaymentUserId, setExpandedPaymentUserId] = useState(null);
   const [paymentEdits, setPaymentEdits] = useState({}); // { [userId]: { upiId, upiNo, bankDetails: {...} } }
   const [savingPaymentUserId, setSavingPaymentUserId] = useState(null);
+
+  // KYC: search and edit
+  const [kycSearch, setKycSearch] = useState("");
+  const [expandedKycId, setExpandedKycId] = useState(null);
+  const [kycEdits, setKycEdits] = useState({}); // { [kycId]: { panNo, aadhaarNo, ... } }
+  const [savingKycId, setSavingKycId] = useState(null);
 
   const API_BASE = config.apiUrl;
 
@@ -222,17 +251,28 @@ export default function AdminPage() {
       if (currentPage === "members" || currentPage === "bank" || currentPage === "activateUsers") {
         fetchUsers(adminToken);
       }
+      if (currentPage === "rewards") {
+        fetchPendingRewards(adminToken);
+      }
+      if (currentPage === "settings") {
+        fetchSiteSettings(adminToken);
+      }
     }
     // handle browser back/forward
     const onPop = () => {
       try {
         const p = window.location.pathname.replace(/^\/+/, "");
-        if (p.startsWith("admin/")) setCurrentPage(p.replace("admin/", ""));
+        if (p.startsWith("admin/")) {
+          const sub = p.replace("admin/", "");
+          setCurrentPage(sub || "dashboard");
+        } else if (p === "admin") {
+          setCurrentPage("dashboard");
+        }
       } catch (e) { }
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
-  }, [adminToken]);
+  }, [adminToken, currentPage]);
 
   // ---------- API actions (adjust endpoints as needed) ----------
   async function handleAdminLogin(e) {
@@ -503,161 +543,6 @@ export default function AdminPage() {
     }
   }
 
-  async function fetchProjects(token) {
-    if (!token) return;
-    setLoadingProjects(true);
-    setError(null);
-    try {
-      const res = await fetch(`${API_BASE}/admin/projects`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to fetch projects");
-      setProjects(Array.isArray(data.projects) ? data.projects : []);
-    } catch (err) {
-      setError(err.message || "Failed to fetch projects");
-    } finally {
-      setLoadingProjects(false);
-    }
-  }
-
-  async function createProject() {
-    if (!adminToken) return;
-    if (!newProject.title || !newProject.desc) {
-      setError("Project title and description are required");
-      return;
-    }
-
-    setCreatingProject(true);
-    setError(null);
-    try {
-      const res = await fetch(`${API_BASE}/admin/projects`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${adminToken}`,
-        },
-        body: JSON.stringify(newProject),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to create project");
-
-      if (data.project) {
-        setProjects((prev) => [data.project, ...prev]);
-      } else {
-        fetchProjects(adminToken);
-      }
-
-      setNewProject({ title: "", desc: "", imageUrl: "", href: "" });
-    } catch (err) {
-      setError(err.message || "Failed to create project");
-    } finally {
-      setCreatingProject(false);
-    }
-  }
-
-  async function fetchSiteTeamMembers(token) {
-    if (!token) return;
-    setLoadingSiteTeamMembers(true);
-    setError(null);
-    try {
-      const res = await fetch(`${API_BASE}/admin/site/team-members`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to fetch team members");
-      setSiteTeamMembers(Array.isArray(data.teamMembers) ? data.teamMembers : []);
-    } catch (err) {
-      setError(err.message || "Failed to fetch team members");
-    } finally {
-      setLoadingSiteTeamMembers(false);
-    }
-  }
-
-  async function createSiteTeamMember() {
-    if (!adminToken) return;
-    if (!newSiteTeamMember.name || !newSiteTeamMember.role) {
-      setError("Team member name and role are required");
-      return;
-    }
-
-    setCreatingSiteTeamMember(true);
-    setError(null);
-    try {
-      const res = await fetch(`${API_BASE}/admin/site/team-members`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${adminToken}`,
-        },
-        body: JSON.stringify(newSiteTeamMember),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to create team member");
-      if (data.member) {
-        setSiteTeamMembers((prev) => [data.member, ...prev]);
-      } else {
-        fetchSiteTeamMembers(adminToken);
-      }
-      setNewSiteTeamMember({ name: "", role: "", imageUrl: "" });
-    } catch (err) {
-      setError(err.message || "Failed to create team member");
-    } finally {
-      setCreatingSiteTeamMember(false);
-    }
-  }
-
-  async function fetchSiteTestimonials(token) {
-    if (!token) return;
-    setLoadingSiteTestimonials(true);
-    setError(null);
-    try {
-      const res = await fetch(`${API_BASE}/admin/site/testimonials`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to fetch testimonials");
-      setSiteTestimonials(Array.isArray(data.testimonials) ? data.testimonials : []);
-    } catch (err) {
-      setError(err.message || "Failed to fetch testimonials");
-    } finally {
-      setLoadingSiteTestimonials(false);
-    }
-  }
-
-  async function createSiteTestimonial() {
-    if (!adminToken) return;
-    if (!newSiteTestimonial.text || !newSiteTestimonial.name || !newSiteTestimonial.role) {
-      setError("Testimonial text, name and role are required");
-      return;
-    }
-
-    setCreatingSiteTestimonial(true);
-    setError(null);
-    try {
-      const res = await fetch(`${API_BASE}/admin/site/testimonials`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${adminToken}`,
-        },
-        body: JSON.stringify(newSiteTestimonial),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Failed to create testimonial");
-      if (data.testimonial) {
-        setSiteTestimonials((prev) => [data.testimonial, ...prev]);
-      } else {
-        fetchSiteTestimonials(adminToken);
-      }
-      setNewSiteTestimonial({ text: "", name: "", role: "" });
-    } catch (err) {
-      setError(err.message || "Failed to create testimonial");
-    } finally {
-      setCreatingSiteTestimonial(false);
-    }
-  }
-
   async function approveWithdrawal(withdrawalId) {
     if (!adminToken) return;
     setApprovingWithdrawalId(withdrawalId);
@@ -673,7 +558,7 @@ export default function AdminPage() {
       // update list in-place (also refresh user balance if backend returned it)
       setWithdrawals((prev) =>
         prev.map((w) =>
-          w.id === withdrawalId
+          (w._id || w.id) === withdrawalId
             ? {
               ...w,
               ...data.withdrawal,
@@ -702,6 +587,112 @@ export default function AdminPage() {
       setError(err.message || "Failed to approve withdrawal");
     } finally {
       setApprovingWithdrawalId(null);
+    }
+  }
+
+  async function rejectWithdrawal(withdrawalId) {
+    if (!adminToken) return;
+    setApprovingWithdrawalId(withdrawalId);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/admin/withdrawals/${withdrawalId}/reject`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to reject withdrawal");
+
+      setWithdrawals((prev) =>
+        prev.map((w) =>
+          (w._id || w.id) === withdrawalId
+            ? { ...w, ...data.withdrawal, status: "rejected" }
+            : w
+        )
+      );
+    } catch (err) {
+      setError(err.message || "Failed to reject withdrawal");
+    } finally {
+      setApprovingWithdrawalId(null);
+    }
+  }
+
+  async function fetchPendingRewards(token) {
+    if (!token) return;
+    setLoadingRewards(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/admin/rewards/pending`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to fetch pending rewards");
+      setPendingRewards(data.pendingRewards || []);
+    } catch (err) {
+      setError(err.message || "Failed to fetch pending rewards");
+    } finally {
+      setLoadingRewards(false);
+    }
+  }
+
+  async function processReward(userId, level) {
+    if (!adminToken) return;
+    setProcessingRewardId(`${userId}-${level}`);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/admin/rewards/${userId}/${level}/process`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to process reward");
+
+      // remove from pending list
+      setPendingRewards(prev => prev.filter(r => !(r.userId === userId && r.level === level)));
+    } catch (err) {
+      setError(err.message || "Failed to process reward");
+    } finally {
+      setProcessingRewardId(null);
+    }
+  }
+
+  async function fetchSiteSettings(token) {
+    if (!token) return;
+    setLoadingSettings(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/settings`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to fetch settings");
+      setSiteSettings(data);
+    } catch (err) {
+      setError(err.message || "Failed to fetch settings");
+    } finally {
+      setLoadingSettings(false);
+    }
+  }
+
+  async function updateSiteSettings() {
+    if (!adminToken) return;
+    setSavingSettings(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/settings`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify(siteSettings),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to update settings");
+      alert("Settings updated successfully!");
+    } catch (err) {
+      setError(err.message || "Failed to update settings");
+    } finally {
+      setSavingSettings(false);
     }
   }
 
@@ -826,6 +817,67 @@ export default function AdminPage() {
     }
   }
 
+  function openKycEditor(kyc) {
+    if (!kyc?.id && !kyc?._id) return;
+    const id = kyc.id || kyc._id;
+    setExpandedKycId((prev) => (prev === id ? null : id));
+
+    setKycEdits((prev) => {
+      if (prev[id]) return prev;
+      return {
+        ...prev,
+        [id]: {
+          panNo: kyc.panNo || "",
+          aadhaarNo: kyc.aadhaarNo || "",
+          aadhaarAddress: kyc.aadhaarAddress || "",
+          issuedState: kyc.issuedState || "",
+          status: kyc.status || "pending",
+          remarks: kyc.remarks || "",
+        },
+      };
+    });
+  }
+
+  function updateKycEdit(kycId, field, value) {
+    setKycEdits((prev) => ({
+      ...prev,
+      [kycId]: {
+        ...(prev[kycId] || {}),
+        [field]: value,
+      },
+    }));
+  }
+
+  async function saveKycDetails(kycId) {
+    if (!adminToken || !kycId) return;
+    const payload = kycEdits[kycId];
+    if (!payload) return;
+
+    setSavingKycId(kycId);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/admin/kyc/${kycId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to update KYC");
+
+      // update local state
+      setKycs((prev) => prev.map((k) => ((k.id || k._id) === kycId ? data.kyc : k)));
+      setExpandedKycId(null);
+    } catch (err) {
+      setError(err.message || "Failed to update KYC");
+    } finally {
+      setSavingKycId(null);
+    }
+  }
+
   function openPage(page) {
     setCurrentPage(page);
     try {
@@ -840,15 +892,6 @@ export default function AdminPage() {
     }
     if (page === "withdrawals" && withdrawals.length === 0 && adminToken) {
       fetchWithdrawals(adminToken);
-    }
-    if (page === "projects" && projects.length === 0 && adminToken) {
-      fetchProjects(adminToken);
-    }
-    if (page === "siteTeam" && siteTeamMembers.length === 0 && adminToken) {
-      fetchSiteTeamMembers(adminToken);
-    }
-    if (page === "testimonials" && siteTestimonials.length === 0 && adminToken) {
-      fetchSiteTestimonials(adminToken);
     }
   }
 
@@ -903,49 +946,37 @@ export default function AdminPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {(() => {
-                    const adminUser = users.find(u => u.role === "admin" || u.name === "admin" || u.email === "admin@gmail.com");
-                    const adminCode = adminUser?.inviteCode;
-
-                    const visibleUsers = users.filter(u => {
-                      if (u.id === adminUser?.id) return true;
-                      if (!u.sponsorId) return true;
-                      if (adminCode && u.sponsorId && u.sponsorId.trim() === adminCode.trim()) return true;
-                      return false;
-                    });
-
-                    return visibleUsers.map((u) => (
-                      <tr key={u.id} className="hover:bg-slate-50">
-                        <td className="px-4 py-3 font-medium text-slate-800">{u.name}</td>
-                        <td className="px-4 py-3 text-slate-500">{u.email}</td>
-                        <td className="px-4 py-3 text-slate-500">{u.phone}</td>
-                        <td className="px-4 py-3">
-                          {u.isActivated ? (
-                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-50 text-green-700">
-                              Active
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-50 text-red-700">
-                              Inactive
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          {u.isActivated ? (
-                            <span className="text-xs text-slate-400 font-medium px-3 py-1">Activated</span>
-                          ) : (
-                            <button
-                              onClick={() => activateUser(u.id)}
-                              disabled={activatingUserId === u.id}
-                              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded px-3 py-1 text-xs font-medium transition-colors"
-                            >
-                              {activatingUserId === u.id ? "Activating..." : "Activate Now"}
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ));
-                  })()}
+                  {users.map((u) => (
+                    <tr key={u.id} className="hover:bg-slate-50">
+                      <td className="px-4 py-3 font-medium text-slate-800">{u.name}</td>
+                      <td className="px-4 py-3 text-slate-500">{u.email}</td>
+                      <td className="px-4 py-3 text-slate-500">{u.phone}</td>
+                      <td className="px-4 py-3">
+                        {u.isActivated ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-green-50 text-green-700">
+                            Active
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-red-50 text-red-700">
+                            Inactive
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        {u.isActivated ? (
+                          <span className="text-xs text-slate-400 font-medium px-3 py-1">Activated</span>
+                        ) : (
+                          <button
+                            onClick={() => activateUser(u.id)}
+                            disabled={activatingUserId === u.id}
+                            className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white rounded px-3 py-1 text-xs font-medium transition-colors"
+                          >
+                            {activatingUserId === u.id ? "Activating..." : "Activate Now"}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
                   {users.length === 0 && (
                     <tr>
                       <td colSpan="5" className="px-4 py-8 text-center text-slate-400">
@@ -984,11 +1015,14 @@ export default function AdminPage() {
           <SidebarButton label="Bank Details" active={currentPage === "bank"} icon={<IconBank />} onClick={() => openPage("bank")} />
           <SidebarButton label="KYC" active={currentPage === "kyc"} icon={<IconFile />} onClick={() => openPage("kyc")} />
           <SidebarButton label="Withdrawals" active={currentPage === "withdrawals"} icon={<IconDollar />} onClick={() => openPage("withdrawals")} />
-          <SidebarButton label="Projects" active={currentPage === "projects"} icon={<IconFile />} onClick={() => openPage("projects")} />
-          <SidebarButton label="Site Team" active={currentPage === "siteTeam"} icon={<IconUsers />} onClick={() => openPage("siteTeam")} />
-          <SidebarButton label="Testimonials" active={currentPage === "testimonials"} icon={<IconFile />} onClick={() => openPage("testimonials")} />
           <SidebarButton label="E-Pin" active={currentPage === "epin"} icon={<IconKey />} onClick={() => openPage("epin")} />
           <SidebarButton label="Income" active={currentPage === "income"} icon={<IconDollar />} onClick={() => openPage("income")} />
+          <SidebarButton
+            label="Rewards"
+            active={currentPage === "rewards"}
+            icon={<IconAward />}
+            onClick={() => openPage("rewards")}
+          />
           <SidebarButton
             label="Site Content"
             active={currentPage === "site"}
@@ -1000,6 +1034,12 @@ export default function AdminPage() {
             active={currentPage === "activateUsers"}
             icon={<IconCheckCircle />}
             onClick={() => openPage("activateUsers")}
+          />
+          <SidebarButton
+            label="Site Settings"
+            active={currentPage === "settings"}
+            icon={<IconSettings />}
+            onClick={() => openPage("settings")}
           />
         </nav>
 
@@ -1369,53 +1409,193 @@ export default function AdminPage() {
                 <div className="text-sm text-slate-500">Loading KYC records...</div>
               ) : (
                 <div className="overflow-auto max-h-[60vh] border rounded">
+                  <div className="p-3 bg-slate-50 border-b flex items-center gap-2">
+                    <input
+                      value={kycSearch}
+                      onChange={(e) => setKycSearch(e.target.value)}
+                      placeholder="Search by Invite Code or PAN..."
+                      className="border rounded px-3 py-1.5 text-sm w-full max-w-sm"
+                    />
+                    {kycSearch && (
+                      <button onClick={() => setKycSearch("")} className="text-xs text-blue-600 hover:underline">Clear</button>
+                    )}
+                  </div>
                   <table className="min-w-full text-sm">
                     <thead className="bg-slate-50 sticky top-0">
                       <tr>
                         <th className="p-3 text-left">User</th>
+                        <th className="p-3 text-left">Invite Code</th>
                         <th className="p-3 text-left">Email</th>
-                        <th className="p-3 text-left">Role</th>
+                        <th className="p-3 text-left">PAN / Aadhaar</th>
+                        <th className="p-3 text-left">Status</th>
                         <th className="p-3 text-left">Updated</th>
                         <th className="p-3 text-left">Documents</th>
+                        <th className="p-3 text-right">Action</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {kycs.map((k) => (
-                        <tr key={k.id || k.userId} className="border-t hover:bg-slate-50">
-                          <td className="p-3">{k.user?.name || k.userId}</td>
-                          <td className="p-3">{k.user?.email || "-"}</td>
-                          <td className="p-3">{k.user?.role || "member"}</td>
-                          <td className="p-3">{k.updatedAt ? String(k.updatedAt).slice(0, 19).replace("T", " ") : "-"}</td>
-                          <td className="p-3">
-                            <div className="flex flex-col gap-1">
-                              {k.documents &&
-                                Object.entries(k.documents)
-                                  .filter(([, v]) => v && v.filePath)
-                                  .map(([key, v]) => (
+                      {kycs.filter(k => {
+                        const search = kycSearch.toLowerCase().trim();
+                        if (!search) return true;
+                        const ic = (k.user?.inviteCode || "").toLowerCase();
+                        const pan = (k.panNo || "").toLowerCase();
+                        const name = (k.user?.name || "").toLowerCase();
+                        return ic.includes(search) || pan.includes(search) || name.includes(search);
+                      }).map((k) => {
+                        const kycId = k.id || k._id;
+                        const isExpanded = expandedKycId === kycId;
+                        const edit = kycEdits[kycId];
+
+                        return (
+                          <React.Fragment key={kycId}>
+                            <tr className="border-t hover:bg-slate-50">
+                              <td className="p-3">
+                                <div className="font-medium">{k.user?.name || k.userId}</div>
+                                <div className="text-[10px] text-slate-500 font-mono">{k.userId}</div>
+                              </td>
+                              <td className="p-3 font-mono text-blue-700">{k.user?.inviteCode || "-"}</td>
+                              <td className="p-3 text-slate-500">{k.user?.email || "-"}</td>
+                              <td className="p-3">
+                                <div className="text-xs">
+                                  <div><span className="text-slate-400">PAN:</span> {k.panNo || "-"}</div>
+                                  <div><span className="text-slate-400">UID:</span> {k.aadhaarNo || "-"}</div>
+                                </div>
+                              </td>
+                              <td className="p-3 text-xs">
+                                {k.status === 'approved' ? (
+                                  <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Approved</span>
+                                ) : k.status === 'rejected' ? (
+                                  <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">Rejected</span>
+                                ) : (
+                                  <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">Pending</span>
+                                )}
+                              </td>
+                              <td className="p-3 text-slate-500">{k.updatedAt ? String(k.updatedAt).slice(0, 19).replace("T", " ") : "-"}</td>
+                              <td className="p-3">
+                                <div className="flex flex-col gap-1">
+                                  {k.documents &&
+                                    Object.entries(k.documents)
+                                      .filter(([, v]) => v && (typeof v === 'string' ? v : v.filePath))
+                                      .map(([key, v]) => (
+                                        <a
+                                          key={key}
+                                          href={`${API_BASE}${typeof v === 'string' ? v : v.filePath}`}
+                                          target="_blank"
+                                          rel="noreferrer"
+                                          className="text-blue-700 underline text-[11px]"
+                                        >
+                                          {key}
+                                        </a>
+                                      ))}
+                                  {!k.documents && k.filePath && (
                                     <a
-                                      key={key}
-                                      href={`${API_BASE}${v.filePath}`}
+                                      href={`${API_BASE}${k.filePath}`}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="text-blue-700 underline"
+                                      className="text-blue-700 underline text-[11px]"
                                     >
-                                      {key}
+                                      document
                                     </a>
-                                  ))}
-                              {!k.documents && k.filePath && (
-                                <a
-                                  href={`${API_BASE}${k.filePath}`}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-blue-700 underline"
+                                  )}
+                                </div>
+                              </td>
+                              <td className="p-3 text-right">
+                                <button
+                                  onClick={() => openKycEditor(k)}
+                                  className="text-xs bg-slate-100 hover:bg-slate-200 border rounded px-3 py-1.5 transition-colors"
                                 >
-                                  document
-                                </a>
-                              )}
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                                  {isExpanded ? "Close" : "Edit"}
+                                </button>
+                              </td>
+                            </tr>
+
+                            {isExpanded && edit && (
+                              <tr className="border-t bg-slate-50/50">
+                                <td colSpan={8} className="p-4">
+                                  <div className="bg-white border rounded shadow-sm p-4 max-w-4xl">
+                                    <div className="flex items-center justify-between mb-4">
+                                      <h3 className="font-semibold text-sm">Update KYC Information</h3>
+                                      <div className="flex gap-2">
+                                        <button
+                                          onClick={() => setExpandedKycId(null)}
+                                          className="text-xs border px-3 py-1.5 rounded"
+                                        >
+                                          Cancel
+                                        </button>
+                                        <button
+                                          onClick={() => saveKycDetails(kycId)}
+                                          disabled={savingKycId === kycId}
+                                          className="text-xs bg-blue-600 text-white px-4 py-1.5 rounded disabled:opacity-60"
+                                        >
+                                          {savingKycId === kycId ? "Saving..." : "Save Details"}
+                                        </button>
+                                      </div>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                      <div>
+                                        <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">PAN Number</label>
+                                        <input
+                                          value={edit.panNo}
+                                          onChange={(e) => updateKycEdit(kycId, "panNo", e.target.value.toUpperCase())}
+                                          className="w-full border rounded px-3 py-2 text-sm"
+                                          placeholder="ABCDE1234F"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Aadhaar Number</label>
+                                        <input
+                                          value={edit.aadhaarNo}
+                                          onChange={(e) => updateKycEdit(kycId, "aadhaarNo", e.target.value)}
+                                          className="w-full border rounded px-3 py-2 text-sm"
+                                          placeholder="12-digit number"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Status</label>
+                                        <select
+                                          value={edit.status}
+                                          onChange={(e) => updateKycEdit(kycId, "status", e.target.value)}
+                                          className="w-full border rounded px-3 py-2 text-sm"
+                                        >
+                                          <option value="pending">Pending</option>
+                                          <option value="approved">Approved</option>
+                                          <option value="rejected">Rejected</option>
+                                        </select>
+                                      </div>
+                                      <div className="md:col-span-2">
+                                        <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Address (as per Aadhaar)</label>
+                                        <input
+                                          value={edit.aadhaarAddress}
+                                          onChange={(e) => updateKycEdit(kycId, "aadhaarAddress", e.target.value)}
+                                          className="w-full border rounded px-3 py-2 text-sm"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Issued State</label>
+                                        <input
+                                          value={edit.issuedState}
+                                          onChange={(e) => updateKycEdit(kycId, "issuedState", e.target.value)}
+                                          className="w-full border rounded px-3 py-2 text-sm"
+                                        />
+                                      </div>
+                                      <div className="md:col-span-3">
+                                        <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Remarks / Rejection Reason</label>
+                                        <textarea
+                                          value={edit.remarks}
+                                          onChange={(e) => updateKycEdit(kycId, "remarks", e.target.value)}
+                                          className="w-full border rounded px-3 py-2 text-sm h-16"
+                                          placeholder="Notes for the user..."
+                                        />
+                                      </div>
+                                    </div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      })}
                       {kycs.length === 0 && (
                         <tr>
                           <td colSpan={5} className="p-6 text-center text-slate-500">
@@ -1472,9 +1652,9 @@ export default function AdminPage() {
                         const edit = userId ? paymentEdits[userId] : null;
 
                         return (
-                          <React.Fragment key={w.id}>
-                            <tr className="border-t hover:bg-slate-50">
-                              <td className="p-3 font-mono">{w.id}</td>
+                          <React.Fragment key={w._id || w.id || w.withdrawalId}>
+                            <tr className="border-t hover:bg-slate-50 text-slate-700">
+                              <td className="p-3 font-mono text-[10px] text-slate-500">{w.withdrawalId || "-"}</td>
                               <td className="p-3">
                                 <div className="font-medium">{w.user?.name || "-"}</div>
                                 <div className="text-xs text-slate-500">{w.user?.email || ""}</div>
@@ -1541,15 +1721,26 @@ export default function AdminPage() {
                               </td>
                               <td className="p-3 text-right">
                                 {w.status === "pending" ? (
-                                  <button
-                                    onClick={() => approveWithdrawal(w.id)}
-                                    disabled={approvingWithdrawalId === w.id}
-                                    className="bg-emerald-600 text-white px-3 py-1.5 rounded text-xs disabled:opacity-60"
-                                  >
-                                    {approvingWithdrawalId === w.id ? "Approving..." : "Approve"}
-                                  </button>
+                                  <div className="flex flex-col gap-1.5">
+                                    <button
+                                      onClick={() => approveWithdrawal(w._id || w.id)}
+                                      disabled={approvingWithdrawalId === (w._id || w.id)}
+                                      className="bg-emerald-600 text-white px-3 py-1.5 rounded text-xs disabled:opacity-60 transition-colors hover:bg-emerald-700 font-medium shadow-sm"
+                                    >
+                                      {approvingWithdrawalId === (w._id || w.id) ? "Wait.." : "Approve"}
+                                    </button>
+                                    <button
+                                      onClick={() => rejectWithdrawal(w._id || w.id)}
+                                      disabled={approvingWithdrawalId === (w._id || w.id)}
+                                      className="bg-white border-red-200 border text-red-600 px-3 py-1.5 rounded text-xs disabled:opacity-60 transition-colors hover:bg-red-50 font-medium"
+                                    >
+                                      {approvingWithdrawalId === (w._id || w.id) ? "Wait.." : "Reject"}
+                                    </button>
+                                  </div>
+                                ) : w.status === "approved" ? (
+                                  <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Approved</span>
                                 ) : (
-                                  <span className="text-xs text-slate-500">-</span>
+                                  <span className="text-xs font-bold text-red-600 uppercase tracking-wider">Rejected</span>
                                 )}
                               </td>
                             </tr>
@@ -1696,85 +1887,67 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* Site Team page */}
-          {currentPage === "siteTeam" && (
+          {/* Rewards page */}
+          {currentPage === "rewards" && (
             <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-semibold">Site Team Members</h2>
-                <button onClick={() => fetchSiteTeamMembers(adminToken)} className="border px-4 py-2 rounded">
-                  Refresh
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-slate-800">Reward Completions</h2>
+                <button
+                  onClick={() => fetchPendingRewards(adminToken)}
+                  className="bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition active:scale-90"
+                >
+                  <IconRefresh className={loadingRewards ? "animate-spin" : ""} />
                 </button>
               </div>
 
-              <div className="mb-4 border rounded p-3 bg-slate-50">
-                <div className="text-sm font-semibold mb-2">Add Team Member</div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <input
-                    value={newSiteTeamMember.name}
-                    onChange={(e) => setNewSiteTeamMember((s) => ({ ...s, name: e.target.value }))}
-                    className="border rounded px-3 py-2 text-sm"
-                    placeholder="Name"
-                  />
-                  <input
-                    value={newSiteTeamMember.role}
-                    onChange={(e) => setNewSiteTeamMember((s) => ({ ...s, role: e.target.value }))}
-                    className="border rounded px-3 py-2 text-sm"
-                    placeholder="Role / Description"
-                  />
-                  <input
-                    value={newSiteTeamMember.imageUrl}
-                    onChange={(e) => setNewSiteTeamMember((s) => ({ ...s, imageUrl: e.target.value }))}
-                    className="border rounded px-3 py-2 text-sm md:col-span-2"
-                    placeholder="Image URL (optional)"
-                  />
+              {loadingRewards ? (
+                <div className="p-10 text-center text-slate-500">
+                  <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                  Loading pending rewards...
                 </div>
-                <div className="mt-2 flex justify-end">
-                  <button
-                    onClick={createSiteTeamMember}
-                    disabled={creatingSiteTeamMember}
-                    className="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-60"
-                  >
-                    {creatingSiteTeamMember ? "Creating..." : "Add Member"}
-                  </button>
-                </div>
-              </div>
-
-              {loadingSiteTeamMembers ? (
-                <div className="text-sm text-slate-500">Loading team members...</div>
               ) : (
-                <div className="overflow-auto max-h-[60vh] border rounded">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 sticky top-0">
-                      <tr>
-                        <th className="p-3 text-left">Name</th>
-                        <th className="p-3 text-left">Role</th>
-                        <th className="p-3 text-left">Image</th>
-                        <th className="p-3 text-left">Created</th>
+                <div className="bg-white border rounded-2xl shadow-sm overflow-hidden">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-50 border-b">
+                        <th className="p-4 text-left font-semibold">User</th>
+                        <th className="p-4 text-left font-semibold">Invite Code</th>
+                        <th className="p-4 text-left font-semibold">Level Reached</th>
+                        <th className="p-4 text-left font-semibold">Completed On</th>
+                        <th className="p-4 text-right font-semibold">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {siteTeamMembers.map((m) => (
-                        <tr key={m.id} className="border-t hover:bg-slate-50">
-                          <td className="p-3 font-medium">{m.name}</td>
-                          <td className="p-3 text-xs text-slate-700">{m.role}</td>
-                          <td className="p-3 text-xs">
-                            {m.imageUrl ? (
-                              <a href={m.imageUrl} target="_blank" rel="noreferrer" className="text-blue-700 underline">
-                                open
-                              </a>
-                            ) : (
-                              <span className="text-slate-400">-</span>
-                            )}
+                      {pendingRewards.map((r, idx) => (
+                        <tr key={`${r.userId}-${r.level}`} className="border-b hover:bg-slate-50 transition">
+                          <td className="p-4">
+                            <div className="font-semibold text-slate-800">{r.name}</div>
+                            <div className="text-xs text-slate-500">{r.email}</div>
                           </td>
-                          <td className="p-3 text-xs text-slate-500">
-                            {m.createdAt ? String(m.createdAt).slice(0, 19).replace("T", " ") : "-"}
+                          <td className="p-4 font-mono text-xs">{r.inviteCode}</td>
+                          <td className="p-4">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 text-xs font-bold">
+                              LEVEL {r.level}
+                            </span>
+                          </td>
+                          <td className="p-4 text-slate-600 text-xs">
+                            {r.completedAt ? new Date(r.completedAt).toLocaleString() : "-"}
+                          </td>
+                          <td className="p-4 text-right">
+                            <button
+                              onClick={() => processReward(r.userId, r.level)}
+                              disabled={processingRewardId === `${r.userId}-${r.level}`}
+                              className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-xs font-semibold shadow-md hover:bg-blue-700 transition disabled:opacity-50"
+                            >
+                              {processingRewardId === `${r.userId}-${r.level}` ? "Wait..." : "Mark as Given"}
+                            </button>
                           </td>
                         </tr>
                       ))}
-                      {siteTeamMembers.length === 0 && (
+                      {pendingRewards.length === 0 && (
                         <tr>
-                          <td colSpan={4} className="p-6 text-center text-slate-500">
-                            No team members found.
+                          <td colSpan={5} className="p-10 text-center text-slate-500 font-medium">
+                            No pending rewards found. All rewards are up to date!
                           </td>
                         </tr>
                       )}
@@ -1785,185 +1958,6 @@ export default function AdminPage() {
             </div>
           )}
 
-          {/* Testimonials page */}
-          {currentPage === "testimonials" && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-semibold">Testimonials</h2>
-                <button onClick={() => fetchSiteTestimonials(adminToken)} className="border px-4 py-2 rounded">
-                  Refresh
-                </button>
-              </div>
-
-              <div className="mb-4 border rounded p-3 bg-slate-50">
-                <div className="text-sm font-semibold mb-2">Add Testimonial</div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <input
-                    value={newSiteTestimonial.name}
-                    onChange={(e) => setNewSiteTestimonial((s) => ({ ...s, name: e.target.value }))}
-                    className="border rounded px-3 py-2 text-sm"
-                    placeholder="Name"
-                  />
-                  <input
-                    value={newSiteTestimonial.role}
-                    onChange={(e) => setNewSiteTestimonial((s) => ({ ...s, role: e.target.value }))}
-                    className="border rounded px-3 py-2 text-sm"
-                    placeholder="Role (e.g. Distributor)"
-                  />
-                  <textarea
-                    value={newSiteTestimonial.text}
-                    onChange={(e) => setNewSiteTestimonial((s) => ({ ...s, text: e.target.value }))}
-                    className="border rounded px-3 py-2 text-sm md:col-span-2"
-                    placeholder="Testimonial text"
-                    rows={3}
-                  />
-                </div>
-                <div className="mt-2 flex justify-end">
-                  <button
-                    onClick={createSiteTestimonial}
-                    disabled={creatingSiteTestimonial}
-                    className="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-60"
-                  >
-                    {creatingSiteTestimonial ? "Creating..." : "Add Testimonial"}
-                  </button>
-                </div>
-              </div>
-
-              {loadingSiteTestimonials ? (
-                <div className="text-sm text-slate-500">Loading testimonials...</div>
-              ) : (
-                <div className="overflow-auto max-h-[60vh] border rounded">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 sticky top-0">
-                      <tr>
-                        <th className="p-3 text-left">Name</th>
-                        <th className="p-3 text-left">Role</th>
-                        <th className="p-3 text-left">Text</th>
-                        <th className="p-3 text-left">Created</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {siteTestimonials.map((t) => (
-                        <tr key={t.id} className="border-t hover:bg-slate-50">
-                          <td className="p-3 font-medium">{t.name}</td>
-                          <td className="p-3 text-xs text-slate-700">{t.role}</td>
-                          <td className="p-3 text-xs text-slate-700">{t.text}</td>
-                          <td className="p-3 text-xs text-slate-500">
-                            {t.createdAt ? String(t.createdAt).slice(0, 19).replace("T", " ") : "-"}
-                          </td>
-                        </tr>
-                      ))}
-                      {siteTestimonials.length === 0 && (
-                        <tr>
-                          <td colSpan={4} className="p-6 text-center text-slate-500">
-                            No testimonials found.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Projects page */}
-          {currentPage === "projects" && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-semibold">Projects</h2>
-                <div className="flex gap-2">
-                  <button onClick={() => fetchProjects(adminToken)} className="border px-4 py-2 rounded">
-                    Refresh
-                  </button>
-                </div>
-              </div>
-
-              <div className="mb-4 border rounded p-3 bg-slate-50">
-                <div className="text-sm font-semibold mb-2">Add New Project</div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <input
-                    value={newProject.title}
-                    onChange={(e) => setNewProject((s) => ({ ...s, title: e.target.value }))}
-                    className="border rounded px-3 py-2 text-sm"
-                    placeholder="Title"
-                  />
-                  <input
-                    value={newProject.href}
-                    onChange={(e) => setNewProject((s) => ({ ...s, href: e.target.value }))}
-                    className="border rounded px-3 py-2 text-sm"
-                    placeholder="Link (optional)"
-                  />
-                  <input
-                    value={newProject.imageUrl}
-                    onChange={(e) => setNewProject((s) => ({ ...s, imageUrl: e.target.value }))}
-                    className="border rounded px-3 py-2 text-sm md:col-span-2"
-                    placeholder="Image URL (optional)"
-                  />
-                  <textarea
-                    value={newProject.desc}
-                    onChange={(e) => setNewProject((s) => ({ ...s, desc: e.target.value }))}
-                    className="border rounded px-3 py-2 text-sm md:col-span-2"
-                    placeholder="Description"
-                    rows={3}
-                  />
-                </div>
-                <div className="mt-2 flex justify-end">
-                  <button
-                    onClick={createProject}
-                    disabled={creatingProject}
-                    className="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-60"
-                  >
-                    {creatingProject ? "Creating..." : "Create Project"}
-                  </button>
-                </div>
-              </div>
-
-              {loadingProjects ? (
-                <div className="text-sm text-slate-500">Loading projects...</div>
-              ) : (
-                <div className="overflow-auto max-h-[60vh] border rounded">
-                  <table className="min-w-full text-sm">
-                    <thead className="bg-slate-50 sticky top-0">
-                      <tr>
-                        <th className="p-3 text-left">Title</th>
-                        <th className="p-3 text-left">Description</th>
-                        <th className="p-3 text-left">Link</th>
-                        <th className="p-3 text-left">Created</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {projects.map((p) => (
-                        <tr key={p.id} className="border-t hover:bg-slate-50">
-                          <td className="p-3 font-medium">{p.title}</td>
-                          <td className="p-3 text-xs text-slate-700">{p.desc}</td>
-                          <td className="p-3">
-                            {p.href ? (
-                              <a href={p.href} target="_blank" rel="noreferrer" className="text-blue-700 underline">
-                                open
-                              </a>
-                            ) : (
-                              <span className="text-xs text-slate-400">-</span>
-                            )}
-                          </td>
-                          <td className="p-3 text-xs text-slate-500">
-                            {p.createdAt ? String(p.createdAt).slice(0, 19).replace("T", " ") : "-"}
-                          </td>
-                        </tr>
-                      ))}
-                      {projects.length === 0 && (
-                        <tr>
-                          <td colSpan={4} className="p-6 text-center text-slate-500">
-                            No projects found.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* E-Pin page */}
           {currentPage === "epin" && (
@@ -2074,6 +2068,127 @@ export default function AdminPage() {
 
           {/* User Activation page */}
           {currentPage === "activateUsers" && renderActivationPage()}
+
+          {/* Site Settings page */}
+          {currentPage === "settings" && (
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-slate-800">Site Settings</h2>
+                <button
+                  onClick={() => fetchSiteSettings(adminToken)}
+                  className="p-2 text-slate-500 hover:text-blue-600 transition-colors"
+                  title="Refresh Settings"
+                >
+                  <IconRefresh className={loadingSettings ? "animate-spin" : ""} />
+                </button>
+              </div>
+
+              {loadingSettings ? (
+                <div className="flex items-center justify-center p-12">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Marquee Section */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                        <IconSpeaker />
+                      </div>
+                      <h3 className="font-semibold text-slate-800">Announcement Bar (Marquee)</h3>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                        <span className="text-sm font-medium text-slate-700">Enable Announcement Bar</span>
+                        <button
+                          onClick={() => setSiteSettings(s => ({ ...s, marqueeEnabled: !s.marqueeEnabled }))}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${siteSettings.marqueeEnabled ? 'bg-blue-600' : 'bg-slate-300'}`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${siteSettings.marqueeEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Announcement Text</label>
+                        <textarea
+                          value={siteSettings.marqueeText}
+                          onChange={(e) => setSiteSettings(s => ({ ...s, marqueeText: e.target.value }))}
+                          className="w-full border border-slate-200 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                          placeholder="Enter moving text here..."
+                          rows={2}
+                        />
+                        <p className="mt-1 text-[11px] text-slate-400">This text will scroll from right to left on the user dashboard.</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Popup Section */}
+                  <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                    <div className="flex items-center gap-3 mb-4">
+                      <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                        <IconFile />
+                      </div>
+                      <h3 className="font-semibold text-slate-800">Login/Registration Popup</h3>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                        <span className="text-sm font-medium text-slate-700">Enable Popup Modal</span>
+                        <button
+                          onClick={() => setSiteSettings(s => ({ ...s, popupEnabled: !s.popupEnabled }))}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${siteSettings.popupEnabled ? 'bg-purple-600' : 'bg-slate-300'}`}
+                        >
+                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${siteSettings.popupEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                        </button>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Popup Image URL</label>
+                        <input
+                          type="text"
+                          value={siteSettings.popupImageUrl}
+                          onChange={(e) => setSiteSettings(s => ({ ...s, popupImageUrl: e.target.value }))}
+                          className="w-full border border-slate-200 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
+                          placeholder="https://example.com/banner.jpg"
+                        />
+                        <p className="mt-1 text-[11px] text-slate-400">Provide an image URL to show in the popup. Best used for important notices or offers.</p>
+                      </div>
+
+                      {siteSettings.popupImageUrl && (
+                        <div className="mt-2 p-2 border border-dashed border-slate-200 rounded-lg bg-slate-50">
+                          <p className="text-[10px] uppercase font-bold text-slate-400 mb-2">Preview:</p>
+                          <img
+                            src={siteSettings.popupImageUrl}
+                            alt="Popup Preview"
+                            className="max-h-40 mx-auto rounded shadow-sm"
+                            onError={(e) => { e.target.src = "https://via.placeholder.com/300x150?text=Invalid+Image+URL"; }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-4">
+                    <button
+                      onClick={updateSiteSettings}
+                      disabled={savingSettings}
+                      className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-8 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center gap-2 disabled:opacity-70"
+                    >
+                      {savingSettings ? (
+                        <>
+                          <div className="animate-spin h-4 w-4 border-2 border-white/30 border-t-white rounded-full"></div>
+                          Saving Settings...
+                        </>
+                      ) : (
+                        "Save All Changes"
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
         </div>
 

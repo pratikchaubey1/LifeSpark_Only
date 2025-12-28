@@ -8,6 +8,10 @@ const kycSchema = new mongoose.Schema({
         panCard: { type: String, default: '' },
         photo: { type: String, default: '' }
     },
+    panNo: { type: String, default: '' },
+    aadhaarNo: { type: String, default: '' },
+    aadhaarAddress: { type: String, default: '' },
+    issuedState: { type: String, default: '' },
     status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
     submittedAt: { type: Date, default: Date.now },
     reviewedAt: { type: Date, default: null },
