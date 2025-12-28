@@ -7,6 +7,8 @@ const Kyc = require('../models/Kyc');
 const Withdrawal = require('../models/Withdrawal');
 const Project = require('../models/Project');
 const Testimonial = require('../models/Testimonial');
+const { getUsersAtLevel } = require('../utils/team');
+const adminAuth = require('../middleware/adminAuth');
 
 const router = express.Router();
 
@@ -73,28 +75,7 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Middleware to protect admin routes
-function adminAuth(req, res, next) {
-  const authHeader = req.headers['authorization'];
-  if (!authHeader) return res.status(401).json({ message: 'No token provided' });
-
-  const [scheme, token] = authHeader.split(' ');
-  if (scheme !== 'Bearer' || !token) {
-    return res.status(401).json({ message: 'Invalid authorization header' });
-  }
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    if (decoded.role !== 'admin') {
-      return res.status(403).json({ message: 'Not authorized as admin' });
-    }
-    req.admin = true;
-    next();
-  } catch (err) {
-    console.error('Admin JWT verify error', err);
-    return res.status(401).json({ message: 'Invalid or expired token' });
-  }
-}
+// Middleware to protect admin routes removed and moved to middleware/adminAuth.js
 
 function normalizeIdValue(v) {
   if (v === undefined || v === null) return '';
@@ -355,7 +336,7 @@ router.get('/kyc', adminAuth, async (req, res) => {
     const kycs = await Kyc.find();
 
     const result = await Promise.all(kycs.map(async (k) => {
-      const user = await User.findById(k.userId).select('_id name email phone role');
+      const user = await User.findById(k.userId).select('_id name email phone role inviteCode');
       return {
         ...k.toObject(),
         user: user ? {
@@ -364,6 +345,7 @@ router.get('/kyc', adminAuth, async (req, res) => {
           email: user.email,
           phone: user.phone || '',
           role: user.role || 'member',
+          inviteCode: user.inviteCode || '',
         } : null,
       };
     }));
@@ -374,6 +356,56 @@ router.get('/kyc', adminAuth, async (req, res) => {
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+// Update KYC details (admin-only)
+router.put('/kyc/:id', adminAuth, async (req, res) => {
+  try {
+    const kyc = await Kyc.findById(req.params.id);
+    if (!kyc) {
+      // Try finding by userId if not found by _id
+      const kycByUser = await Kyc.findOne({ userId: req.params.id });
+      if (!kycByUser) return res.status(404).json({ message: 'KYC record not found' });
+      return updateKycRecord(kycByUser, req, res);
+    }
+    return updateKycRecord(kyc, req, res);
+  } catch (err) {
+    console.error('Update KYC error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+async function updateKycRecord(kyc, req, res) {
+  const { panNo, aadhaarNo, aadhaarAddress, issuedState, status, remarks } = req.body || {};
+
+  if (panNo !== undefined) kyc.panNo = panNo;
+  if (aadhaarNo !== undefined) kyc.aadhaarNo = aadhaarNo;
+  if (aadhaarAddress !== undefined) kyc.aadhaarAddress = aadhaarAddress;
+  if (issuedState !== undefined) kyc.issuedState = issuedState;
+  if (status !== undefined) kyc.status = status;
+  if (remarks !== undefined) kyc.remarks = remarks;
+
+  if (status === 'approved' || status === 'rejected') {
+    kyc.reviewedAt = new Date();
+    kyc.reviewedBy = 'admin';
+  }
+
+  await kyc.save();
+
+  const user = await User.findById(kyc.userId).select('_id name email phone role inviteCode');
+  return res.json({
+    kyc: {
+      ...kyc.toObject(),
+      user: user ? {
+        id: user._id.toString(),
+        name: user.name,
+        email: user.email,
+        phone: user.phone || '',
+        role: user.role || 'member',
+        inviteCode: user.inviteCode || '',
+      } : null,
+    }
+  });
+}
 
 // Withdrawal requests for admin
 router.get('/withdrawals', adminAuth, async (req, res) => {
@@ -408,7 +440,13 @@ router.get('/withdrawals', adminAuth, async (req, res) => {
 // Approve withdrawal
 router.post('/withdrawals/:id/approve', adminAuth, async (req, res) => {
   try {
-    const withdrawal = await Withdrawal.findOne({ withdrawalId: req.params.id });
+    const idParam = req.params.id;
+    let withdrawal = await Withdrawal.findOne({ withdrawalId: idParam });
+
+    if (!withdrawal && /^[0-9a-fA-F]{24}$/.test(idParam)) {
+      withdrawal = await Withdrawal.findById(idParam);
+    }
+
     if (!withdrawal) return res.status(404).json({ message: 'Withdrawal request not found' });
 
     if (withdrawal.status !== 'pending') {
@@ -442,6 +480,34 @@ router.post('/withdrawals/:id/approve', adminAuth, async (req, res) => {
     });
   } catch (err) {
     console.error('Approve withdrawal error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Reject withdrawal
+router.post('/withdrawals/:id/reject', adminAuth, async (req, res) => {
+  try {
+    const idParam = req.params.id;
+    let withdrawal = await Withdrawal.findOne({ withdrawalId: idParam });
+
+    if (!withdrawal && /^[0-9a-fA-F]{24}$/.test(idParam)) {
+      withdrawal = await Withdrawal.findById(idParam);
+    }
+
+    if (!withdrawal) return res.status(404).json({ message: 'Withdrawal request not found' });
+
+    if (withdrawal.status !== 'pending') {
+      return res.status(400).json({ message: `Cannot reject withdrawal in status: ${withdrawal.status}` });
+    }
+
+    withdrawal.status = 'rejected';
+    withdrawal.reviewedAt = new Date();
+    withdrawal.reviewedBy = 'admin';
+    await withdrawal.save();
+
+    return res.json({ withdrawal });
+  } catch (err) {
+    console.error('Reject withdrawal error', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -660,6 +726,57 @@ router.post('/epins', adminAuth, async (req, res) => {
     res.status(201).json({ epins: newEpins });
   } catch (err) {
     console.error('Create epins error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get reward completions that need processing
+router.get('/rewards/pending', adminAuth, async (req, res) => {
+  try {
+    const users = await User.find({ 'rewardCompletions.status': 'pending' })
+      .select('_id name email inviteCode rewardCompletions');
+
+    const pendingRewards = [];
+    users.forEach(u => {
+      u.rewardCompletions.forEach(rc => {
+        if (rc.status === 'pending') {
+          pendingRewards.push({
+            userId: u._id,
+            name: u.name,
+            email: u.email,
+            inviteCode: u.inviteCode,
+            level: rc.level,
+            completedAt: rc.completedAt
+          });
+        }
+      });
+    });
+
+    res.json({ pendingRewards });
+  } catch (err) {
+    console.error('Get pending rewards error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Mark reward as given
+router.post('/rewards/:userId/:level/process', adminAuth, async (req, res) => {
+  try {
+    const { userId, level } = req.params;
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const reward = user.rewardCompletions.find(rc => rc.level === parseInt(level));
+    if (!reward) return res.status(404).json({ message: 'Reward completion not found' });
+
+    reward.status = 'given';
+    reward.processedAt = new Date();
+    reward.processedBy = 'admin';
+
+    await user.save();
+    res.json({ message: 'Reward marked as given', user: { id: user._id, rewardCompletions: user.rewardCompletions } });
+  } catch (err) {
+    console.error('Process reward error', err);
     res.status(500).json({ message: 'Server error' });
   }
 });

@@ -93,6 +93,8 @@ const bottomStatConfig = [
 function DashBoardPage() {
   const [user, setUser] = useState(null);
   const [cards, setCards] = useState(null);
+  const [settings, setSettings] = useState(null);
+  const [showPopup, setShowPopup] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -100,28 +102,103 @@ function DashBoardPage() {
 
     (async () => {
       try {
+        // Fetch dashboard data
         const res = await fetch(`${config.apiUrl}/dashboard`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!res.ok) return;
+        if (res.ok) {
+          const data = await res.json();
+          setUser(data.user);
+          setCards(data.cards || {});
+        }
 
-        const data = await res.json();
-        setUser(data.user);
-        setCards(data.cards || {});
+        // Fetch site settings
+        const settingsRes = await fetch(`${config.apiUrl}/settings`);
+        if (settingsRes.ok) {
+          const settingsData = await settingsRes.json();
+          setSettings(settingsData);
+
+          // Show popup if enabled and not already dismissed in this session
+          if (settingsData.popupEnabled && settingsData.popupImageUrl) {
+            const hasSeenPopup = sessionStorage.getItem("announcement_popup_seen");
+            if (!hasSeenPopup) {
+              setTimeout(() => setShowPopup(true), 1200);
+            }
+          }
+        }
       } catch (e) {
-        console.error("Failed to load dashboard data", e);
+        console.error("Failed to load data", e);
       }
     })();
   }, []);
 
-  return (
-    <div className="min-h-full bg-white">
-      {/* Top info bar */}
-      <div className="bg-sky-600 text-center text-white text-sm py-2">
-        सपनों की दुनिया को वास्तविकता में बदलने जा रहा।
-      </div>
+  const closePopup = () => {
+    setShowPopup(false);
+    sessionStorage.setItem("announcement_popup_seen", "true");
+  };
 
-      {/* Activation notice */}
+  return (
+    <div className="min-h-full bg-white relative">
+      {/* Top info bar (Marquee) */}
+      {settings?.marqueeEnabled && (
+        <div className="bg-sky-600 border-b border-sky-500 overflow-hidden py-2 shadow-sm sticky top-0 z-40">
+          <marquee
+            behavior="scroll"
+            direction="left"
+            scrollamount="6"
+            className="text-white text-sm font-semibold"
+          >
+            {settings.marqueeText || "सपनों की दुनिया को वास्तविकता में बदलने जा रहा।"}
+          </marquee>
+        </div>
+      )}
+
+      {/* Popup Modal */}
+      {showPopup && (
+        <div className="fixed inset-0 z-[10000] flex items-start justify-center pt-10 md:pt-20 px-4 bg-black/80 backdrop-blur-[4px] transition-all">
+          <div className="relative w-full max-w-xl bg-white rounded-[2rem] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] overflow-hidden scale-100 transition-all duration-500">
+            {/* Close button inside a prominent circle */}
+            <button
+              onClick={closePopup}
+              className="absolute top-5 right-5 z-[10001] p-3 bg-white/90 hover:bg-white text-slate-900 rounded-full shadow-xl transition-all hover:rotate-90 active:scale-90"
+              aria-label="Close"
+            >
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+              </svg>
+            </button>
+
+            {/* Visual Content Section */}
+            <div className="p-2 pt-14 pb-4">
+              <div className="rounded-2xl overflow-hidden border border-slate-100 bg-slate-50 flex items-center justify-center">
+                <img
+                  src={settings.popupImageUrl}
+                  alt="Special Announcement"
+                  className="max-w-full h-auto max-h-[65vh] object-contain shadow-inner"
+                  onError={() => setShowPopup(false)}
+                />
+              </div>
+            </div>
+
+            {/* Bottom Action Footer */}
+            <div className="px-8 pb-8 pt-2 text-center">
+              <button
+                onClick={closePopup}
+                className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-black text-xl rounded-2xl transition-all shadow-xl shadow-blue-300 transform active:translate-y-1"
+              >
+                GOT IT!
+              </button>
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <span className="h-1.5 w-8 bg-blue-600 rounded-full"></span>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest">Life Spark Updates</span>
+                <span className="h-1.5 w-8 bg-blue-600 rounded-full"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Activation status badge */}
       <div className="flex justify-center mt-3">
         {user?.isActivated ? (

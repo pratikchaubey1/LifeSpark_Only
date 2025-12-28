@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
+import { useParams } from "react-router-dom";
 
 import config from "../../config/config";
 
@@ -18,7 +19,8 @@ import {
 } from "react-icons/fi";
 
 export default function OfficialRegisterPage({ onSubmit, onGoToLogin, onGoHome }) {
-  const [sponsorId, setSponsorId] = useState("");
+  const { sponsorId: urlSponsorId } = useParams();
+  const [sponsorId, setSponsorId] = useState(urlSponsorId || "");
   const [sponsorName, setSponsorName] = useState("");
   const [sponsorLoading, setSponsorLoading] = useState(false);
   const [sponsorError, setSponsorError] = useState("");

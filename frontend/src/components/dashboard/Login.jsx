@@ -7,7 +7,7 @@ export default function OfficialLoginPage({
   onGoToRegister,
   onGoHome,
 }) {
-  const [username, setUsername] = useState(""); // 🔹 changed to username
+  const [inviteCode, setInviteCode] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [remember, setRemember] = useState(false);
@@ -16,8 +16,8 @@ export default function OfficialLoginPage({
 
   function validate() {
     const e = {};
-  
 
+    if (!inviteCode) e.inviteCode = "Invite Code is required.";
     if (!password) e.password = "Password is required.";
     else if (password.length < 6)
       e.password = "Password must be at least 6 characters.";
@@ -31,9 +31,8 @@ export default function OfficialLoginPage({
     if (!validate()) return;
     setLoading(true);
     try {
-      if (onSubmit) await onSubmit({ username, password, remember });
+      if (onSubmit) await onSubmit({ inviteCode, password, remember });
       else await new Promise((r) => setTimeout(r, 900)); // mock delay
-      alert("Signed in successfully (mock).");
     } catch (err) {
       setErrors({ form: err.message || "Sign-in failed." });
     } finally {
@@ -77,7 +76,7 @@ export default function OfficialLoginPage({
             </div>
             <div>
               <h1 className="text-2xl font-semibold tracking-tight">
-                Welcome back 
+                Welcome back
               </h1>
               <p className="text-xs text-slate-400 mt-1">
                 Sign in to continue to your{" "}
@@ -90,7 +89,7 @@ export default function OfficialLoginPage({
           <div className="mt-5 grid gap-3">
             <div className="flex items-center gap-3 text-[11px] text-slate-500">
               <span className="h-px flex-1 bg-slate-700" />
-              <span>Or sign in with username</span>
+              <span>Or sign in with Invite Code</span>
               <span className="h-px flex-1 bg-slate-700" />
             </div>
 
@@ -102,33 +101,31 @@ export default function OfficialLoginPage({
                 </div>
               )}
 
-              {/* email */}
+              {/* invite code */}
               <label className="block">
                 <div className="flex items-center justify-between mb-1.5">
                   <span className="text-xs font-medium text-slate-200">
-                    User Name
+                    Invite Code
                   </span>
-                  <span className="text-[10px] text-slate-500">
-                    User Name
+                  <span className="text-[10px] text-slate-500 italic">
+                    Example: LS123456
                   </span>
                 </div>
                 <div className="relative">
                   <input
                     type="text"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className={`w-full rounded-lg border bg-slate-900/70 px-3.5 py-2.5 pr-10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 focus:border-indigo-400 transition ${
-                      errors.username ? "border-red-400/70" : "border-slate-700"
-                    }`}
-                    placeholder="User Name"
-                    aria-invalid={!!errors.username}
-                    aria-describedby={errors.username ? "username-error" : undefined}
+                    value={inviteCode}
+                    onChange={(e) => setInviteCode(e.target.value)}
+                    className={`w-full rounded-lg border bg-slate-900/70 px-3.5 py-2.5 pr-10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 focus:border-indigo-400 transition ${errors.inviteCode ? "border-red-400/70" : "border-slate-700"
+                      }`}
+                    placeholder="Enter Invite Code"
+                    aria-invalid={!!errors.inviteCode}
                   />
                   <FiMail className="w-4 h-4 absolute right-3.5 top-3 text-slate-500" />
                 </div>
-                {errors.username && (
-                  <p id="username-error" className="text-[11px] text-red-400 mt-1">
-                    {errors.username}
+                {errors.inviteCode && (
+                  <p className="text-[11px] text-red-400 mt-1">
+                    {errors.inviteCode}
                   </p>
                 )}
               </label>
@@ -152,9 +149,8 @@ export default function OfficialLoginPage({
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className={`w-full rounded-lg border bg-slate-900/70 px-3.5 py-2.5 pr-10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 focus:border-indigo-400 transition ${
-                      errors.password ? "border-red-400/70" : "border-slate-700"
-                    }`}
+                    className={`w-full rounded-lg border bg-slate-900/70 px-3.5 py-2.5 pr-10 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/60 focus:border-indigo-400 transition ${errors.password ? "border-red-400/70" : "border-slate-700"
+                      }`}
                     placeholder="Enter your password"
                     aria-invalid={!!errors.password}
                     aria-describedby={

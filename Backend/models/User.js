@@ -31,7 +31,19 @@ const userSchema = new mongoose.Schema({
   freedomIncome: { type: Number, default: 0 },
   dailyBonusIncome: { type: Number, default: 0 },
   rankRewardIncome: { type: Number, default: 0 },
+  levelIncome: { type: Number, default: 0 },
   lastDailyCredit: { type: String, default: () => new Date().toISOString().slice(0, 10) },
+
+  // Reward Tracking
+  rewardCompletions: [
+    {
+      level: { type: Number, required: true },
+      status: { type: String, enum: ['pending', 'claimed', 'given'], default: 'pending' },
+      completedAt: { type: Date, default: Date.now },
+      processedAt: { type: Date, default: null },
+      processedBy: { type: String, default: null }
+    }
+  ],
 
   // Extended Profile Fields
   gender: { type: String, default: '' },
