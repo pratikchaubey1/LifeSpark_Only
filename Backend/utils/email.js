@@ -1,13 +1,13 @@
 const nodemailer = require('nodemailer');
 
 const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
-    port: process.env.EMAIL_PORT || 587,
-    secure: false, // true for 465, false for other ports
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-    },
+  host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
+  port: process.env.EMAIL_PORT || 587,
+  secure: false, // true for 465, false for other ports
+  auth: {
+    user: process.env.EMAIL_USER,
+    pass: process.env.EMAIL_PASS,
+  },
 });
 
 /**
@@ -16,16 +16,16 @@ const transporter = nodemailer.createTransport({
  * @param {String} password Plain text password
  */
 const sendWelcomeEmail = async (user, password) => {
-    if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-        console.warn('Email credentials not set. Skipping welcome email.');
-        return;
-    }
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    console.warn('Email credentials not set. Skipping welcome email.');
+    return;
+  }
 
-    const mailOptions = {
-        from: `"LifeSpark" <${process.env.EMAIL_SENDER || process.env.EMAIL_USER}>`,
-        to: user.email,
-        subject: 'Welcome to LifeSpark - Your Registration is Successful!',
-        html: `
+  const mailOptions = {
+    from: `"LifeSpark" <${process.env.EMAIL_SENDER || process.env.EMAIL_USER}>`,
+    to: user.email,
+    subject: 'Welcome to LifeSpark - Your Registration is Successful!',
+    html: `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; border: 1px solid #e0e0e0; border-radius: 10px; overflow: hidden; color: #333;">
         <div style="background: linear-gradient(135deg, #6366f1, #a855f7); padding: 30px; text-align: center; color: white;">
           <h1 style="margin: 0; font-size: 28px;">Welcome to LifeSpark!</h1>
@@ -45,7 +45,7 @@ const sendWelcomeEmail = async (user, password) => {
           <p>You can now use these credentials to log in to your dashboard and start exploring our platform.</p>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${process.env.CLIENT_ORIGIN || 'http://localhost:5173'}/login" 
+            <a href="${process.env.CLIENT_ORIGIN || 'https://lifesparkassociates.in/'}/login" 
                style="background-color: #4f46e5; color: white; padding: 12px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;">
               Login to Your Dashboard
             </a>
@@ -62,18 +62,18 @@ const sendWelcomeEmail = async (user, password) => {
         </div>
       </div>
     `,
-    };
+  };
 
-    try {
-        const info = await transporter.sendMail(mailOptions);
-        console.log('Welcome email sent: ' + info.response);
-        return info;
-    } catch (error) {
-        console.error('Error sending welcome email:', error);
-        throw error;
-    }
+  try {
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Welcome email sent: ' + info.response);
+    return info;
+  } catch (error) {
+    console.error('Error sending welcome email:', error);
+    throw error;
+  }
 };
 
 module.exports = {
-    sendWelcomeEmail,
+  sendWelcomeEmail,
 };

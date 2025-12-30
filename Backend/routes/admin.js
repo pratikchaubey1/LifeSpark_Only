@@ -9,6 +9,7 @@ const Project = require('../models/Project');
 const Testimonial = require('../models/Testimonial');
 const { getUsersAtLevel } = require('../utils/team');
 const adminAuth = require('../middleware/adminAuth');
+const { sendWelcomeEmail } = require('../utils/email');
 
 const router = express.Router();
 
@@ -144,12 +145,21 @@ router.post('/users', adminAuth, async (req, res) => {
       role: 'member',
       roleAssignedBy: 'admin',
       roleAssignedAt: new Date(),
-      balance: 50, // Initial Signing Bonus
-      totalIncome: 50,
+      roleAssignedAt: new Date(),
+      balance: 0, // Initial balance is 0 until activation
+      totalIncome: 0,
       directInviteIds: [],
     });
 
     await newUser.save();
+
+    // Send welcome email with credentials
+    try {
+      await sendWelcomeEmail(newUser, password);
+    } catch (emailError) {
+      console.error('Failed to send welcome email to admin-created user:', emailError);
+      // Don't block user creation if email fails
+    }
 
     // Update Sponsor if exists
     if (cleanSponsorId && cleanSponsorId !== 'WSE-COMPANY') {
@@ -160,21 +170,7 @@ router.post('/users', adminAuth, async (req, res) => {
         }
         sponsorUser.directInviteIds.push(newUser._id.toString());
 
-        // BONUS LOGIC: ₹56 (50+6) if sponsor joined < 30 days ago, else ₹6
-        let reward = 6;
-        if (sponsorUser.createdAt) {
-          const joinDate = new Date(sponsorUser.createdAt);
-          const now = new Date();
-          const diffTime = Math.abs(now - joinDate);
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-          if (diffDays <= 30) {
-            reward = 56;
-          }
-        }
-
-        sponsorUser.balance = (Number(sponsorUser.balance) || 0) + reward;
-        sponsorUser.totalIncome = (Number(sponsorUser.totalIncome) || 0) + reward;
+        // NOTE: Referral income is now credited only when the user ACTIVATES their account
 
         await sponsorUser.save();
       }

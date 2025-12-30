@@ -1,12 +1,11 @@
 const express = require('express');
 const auth = require('../middleware/auth');
 const User = require('../models/User');
+const { getUsersAtLevel } = require('../utils/team');
 
 const router = express.Router();
 
-const { getUsersAtLevel } = require('../utils/team');
-
-// Income per user at each level (in rupees)
+// Income per user at each level
 const LEVEL_INCOME_RATES = {
     1: 6,
     2: 5,
@@ -20,67 +19,84 @@ const LEVEL_INCOME_RATES = {
     10: 0.5
 };
 
-/**
- * Get level income data for authenticated user
- * GET /api/level-income
- */
 router.get('/', auth, async (req, res) => {
     try {
-        const currentUser = await User.findById(req.user._id);
+        const currentUser = await User.findById(req.user._id)
+            .select('directInviteIds')
+            .lean();
+
         if (!currentUser) {
             return res.status(404).json({ message: 'User not found' });
         }
 
+        const directIds = Array.isArray(currentUser.directInviteIds)
+            ? currentUser.directInviteIds
+            : [];
+
         const levels = [];
         let totalLevelIncome = 0;
 
-        // Calculate for each level (1-10)
+        // Pre-calculate user IDs for all levels
+        const levelUserIdsMap = {};
+
         for (let level = 1; level <= 10; level++) {
-            let userIdsAtLevel = [];
-
             if (level === 1) {
-                // Level 1 is direct referrals
-                userIdsAtLevel = Array.isArray(currentUser.directInviteIds)
-                    ? currentUser.directInviteIds
-                    : [];
+                levelUserIdsMap[level] = directIds;
             } else {
-                // For levels 2-10, recursively find users
-                const level1Ids = Array.isArray(currentUser.directInviteIds)
-                    ? currentUser.directInviteIds
-                    : [];
-                userIdsAtLevel = await getUsersAtLevel(level1Ids, level);
+                levelUserIdsMap[level] = await getUsersAtLevel(directIds, level);
             }
+        }
 
-            // Fetch user details for this level
-            const usersAtLevel = await User.find({
-                _id: { $in: userIdsAtLevel }
-            }).select('_id name email inviteCode isActivated createdAt');
+        // Fetch users for each level (parallelized)
+        const levelPromises = Object.entries(levelUserIdsMap).map(
+            async ([level, userIds]) => {
+                if (!userIds.length) {
+                    return {
+                        level: Number(level),
+                        incomePerUser: LEVEL_INCOME_RATES[level],
+                        userCount: 0,
+                        totalIncome: 0,
+                        users: []
+                    };
+                }
 
-            const userCount = usersAtLevel.length;
-            const incomePerUser = LEVEL_INCOME_RATES[level];
-            const totalIncome = userCount * incomePerUser;
-            totalLevelIncome += totalIncome;
+                const users = await User.find({ _id: { $in: userIds } })
+                    .select('_id name email inviteCode isActivated createdAt')
+                    .lean();
 
-            levels.push({
-                level,
-                incomePerUser,
-                userCount,
-                totalIncome,
-                users: usersAtLevel.map(u => ({
-                    id: u._id.toString(),
-                    name: u.name,
-                    email: u.email,
-                    inviteCode: u.inviteCode,
-                    isActivated: !!u.isActivated,
-                    createdAt: u.createdAt
-                }))
-            });
+                const userCount = users.length;
+                const incomePerUser = LEVEL_INCOME_RATES[level];
+                const totalIncome = userCount * incomePerUser;
+
+                return {
+                    level: Number(level),
+                    incomePerUser,
+                    userCount,
+                    totalIncome,
+                    users: users.map(u => ({
+                        id: u._id.toString(),
+                        name: u.name,
+                        email: u.email,
+                        inviteCode: u.inviteCode,
+                        isActivated: !!u.isActivated,
+                        createdAt: u.createdAt
+                    }))
+                };
+            }
+        );
+
+        const levelResults = await Promise.all(levelPromises);
+
+        for (const levelData of levelResults) {
+            totalLevelIncome += levelData.totalIncome;
+            levels.push(levelData);
         }
 
         return res.json({
             levels,
             totalLevelIncome
         });
+
     } catch (err) {
         console.error('Get level income error:', err);
         res.status(500).json({ message: 'Server error' });

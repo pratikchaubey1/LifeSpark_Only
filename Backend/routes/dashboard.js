@@ -98,6 +98,38 @@ router.post('/activate-id', auth, async (req, res) => {
     beneficiary.activationPackage = packageId;
     beneficiary.activatedAt = new Date();
     beneficiary.lastDailyCredit = null;
+
+    // ---------------- INCOME DISTRIBUTION LOGIC ----------------
+    // 1. Credit Joining Bonus to Beneficiary (₹50)
+    const JOINING_BONUS = 50;
+    beneficiary.balance = (Number(beneficiary.balance) || 0) + JOINING_BONUS;
+    beneficiary.totalIncome = (Number(beneficiary.totalIncome) || 0) + JOINING_BONUS;
+
+    // 2. Credit Referral Income to Sponsor
+    if (beneficiary.sponsorId) {
+      const sponsorUser = await User.findOne({ inviteCode: beneficiary.sponsorId });
+      if (sponsorUser) {
+        // BONUS LOGIC: ₹56 (50+6) if sponsor joined < 30 days ago, else ₹6
+        let reward = 6;
+        if (sponsorUser.createdAt) {
+          const joinDate = new Date(sponsorUser.createdAt);
+          const now = new Date();
+          const diffTime = Math.abs(now - joinDate);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+          if (diffDays <= 30) {
+            reward = 56;
+          }
+        }
+
+        sponsorUser.balance = (Number(sponsorUser.balance) || 0) + reward;
+        sponsorUser.totalIncome = (Number(sponsorUser.totalIncome) || 0) + reward;
+
+        await sponsorUser.save();
+      }
+    }
+    // -----------------------------------------------------------
+
     await beneficiary.save();
 
     const { password, ...safeUser } = beneficiary.toObject();
