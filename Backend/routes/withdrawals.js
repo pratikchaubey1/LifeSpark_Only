@@ -48,6 +48,14 @@ router.post('/', auth, async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
+    // Check minimum direct referrals requirement
+    const directCount = Array.isArray(user.directInviteIds) ? user.directInviteIds.length : 0;
+    if (directCount < 2) {
+      return res.status(403).json({
+        message: `You need at least 2 direct referrals to request a withdrawal. Current: ${directCount}`
+      });
+    }
+
     const balance = Number(user.balance) || 0;
 
     if (amount > balance) {

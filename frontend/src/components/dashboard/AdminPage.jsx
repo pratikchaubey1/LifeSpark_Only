@@ -232,6 +232,7 @@ export default function AdminPage() {
 
   // KYC: search and edit
   const [kycSearch, setKycSearch] = useState("");
+  const [memberSearch, setMemberSearch] = useState("");
   const [expandedKycId, setExpandedKycId] = useState(null);
   const [kycEdits, setKycEdits] = useState({}); // { [kycId]: { panNo, aadhaarNo, ... } }
   const [savingKycId, setSavingKycId] = useState(null);
@@ -1088,7 +1089,16 @@ export default function AdminPage() {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h2 className="text-lg font-semibold">Members</h2>
-                <div className="text-xs text-slate-500">Active: <span className="font-mono">{users.filter(u => u.isActivated).length}</span> — Inactive: <span className="font-mono">{users.filter(u => !u.isActivated).length}</span></div>
+                <div className="flex items-center gap-4">
+                  <input
+                    type="text"
+                    placeholder="Search name, ID or code..."
+                    value={memberSearch}
+                    onChange={(e) => setMemberSearch(e.target.value)}
+                    className="border rounded px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                  />
+                  <div className="text-xs text-slate-500">Active: <span className="font-mono">{users.filter(u => u.isActivated).length}</span> — Inactive: <span className="font-mono">{users.filter(u => !u.isActivated).length}</span></div>
+                </div>
               </div>
 
               <div className="mb-4 border rounded p-3 bg-slate-50">
@@ -1177,21 +1187,15 @@ export default function AdminPage() {
                     </thead>
                     <tbody>
                       {(() => {
-                        // Filter users to show only Admin and Admin's direct referrals
-                        // We assume the "admin" user is the one with role='admin' or name='admin'
-                        // Adjust criteria if necessary.
-                        const adminUser = users.find(u => u.role === "admin" || u.name === "admin" || u.email === "admin@gmail.com");
-                        const adminCode = adminUser?.inviteCode;
-
+                        const term = memberSearch.trim().toLowerCase();
                         const visibleUsers = users.filter(u => {
-                          // Always show admin
-                          if (u.id === adminUser?.id) return true;
-                          // Show if no sponsor (root)
-                          if (!u.sponsorId) return true;
-                          // Show if sponsored by admin (handle whitespace)
-                          if (adminCode && u.sponsorId && u.sponsorId.trim() === adminCode.trim()) return true;
-
-                          return false;
+                          if (!term) return true;
+                          return (
+                            u.name?.toLowerCase().includes(term) ||
+                            u.id?.toLowerCase().includes(term) ||
+                            u.email?.toLowerCase().includes(term) ||
+                            u.inviteCode?.toLowerCase().includes(term)
+                          );
                         });
 
                         return visibleUsers.map((u) => {

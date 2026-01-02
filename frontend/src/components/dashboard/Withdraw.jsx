@@ -26,6 +26,7 @@ export default function Withdraw({ onMenuOpen }) {
   const [upiId, setUpiId] = useState("");
   const [upiNo, setUpiNo] = useState("");
   const [amount, setAmount] = useState("");
+  const [directCount, setDirectCount] = useState(0);
 
   const [withdrawals, setWithdrawals] = useState([]);
 
@@ -58,6 +59,8 @@ export default function Withdraw({ onMenuOpen }) {
         setBalance(Number(profileData.user?.balance) || 0);
         setUpiId(profileData.user?.upiId || "");
         setUpiNo(profileData.user?.upiNo || "");
+        const invites = profileData.user?.directInviteIds || [];
+        setDirectCount(invites.length);
       }
 
       if (listRes.ok) {
@@ -97,6 +100,10 @@ export default function Withdraw({ onMenuOpen }) {
     if (!upiId.trim()) {
       setMsgType("error");
       return setMsg("UPI ID required.");
+    }
+    if (directCount < 2) {
+      setMsgType("error");
+      return setMsg(`Need 2 direct referrals. Current: ${directCount}`);
     }
     if (!upiNo.trim()) {
       setMsgType("error");
@@ -205,6 +212,17 @@ export default function Withdraw({ onMenuOpen }) {
                 Payout Details
               </h3>
 
+              {directCount < 2 ? (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 text-amber-800">
+                  <FiAlertCircle className="mt-0.5 shrink-0" />
+                  <div className="text-sm">
+                    <div className="font-semibold mb-1">Requirement Check</div>
+                    <p>You need at least <span className="font-bold">2 direct referrals</span> to request a withdrawal.</p>
+                    <p className="mt-1 opacity-80">Current Progress: <span className="font-mono font-bold">{directCount}/2</span></p>
+                  </div>
+                </div>
+              ) : null}
+
               <InputGroup
                 icon={<FiCreditCard />}
                 label="UPI ID"
@@ -232,8 +250,8 @@ export default function Withdraw({ onMenuOpen }) {
 
               <button
                 onClick={handleSubmit}
-                disabled={submitting}
-                className="w-full py-4 rounded-2xl text-white font-bold bg-slate-900 hover:bg-slate-800 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2 mt-2 shadow-lg shadow-slate-200"
+                disabled={submitting || directCount < 2}
+                className="w-full py-4 rounded-2xl text-white font-bold bg-slate-900 hover:bg-slate-800 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2 shadow-lg shadow-slate-200"
               >
                 {submitting ? (
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>

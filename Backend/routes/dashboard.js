@@ -2,8 +2,9 @@ const express = require('express');
 const auth = require('../middleware/auth');
 const User = require('../models/User');
 const Epin = require('../models/Epin');
-
 const router = express.Router();
+const { distributeIncome } = require('../utils/income');
+
 
 router.get('/', auth, async (req, res) => {
   try {
@@ -98,7 +99,22 @@ router.post('/activate-id', auth, async (req, res) => {
     beneficiary.activationPackage = packageId;
     beneficiary.activatedAt = new Date();
     beneficiary.lastDailyCredit = null;
+
+    // ---------------- INCOME DISTRIBUTION LOGIC ----------------
+    console.log(`Distributing income for beneficiary: ${beneficiary.inviteCode}`);
+    // 1. Credit Joining Bonus to Beneficiary (₹50)
+    const JOINING_BONUS = 50;
+    beneficiary.balance = (Number(beneficiary.balance) || 0) + JOINING_BONUS;
+    beneficiary.totalIncome = (Number(beneficiary.totalIncome) || 0) + JOINING_BONUS;
+    console.log(`Beneficiary ${beneficiary.inviteCode} new balance: ${beneficiary.balance}`);
+
+    // 2. Distribute Multi-Level Referral Income
+    await distributeIncome(beneficiary);
+    // -----------------------------------------------------------
+
+    console.log('Saving beneficiary...');
     await beneficiary.save();
+    console.log('Beneficiary saved.');
 
     const { password, ...safeUser } = beneficiary.toObject();
 

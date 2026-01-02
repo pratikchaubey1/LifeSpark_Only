@@ -156,8 +156,9 @@ router.post('/register', async (req, res) => {
       isActivated: false,
       activationPackage: null,
       activatedAt: null,
-      balance: 50, // Initial Signing Bonus
-      totalIncome: 50, // Reflect initial bonus in income?
+      activatedAt: null,
+      balance: 0, // Initial balance is 0 until activation
+      totalIncome: 0,
       withdrawal: 0,
       freedomIncome: 0,
       dailyBonusIncome: 0,
@@ -204,26 +205,8 @@ router.post('/register', async (req, res) => {
       }
       sponsorUser.directInviteIds.push(newUser._id.toString());
 
-      // BONUS LOGIC: ₹50 if sponsor joined < 30 days ago, else ₹6
-      let reward = 6;
-      if (sponsorUser.createdAt) {
-        const joinDate = new Date(sponsorUser.createdAt);
-        const now = new Date();
-        const diffTime = Math.abs(now - joinDate);
-        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      // NOTE: Referral income is now credited only when the user ACTIVATES their account (in dashboard.js)
 
-        if (diffDays <= 30) {
-          reward = 56;
-          console.log(`Sponsor joined ${diffDays} days ago. Eligible for ₹50 + ₹6 = ₹56 bonus.`);
-        } else {
-          console.log(`Sponsor joined ${diffDays} days ago. Getting standard ₹6 reward.`);
-        }
-      }
-
-      sponsorUser.balance = (Number(sponsorUser.balance) || 0) + reward;
-      sponsorUser.totalIncome = (Number(sponsorUser.totalIncome) || 0) + reward;
-
-      console.log(`Crediting sponsor ${sponsorUser.name} with ₹${reward}`);
       await sponsorUser.save();
       console.log('Sponsor record updated successfully');
     }
