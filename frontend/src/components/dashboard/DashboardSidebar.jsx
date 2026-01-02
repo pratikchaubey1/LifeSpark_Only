@@ -36,26 +36,26 @@ const DASHBOARD_ITEMS = [
   },
 
   {
-    label: "My Team Business Support",
+    label: "Income Report ",
     children: [
       { label: "Auto Pool", path: "/dashboard/direct-team" },
       {
         label: "Rank Reward Business",
         path: "/dashboard/level-team",
       },
-      { label: "Freedom Business", path: "/dashboard/genealogy" },
+      // { label: "Freedom Business", path: "/dashboard/genealogy" },
       { label: "Level Income", path: "/dashboard/level-income" },
     ],
   },
 
-  {
-    label: "Income / Reports",
-    children: [
-      { label: "Income Report", path: "/dashboard/income-report" },
-      // { label: "Payout Report", path: "/dashboard/payout-report" },
-      // { label: "Wallet Ledger", path: "/dashboard/wallet-ledger" },
-    ],
-  },
+  // {
+  //   label: "Income / Reports",
+  //   children: [
+  //     { label: "Income Report", path: "/dashboard/income-report" },
+  //     // { label: "Payout Report", path: "/dashboard/payout-report" },
+  //     // { label: "Wallet Ledger", path: "/dashboard/wallet-ledger" },
+  //   ],
+  // },
 
   { label: "Withdraw", path: "/dashboard/withdraw" },
 ];

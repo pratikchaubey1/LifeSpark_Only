@@ -8,6 +8,7 @@ const Withdrawal = require('../models/Withdrawal');
 const Project = require('../models/Project');
 const Testimonial = require('../models/Testimonial');
 const { getUsersAtLevel } = require('../utils/team');
+const { distributeIncome } = require('../utils/income');
 const adminAuth = require('../middleware/adminAuth');
 const { sendWelcomeEmail } = require('../utils/email');
 
@@ -314,6 +315,17 @@ router.put('/users/:id/activate', adminAuth, async (req, res) => {
     user.isActivated = true;
     if (!user.activationPackage) user.activationPackage = 'AdminManual';
     if (!user.activatedAt) user.activatedAt = new Date();
+    user.lastDailyCredit = null;
+
+    // ---------------- INCOME DISTRIBUTION LOGIC ----------------
+    // 1. Credit Joining Bonus to User (₹50)
+    const JOINING_BONUS = 50;
+    user.balance = (Number(user.balance) || 0) + JOINING_BONUS;
+    user.totalIncome = (Number(user.totalIncome) || 0) + JOINING_BONUS;
+
+    // 2. Distribute Multi-Level Referral Income
+    await distributeIncome(user);
+    // -----------------------------------------------------------
 
     await user.save();
 

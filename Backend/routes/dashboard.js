@@ -2,8 +2,9 @@ const express = require('express');
 const auth = require('../middleware/auth');
 const User = require('../models/User');
 const Epin = require('../models/Epin');
-
 const router = express.Router();
+const { distributeIncome } = require('../utils/income');
+
 
 router.get('/', auth, async (req, res) => {
   try {
@@ -100,37 +101,20 @@ router.post('/activate-id', auth, async (req, res) => {
     beneficiary.lastDailyCredit = null;
 
     // ---------------- INCOME DISTRIBUTION LOGIC ----------------
+    console.log(`Distributing income for beneficiary: ${beneficiary.inviteCode}`);
     // 1. Credit Joining Bonus to Beneficiary (₹50)
     const JOINING_BONUS = 50;
     beneficiary.balance = (Number(beneficiary.balance) || 0) + JOINING_BONUS;
     beneficiary.totalIncome = (Number(beneficiary.totalIncome) || 0) + JOINING_BONUS;
+    console.log(`Beneficiary ${beneficiary.inviteCode} new balance: ${beneficiary.balance}`);
 
-    // 2. Credit Referral Income to Sponsor
-    if (beneficiary.sponsorId) {
-      const sponsorUser = await User.findOne({ inviteCode: beneficiary.sponsorId });
-      if (sponsorUser) {
-        // BONUS LOGIC: ₹56 (50+6) if sponsor joined < 30 days ago, else ₹6
-        let reward = 6;
-        if (sponsorUser.createdAt) {
-          const joinDate = new Date(sponsorUser.createdAt);
-          const now = new Date();
-          const diffTime = Math.abs(now - joinDate);
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-
-          if (diffDays <= 30) {
-            reward = 56;
-          }
-        }
-
-        sponsorUser.balance = (Number(sponsorUser.balance) || 0) + reward;
-        sponsorUser.totalIncome = (Number(sponsorUser.totalIncome) || 0) + reward;
-
-        await sponsorUser.save();
-      }
-    }
+    // 2. Distribute Multi-Level Referral Income
+    await distributeIncome(beneficiary);
     // -----------------------------------------------------------
 
+    console.log('Saving beneficiary...');
     await beneficiary.save();
+    console.log('Beneficiary saved.');
 
     const { password, ...safeUser } = beneficiary.toObject();
 
