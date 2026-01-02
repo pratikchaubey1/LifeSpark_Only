@@ -33,6 +33,11 @@ const topStatConfig = [
     key: "rankRewardIncome",
     color: "bg-gradient-to-r from-purple-500 to-fuchsia-600",
   },
+  {
+    label: "Daily Level Income",
+    key: "levelIncome",
+    color: "bg-gradient-to-r from-indigo-400 to-blue-500",
+  },
 ];
 
 const bottomStatConfig = [

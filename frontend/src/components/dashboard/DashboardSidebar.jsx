@@ -60,7 +60,7 @@ const DASHBOARD_ITEMS = [
   { label: "Withdraw", path: "/dashboard/withdraw" },
 ];
 
-export default function DashboardSidebar({ open = true, onClose }) {
+export default function DashboardSidebar({ open = true, onClose, onLogout }) {
   const [collapsed, setCollapsed] = useState(false);
   const [openParent, setOpenParent] = useState(null);
 
@@ -138,15 +138,23 @@ export default function DashboardSidebar({ open = true, onClose }) {
 
         {/* ⭐ BOTTOM FIXED HOME BUTTON ⭐ */}
         {!collapsed && (
-          <div className="p-4 border-t border-slate-800">
+          <div className="p-4 border-t border-slate-800 space-y-2">
             <Link
               to="/"
               onClick={() => onClose && onClose()}
-              className="w-full block text-center bg-emerald-600 hover:bg-emerald-700 py-2 rounded-lg font-medium text-white"
+              className="w-full block text-center bg-slate-800 hover:bg-slate-700 py-2 rounded-lg font-medium text-white transition"
             >
-
               Home
             </Link>
+            <button
+              onClick={() => {
+                onLogout && onLogout();
+                onClose && onClose();
+              }}
+              className="w-full block text-center bg-rose-600 hover:bg-rose-700 py-2 rounded-lg font-medium text-white transition"
+            >
+              Logout
+            </button>
           </div>
         )}
       </aside>

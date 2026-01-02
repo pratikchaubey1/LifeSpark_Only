@@ -59,6 +59,7 @@ export default function MemberLayout({ onLogout }) {
       <DashboardSidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        onLogout={onLogout}
       />
 
       {/* Dashboard + Logout Buttons */}
