@@ -318,10 +318,7 @@ router.put('/users/:id/activate', adminAuth, async (req, res) => {
     user.lastDailyCredit = null;
 
     // ---------------- INCOME DISTRIBUTION LOGIC ----------------
-    // 1. Credit Joining Bonus to User (₹50)
-    const JOINING_BONUS = 50;
-    user.balance = (Number(user.balance) || 0) + JOINING_BONUS;
-    user.totalIncome = (Number(user.totalIncome) || 0) + JOINING_BONUS;
+    // (JOINING_BONUS REMOVED as per user request)
 
     // 2. Distribute Multi-Level Referral Income
     await distributeIncome(user);

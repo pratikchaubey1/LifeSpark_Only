@@ -93,6 +93,10 @@ cron.schedule("0 0 * * *", async () => {
       user.totalIncome = (user.totalIncome || 0) + DAILY_BONUS;
       user.lastDailyCredit = todayStr;
 
+      // Also distribute Level Income daily to sponsors (10 levels)
+      const { distributeDailyLevelIncome } = require('./utils/income');
+      await distributeDailyLevelIncome(user);
+
       await user.save();
     }
 

@@ -4,7 +4,7 @@ const User = require('../models/User');
 const Epin = require('../models/Epin');
 const router = express.Router();
 const { distributeIncome } = require('../utils/income');
-
+const { getTeamStats } = require('../utils/dashboard_utils');
 
 router.get('/', auth, async (req, res) => {
   try {
@@ -13,6 +13,7 @@ router.get('/', auth, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    const teamStats = await getTeamStats(user);
     const { password, ...safeUser } = user.toObject();
 
     res.json({
@@ -24,6 +25,10 @@ router.get('/', auth, async (req, res) => {
         dailyBonusIncome: user.dailyBonusIncome || 0,
         freedomIncome: user.freedomIncome || 0,
         rankRewardIncome: user.rankRewardIncome || 0,
+        levelIncome: teamStats.dailyLevelIncome || 0,
+        accumulatedLevelIncome: user.levelIncome || 0,
+        repurchaseIncome: 0, // Not implemented yet
+        ...teamStats
       },
     });
   } catch (err) {
@@ -102,11 +107,8 @@ router.post('/activate-id', auth, async (req, res) => {
 
     // ---------------- INCOME DISTRIBUTION LOGIC ----------------
     console.log(`Distributing income for beneficiary: ${beneficiary.inviteCode}`);
-    // 1. Credit Joining Bonus to Beneficiary (₹50)
-    const JOINING_BONUS = 50;
-    beneficiary.balance = (Number(beneficiary.balance) || 0) + JOINING_BONUS;
-    beneficiary.totalIncome = (Number(beneficiary.totalIncome) || 0) + JOINING_BONUS;
-    console.log(`Beneficiary ${beneficiary.inviteCode} new balance: ${beneficiary.balance}`);
+    // (JOINING_BONUS REMOVED as per user request)
+    console.log(`Beneficiary ${beneficiary.inviteCode} balance: ${beneficiary.balance}`);
 
     // 2. Distribute Multi-Level Referral Income
     await distributeIncome(beneficiary);
