@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { FiCopy, FiCheck } from "react-icons/fi";
 import config from "../../../config/config";
 
 const API_BASE = config.apiUrl;
@@ -7,6 +8,7 @@ export default function TransferPin({ onMenuOpen }) {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState("");
   const [epins, setEpins] = useState([]);
+  const [copiedIndex, setCopiedIndex] = useState(null);
 
   async function load() {
     setMsg("");
@@ -37,25 +39,35 @@ export default function TransferPin({ onMenuOpen }) {
     load();
   }, []);
 
+  const copyToClipboard = async (code, index) => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedIndex(index);
+      setTimeout(() => setCopiedIndex(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy!", err);
+    }
+  };
+
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 flex justify-center px-4 py-8">
       {/* MAIN CARD */}
       <div className="w-full max-w-4xl bg-white shadow-xl rounded-2xl p-6 border border-slate-200 relative">
         {/* ⭐ MENU BUTTON INSIDE CARD (TOP LEFT) */}
-         <button
-              onClick={() => onMenuOpen?.()}
-              className="p-2 rounded-lg bg-slate-200 hover:bg-slate-300 active:scale-95 transition"
-            >
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                className="h-6 w-6 text-slate-700"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
-            </button>
+        <button
+          onClick={() => onMenuOpen?.()}
+          className="p-2 rounded-lg bg-slate-200 hover:bg-slate-300 active:scale-95 transition"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-6 w-6 text-slate-700"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+        </button>
 
 
         {/* HEADER */}
@@ -110,8 +122,20 @@ export default function TransferPin({ onMenuOpen }) {
                   E-Pin Code
                 </div>
 
-                <div className="font-mono text-sm truncate text-slate-800">
-                  {p.code}
+                <div className="flex items-center justify-between gap-2">
+                  <div className="font-mono text-sm truncate text-slate-800 flex-1">
+                    {p.code}
+                  </div>
+                  <button
+                    onClick={() => copyToClipboard(p.code, index)}
+                    className={`p-1.5 rounded-lg transition-colors ${copiedIndex === index
+                      ? "bg-emerald-100 text-emerald-600"
+                      : "bg-slate-100 text-slate-500 hover:bg-slate-200"
+                      }`}
+                    title="Copy E-Pin"
+                  >
+                    {copiedIndex === index ? <FiCheck size={14} /> : <FiCopy size={14} />}
+                  </button>
                 </div>
 
                 {/* Accent underline */}

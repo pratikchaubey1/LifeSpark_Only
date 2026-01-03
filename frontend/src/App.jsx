@@ -24,6 +24,8 @@ import WelcomePage from "./components/dashboard/WelcomePage";
 import WelcomeLetter from "./components/dashboard/WelcomeLetter";
 import CreateIdCard from "./components/dashboard/CreateIdCard";
 
+import AdminPage from "./components/dashboard/AdminPage";
+
 const NAV_ITEMS = [
   { label: "Home", id: "home" },
   { label: "About", id: "about" },
@@ -232,6 +234,18 @@ export default function App() {
         element={
           isAuthenticated ? (
             <MemberLayout onLogout={handleLogout} />
+          ) : (
+            <OfficialLoginPage onSubmit={handleLoginSubmit} />
+          )
+        }
+      />
+
+      {/* ADMIN PANEL */}
+      <Route
+        path="/admin/*"
+        element={
+          isAuthenticated ? (
+            <AdminPage onLogout={handleLogout} />
           ) : (
             <OfficialLoginPage onSubmit={handleLoginSubmit} />
           )

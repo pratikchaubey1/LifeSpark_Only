@@ -20,6 +20,7 @@ const adminRoutes = require('./routes/admin');
 const rewardsRoutes = require('./routes/rewards');
 const settingsRoutes = require('./routes/settings');
 const testRoutes = require('./routes/test');
+const franchiseRoutes = require('./routes/franchise');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -53,6 +54,7 @@ app.use('/api/test', testRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/rewards', rewardsRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/franchise', franchiseRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'LifeSpark backend is running' });
@@ -92,6 +94,10 @@ cron.schedule("0 0 * * *", async () => {
       user.dailyBonusIncome = (user.dailyBonusIncome || 0) + DAILY_BONUS;
       user.totalIncome = (user.totalIncome || 0) + DAILY_BONUS;
       user.lastDailyCredit = todayStr;
+
+      // Also distribute Level Income daily to sponsors (10 levels)
+      const { distributeDailyLevelIncome } = require('./utils/income');
+      await distributeDailyLevelIncome(user);
 
       await user.save();
     }

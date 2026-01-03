@@ -8,6 +8,8 @@ export default function ActivateID({ compact = false, onMenuOpen }) {
   const [epin, setEpin] = useState("");
   const [pkg, setPkg] = useState("");
   const [targetId, setTargetId] = useState(""); // Member ID or Invite Code
+  const [targetName, setTargetName] = useState("");
+  const [lookupLoading, setLookupLoading] = useState(false);
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(false);
   const [inactiveMembers, setInactiveMembers] = useState([]);
@@ -29,6 +31,34 @@ export default function ActivateID({ compact = false, onMenuOpen }) {
     };
     fetchDirect();
   }, []);
+
+  // Debounced lookup for member name
+  React.useEffect(() => {
+    const code = targetId.trim();
+    if (!code) {
+      setTargetName("");
+      return;
+    }
+
+    const handler = setTimeout(async () => {
+      try {
+        setLookupLoading(true);
+        const res = await fetch(`${API_BASE}/auth/sponsor/${code}`);
+        const data = await res.json();
+        if (res.ok && data.sponsor) {
+          setTargetName(data.sponsor.name);
+        } else {
+          setTargetName("User not found");
+        }
+      } catch {
+        setTargetName("");
+      } finally {
+        setLookupLoading(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(handler);
+  }, [targetId]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -198,7 +228,17 @@ export default function ActivateID({ compact = false, onMenuOpen }) {
                   placeholder="Leave empty to activate yourself"
                   className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-200 bg-white text-sm text-black placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition"
                 />
+                {lookupLoading && (
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                    <div className="h-4 w-4 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
               </div>
+              {targetName && (
+                <p className={`text-xs mt-1.5 font-medium px-2 py-1 rounded bg-slate-100 border inline-block ${targetName === "User not found" ? "text-red-500" : "text-indigo-600"}`}>
+                  Member: {targetName}
+                </p>
+              )}
               <p className="text-[10px] text-slate-500 mt-1 ml-1">
                 Enter User ID or Invite Code to activate another member.
               </p>

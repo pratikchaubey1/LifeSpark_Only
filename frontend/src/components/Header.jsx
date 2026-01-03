@@ -30,6 +30,7 @@ export default function Header({
           setSidebarOpen(false);
           onRegisterClick();
         }}
+        onLogout={onLogoutClick}
       >
         <DashBoardPage />
       </DashboardSidebar>
@@ -68,11 +69,10 @@ export default function Header({
                 <button
                   key={item.id}
                   onClick={() => scrollToId(item.id)}
-                  className={`transition ${
-                    activeSection === item.id
-                      ? "text-sky-600"
-                      : "text-slate-600 hover:text-slate-900"
-                  }`}
+                  className={`transition ${activeSection === item.id
+                    ? "text-sky-600"
+                    : "text-slate-600 hover:text-slate-900"
+                    }`}
                 >
                   {item.label}
                 </button>
@@ -109,18 +109,6 @@ export default function Header({
               )}
             </div>
 
-            {/* Mobile Menu Toggle */}
-            <button
-              className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-full 
-              border border-slate-200 bg-white shadow-sm"
-              onClick={() => setMobileOpen(!mobileOpen)}
-            >
-              <div className="space-y-1">
-                <span className="block h-0.5 w-5 bg-slate-900 rounded"></span>
-                <span className="block h-0.5 w-5 bg-slate-900 rounded"></span>
-                <span className="block h-0.5 w-5 bg-slate-900 rounded"></span>
-              </div>
-            </button>
           </div>
         </div>
 
@@ -137,11 +125,10 @@ export default function Header({
                     scrollToId(item.id);
                     setMobileOpen(false);
                   }}
-                  className={`block w-full text-left rounded-md px-2 py-1.5 ${
-                    activeSection === item.id
-                      ? "bg-sky-50 text-sky-600"
-                      : "text-slate-700 hover:bg-slate-100"
-                  }`}
+                  className={`block w-full text-left rounded-md px-2 py-1.5 ${activeSection === item.id
+                    ? "bg-sky-50 text-sky-600"
+                    : "text-slate-700 hover:bg-slate-100"
+                    }`}
                 >
                   {item.label}
                 </button>

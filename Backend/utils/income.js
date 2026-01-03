@@ -34,14 +34,14 @@ async function distributeIncome(beneficiary) {
             let totalToCredit = 0;
             const levelRate = LEVEL_INCOME_RATES[level] || 0;
 
-            // 1. Level Income (applies to all 10 levels)
-            totalToCredit += levelRate;
-            sponsor.levelIncome = (Number(sponsor.levelIncome) || 0) + levelRate;
-
-            // 2. Sponsor Income (only for the immediate sponsor - Level 1)
+            // 1. Level 1 logic: Give SPONSOR_INCOME (50) + Level 1 rate (6) = ₹56 total
             if (level === 1) {
-                totalToCredit += SPONSOR_INCOME;
-                // Note: We don't have a specific 'sponsorIncome' field, so it goes to balance/totalIncome.
+                totalToCredit = SPONSOR_INCOME + levelRate;
+                sponsor.levelIncome = (Number(sponsor.levelIncome) || 0) + levelRate;
+            } else {
+                // 2. Level 2-10 logic: Give the standard level rate
+                totalToCredit = levelRate;
+                sponsor.levelIncome = (Number(sponsor.levelIncome) || 0) + levelRate;
             }
 
             if (totalToCredit > 0) {
@@ -60,6 +60,42 @@ async function distributeIncome(beneficiary) {
     }
 }
 
+/**
+ * Distribute level income daily to 10 sponsors when a user receives their daily bonus.
+ * @param {Object} beneficiary - The user who just received daily bonus.
+ */
+async function distributeDailyLevelIncome(beneficiary) {
+    try {
+        if (!beneficiary.sponsorId) return;
+
+        let currentSponsorCode = beneficiary.sponsorId;
+
+        for (let level = 1; level <= 10; level++) {
+            if (!currentSponsorCode) break;
+
+            const sponsor = await User.findOne({ inviteCode: currentSponsorCode });
+            if (!sponsor) break;
+
+            const levelRate = LEVEL_INCOME_RATES[level] || 0;
+
+            if (levelRate > 0) {
+                sponsor.balance = (Number(sponsor.balance) || 0) + levelRate;
+                sponsor.totalIncome = (Number(sponsor.totalIncome) || 0) + levelRate;
+                sponsor.levelIncome = (Number(sponsor.levelIncome) || 0) + levelRate;
+
+                // console.log(`Crediting Daily Level ${level} Sponsor ${sponsor.inviteCode}: +₹${levelRate}`);
+                await sponsor.save();
+            }
+
+            // Move up
+            currentSponsorCode = sponsor.sponsorId;
+        }
+    } catch (err) {
+        console.error('Error distributing daily level income:', err);
+    }
+}
+
 module.exports = {
-    distributeIncome
+    distributeIncome,
+    distributeDailyLevelIncome
 };

@@ -50,36 +50,47 @@ router.get('/', auth, async (req, res) => {
         // Fetch users for each level (parallelized)
         const levelPromises = Object.entries(levelUserIdsMap).map(
             async ([level, userIds]) => {
+                const levelNum = Number(level);
                 if (!userIds.length) {
                     return {
-                        level: Number(level),
-                        incomePerUser: LEVEL_INCOME_RATES[level],
+                        level: levelNum,
+                        incomePerUser: LEVEL_INCOME_RATES[levelNum],
                         userCount: 0,
                         totalIncome: 0,
                         users: []
                     };
                 }
 
-                const users = await User.find({ _id: { $in: userIds } })
-                    .select('_id name email inviteCode isActivated createdAt')
+                const today = new Date();
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(today.getDate() - 30);
+
+                // Filter for users who are active and within their 30-day bonus window
+                const activeInWindowUsers = await User.find({
+                    _id: { $in: userIds },
+                    isActivated: true,
+                    activatedAt: { $gte: thirtyDaysAgo }
+                })
+                    .select('_id name email inviteCode isActivated activatedAt createdAt')
                     .lean();
 
-                const userCount = users.length;
-                const incomePerUser = LEVEL_INCOME_RATES[level];
+                const userCount = activeInWindowUsers.length;
+                const incomePerUser = LEVEL_INCOME_RATES[levelNum];
                 const totalIncome = userCount * incomePerUser;
 
                 return {
-                    level: Number(level),
+                    level: levelNum,
                     incomePerUser,
                     userCount,
                     totalIncome,
-                    users: users.map(u => ({
+                    users: activeInWindowUsers.map(u => ({
                         id: u._id.toString(),
                         name: u.name,
                         email: u.email,
                         inviteCode: u.inviteCode,
                         isActivated: !!u.isActivated,
-                        createdAt: u.createdAt
+                        createdAt: u.createdAt,
+                        activatedAt: u.activatedAt
                     }))
                 };
             }

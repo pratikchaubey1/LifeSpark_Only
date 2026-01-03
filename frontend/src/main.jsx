@@ -12,14 +12,8 @@ ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
     <BrowserRouter>
       <Routes>
-        {/* Public Website */}
+        {/* Public Website & Consolidated App Routing */}
         <Route path="/*" element={<App />} />
-
-        {/* Dashboard */}
-        <Route path="/dashboard/*" element={<MemberLayout />} />
-
-        {/* Admin Panel */}
-        <Route path="/admin/*" element={<AdminPage />} />
       </Routes>
     </BrowserRouter>
   </React.StrictMode>
