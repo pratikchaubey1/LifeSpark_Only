@@ -1,4 +1,5 @@
 const express = require('express');
+const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const Epin = require('../models/Epin');
@@ -189,8 +190,9 @@ router.post('/users', adminAuth, async (req, res) => {
 // Get all users with invite stats for admin panel
 router.get('/users', adminAuth, async (req, res) => {
   try {
-    const users = await User.find().select('-password');
-
+    const users = await User.find(); // Include password by default, but select('-password') if not needed.
+    // However, the existing UI might depend on select('-password').
+    // I'll add a specific search route instead to avoid breaking existing logic.
     const result = await Promise.all(users.map(async (user) => {
       const userInvitees = await User.find({ sponsorId: user.inviteCode }).select('_id name email phone balance inviteCode');
 
@@ -231,6 +233,89 @@ router.get('/users', adminAuth, async (req, res) => {
     res.json({ users: result });
   } catch (err) {
     console.error('Get users error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Search user with full details (including password)
+router.get('/users/search/:query', adminAuth, async (req, res) => {
+  try {
+    const query = req.params.query;
+    const user = await User.findOne({
+      $or: [
+        { inviteCode: query },
+        { email: query.toLowerCase() },
+        { name: new RegExp(query, 'i') }
+      ]
+    });
+
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Return full user object
+    res.json({ user });
+  } catch (err) {
+    console.error('Search user error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Update user details (admin-only)
+router.put('/users/:id', adminAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const updates = req.body || {};
+
+    // Basic Info
+    if (updates.name !== undefined) user.name = updates.name;
+    if (updates.email !== undefined) user.email = updates.email.toLowerCase().trim();
+    if (updates.phone !== undefined) user.phone = updates.phone;
+    if (updates.address !== undefined) user.address = updates.address;
+
+    // Password Hashing Logic
+    if (updates.password !== undefined && updates.password.trim() !== '') {
+      if (updates.password.startsWith('$2b$') || updates.password.startsWith('$2a$')) {
+        // Already hashed
+        user.password = updates.password;
+      } else {
+        // Plain text, need to hash
+        user.password = await bcrypt.hash(updates.password, 10);
+      }
+    }
+
+    // Referral Info
+    if (updates.sponsorId !== undefined) user.sponsorId = updates.sponsorId;
+    if (updates.sponsorName !== undefined) user.sponsorName = updates.sponsorName;
+    if (updates.inviteCode !== undefined) user.inviteCode = updates.inviteCode;
+
+    // Financial Info
+    if (updates.balance !== undefined) user.balance = Number(updates.balance);
+    if (updates.totalIncome !== undefined) user.totalIncome = Number(updates.totalIncome);
+    if (updates.withdrawal !== undefined) user.withdrawal = Number(updates.withdrawal);
+
+    // Payment Info
+    if (updates.upiId !== undefined) user.upiId = updates.upiId;
+    if (updates.upiNo !== undefined) user.upiNo = updates.upiNo;
+
+    if (updates.bankDetails && typeof updates.bankDetails === 'object') {
+      user.bankDetails = {
+        ...(user.bankDetails || {}),
+        accountHolder: updates.bankDetails.accountHolder ?? user.bankDetails?.accountHolder ?? '',
+        bankName: updates.bankDetails.bankName ?? user.bankDetails?.bankName ?? '',
+        accountNo: updates.bankDetails.accountNo ?? user.bankDetails?.accountNo ?? '',
+        ifsc: updates.bankDetails.ifsc ?? user.bankDetails?.ifsc ?? '',
+        branchName: updates.bankDetails.branchName ?? user.bankDetails?.branchName ?? '',
+      };
+    }
+
+    // Role
+    if (updates.role !== undefined) user.role = updates.role;
+
+    await user.save();
+    return res.json({ message: 'User updated successfully', user });
+  } catch (err) {
+    console.error('Update user error', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -311,6 +396,11 @@ router.put('/users/:id/activate', adminAuth, async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // CRITICAL: Check if user is already activated to prevent duplicate income distribution
+    if (user.isActivated) {
+      return res.status(400).json({ message: 'User is already activated' });
+    }
 
     user.isActivated = true;
     if (!user.activationPackage) user.activationPackage = 'AdminManual';
