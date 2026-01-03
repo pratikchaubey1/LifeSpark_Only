@@ -60,11 +60,23 @@ const DASHBOARD_ITEMS = [
   { label: "Withdraw", path: "/dashboard/withdraw" },
 ];
 
-export default function DashboardSidebar({ open = true, onClose, onLogout }) {
+export default function DashboardSidebar({ open = true, onClose, onLogout, user }) {
   const [collapsed, setCollapsed] = useState(false);
   const [openParent, setOpenParent] = useState(null);
 
   if (!open) return null;
+
+  const allItems = [...DASHBOARD_ITEMS];
+
+  // Add Franchise items if the user is a franchise
+  if (user?.role === "franchise") {
+    allItems.push({
+      label: "Franchise Panel",
+      children: [
+        { label: "Franchise Team", path: "/dashboard/franchise-team" },
+      ],
+    });
+  }
 
   return (
     <>
@@ -92,7 +104,7 @@ export default function DashboardSidebar({ open = true, onClose, onLogout }) {
         {/* MAIN MENU LIST */}
         {!collapsed && (
           <nav className="p-3 space-y-2 text-sm overflow-y-auto flex-1">
-            {DASHBOARD_ITEMS.map((item) => {
+            {allItems.map((item) => {
               const hasChildren = !!item.children;
               const isOpen = openParent === item.label;
 

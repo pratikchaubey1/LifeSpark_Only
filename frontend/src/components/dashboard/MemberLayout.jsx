@@ -27,11 +27,14 @@ import TotalActiveUser from "./MyTeamNetwork/TotalActiveUser";
 import TotalDirectUser from "./MyTeamNetwork/TotalDirectUser";
 import TotalInactiveUser from "./MyTeamNetwork/TotalInActiveUser";
 
+import FranchiseTeam from "./FranchiseTeam";
+
 import IncomeReport from "./IncomeReport";
 
 export default function MemberLayout({ onLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState(null);
   const [hideButtons, setHideButtons] = useState(false);
 
   const navigate = useNavigate(); // ✅ Fix for redirect
@@ -39,7 +42,24 @@ export default function MemberLayout({ onLogout }) {
   useEffect(() => {
     const token = localStorage.getItem("token");
     setIsLoggedIn(!!token);
+    if (token) {
+      fetchProfile(token);
+    }
   }, []);
+
+  async function fetchProfile(token) {
+    try {
+      const res = await fetch(`${config.apiUrl}/profile`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user);
+      }
+    } catch (e) {
+      console.error("Failed to load profile", e);
+    }
+  }
 
   useEffect(() => {
     let lastScrollY = window.scrollY;
@@ -60,6 +80,7 @@ export default function MemberLayout({ onLogout }) {
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onLogout={onLogout}
+        user={user}
       />
 
       {/* Dashboard + Logout Buttons */}
@@ -174,6 +195,12 @@ export default function MemberLayout({ onLogout }) {
           <Route
             path="withdraw"
             element={<Withdraw onMenuOpen={() => setSidebarOpen(true)} />}
+          />
+
+          {/* Franchise Routes */}
+          <Route
+            path="franchise-team"
+            element={<FranchiseTeam onMenuOpen={() => setSidebarOpen(true)} />}
           />
         </Routes>
       </div>

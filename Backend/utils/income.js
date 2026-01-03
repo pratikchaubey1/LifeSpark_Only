@@ -34,11 +34,10 @@ async function distributeIncome(beneficiary) {
             let totalToCredit = 0;
             const levelRate = LEVEL_INCOME_RATES[level] || 0;
 
-            // 1. Level 1 logic: Give exactly ₹50 total (as per user request)
+            // 1. Level 1 logic: Give SPONSOR_INCOME (50) + Level 1 rate (6) = ₹56 total
             if (level === 1) {
-                totalToCredit = 50;
-                // Label ₹6 as level income for consistency, the rest is sponsor reward
-                sponsor.levelIncome = (Number(sponsor.levelIncome) || 0) + 6;
+                totalToCredit = SPONSOR_INCOME + levelRate;
+                sponsor.levelIncome = (Number(sponsor.levelIncome) || 0) + levelRate;
             } else {
                 // 2. Level 2-10 logic: Give the standard level rate
                 totalToCredit = levelRate;

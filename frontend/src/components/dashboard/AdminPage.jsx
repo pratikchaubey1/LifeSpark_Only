@@ -934,7 +934,7 @@ export default function AdminPage() {
         {loadingUsers && <div className="p-4 text-center">Loading users...</div>}
 
         {!loadingUsers && (
-          <div className="bg-white rounded-lg shadowoverflow-hidden border border-slate-200">
+          <div className="bg-white rounded-lg shadow overflow-hidden border border-slate-200">
             <div className="overflow-x-auto">
               <table className="w-full text-left text-sm">
                 <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 uppercase text-xs">
@@ -1169,8 +1169,8 @@ export default function AdminPage() {
               {loadingUsers ? (
                 <div className="text-sm text-slate-500">Loading members...</div>
               ) : (
-                <div className="overflow-auto max-h-[50vh] border rounded">
-                  <table className="min-w-full text-sm">
+                <div className="overflow-auto max-h-[60vh] border rounded">
+                  <table className="min-w-[1200px] w-full text-sm">
                     <thead className="bg-slate-50 sticky top-0">
                       <tr>
                         <th className="p-3 text-left">Name</th>
@@ -1348,7 +1348,7 @@ export default function AdminPage() {
                 <div className="text-sm text-slate-500">Loading members...</div>
               ) : (
                 <div className="overflow-auto max-h-[60vh] border rounded">
-                  <table className="min-w-full text-sm">
+                  <table className="min-w-[1200px] w-full text-sm">
                     <thead className="bg-slate-50 sticky top-0">
                       <tr>
                         <th className="p-3 text-left">User</th>
@@ -1412,8 +1412,8 @@ export default function AdminPage() {
               {loadingKycs ? (
                 <div className="text-sm text-slate-500">Loading KYC records...</div>
               ) : (
-                <div className="overflow-auto max-h-[60vh] border rounded">
-                  <div className="p-3 bg-slate-50 border-b flex items-center gap-2">
+                <div className="overflow-auto max-h-[70vh] border rounded">
+                  <div className="p-3 bg-slate-50 border-b flex items-center gap-2 min-w-[1200px]">
                     <input
                       value={kycSearch}
                       onChange={(e) => setKycSearch(e.target.value)}
@@ -1424,7 +1424,7 @@ export default function AdminPage() {
                       <button onClick={() => setKycSearch("")} className="text-xs text-blue-600 hover:underline">Clear</button>
                     )}
                   </div>
-                  <table className="min-w-full text-sm">
+                  <table className="min-w-[1200px] w-full text-sm">
                     <thead className="bg-slate-50 sticky top-0">
                       <tr>
                         <th className="p-3 text-left">User</th>
@@ -1630,7 +1630,7 @@ export default function AdminPage() {
                 <div className="text-sm text-slate-500">Loading withdrawals...</div>
               ) : (
                 <div className="overflow-auto max-h-[60vh] border rounded">
-                  <table className="min-w-full text-sm">
+                  <table className="min-w-[1200px] w-full text-sm">
                     <thead className="bg-slate-50 sticky top-0">
                       <tr>
                         <th className="p-3 text-left">ID</th>
@@ -2043,8 +2043,8 @@ export default function AdminPage() {
               <div className="bg-white border rounded p-4">
                 <h3 className="text-lg font-semibold mb-3">Member-wise Income</h3>
 
-                <div className="overflow-auto max-h-[50vh] border rounded">
-                  <table className="min-w-full text-sm">
+                <div className="overflow-auto max-h-[60vh] border rounded">
+                  <table className="min-w-[1000px] w-full text-sm">
                     <thead className="bg-slate-50 sticky top-0">
                       <tr>
                         <th className="p-3 text-left">Name</th>
