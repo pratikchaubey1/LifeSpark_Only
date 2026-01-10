@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import config from "../../config/config";
+import { FiEye, FiEyeOff } from "react-icons/fi";
 
 const API_BASE = config.apiUrl;
 
@@ -8,6 +9,8 @@ export default function EditPassword({ onMenuOpen }) {
   const [confirmPass, setConfirmPass] = useState("");
   const [msg, setMsg] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
 
   const handleSubmit = async () => {
     setMsg("");
@@ -26,7 +29,7 @@ export default function EditPassword({ onMenuOpen }) {
     try {
       setSubmitting(true);
 
-      const res = await fetch(`${API_BASE}/change-password`, {
+      const res = await fetch(`${API_BASE}/auth/change-password`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -49,7 +52,7 @@ export default function EditPassword({ onMenuOpen }) {
   };
 
   const inputBase =
-    "w-full p-3 mt-1 rounded-xl border border-slate-300 bg-slate-50 text-sm focus:ring-2 focus:ring-indigo-500 outline-none";
+    "w-full p-3 mt-1 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none";
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-slate-100 to-slate-200 flex justify-center px-4 py-8">
@@ -91,26 +94,44 @@ export default function EditPassword({ onMenuOpen }) {
             <label className="text-sm font-medium text-slate-700">
               New Password
             </label>
-            <input
-              type="password"
-              className={inputBase}
-              value={newPass}
-              onChange={(e) => setNewPass(e.target.value)}
-              placeholder="Enter new password"
-            />
+            <div className="relative">
+              <input
+                type={showNewPass ? "text" : "password"}
+                className={inputBase}
+                value={newPass}
+                onChange={(e) => setNewPass(e.target.value)}
+                placeholder="Enter new password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowNewPass(!showNewPass)}
+                className="absolute right-3 top-4 text-slate-400 hover:text-slate-600"
+              >
+                {showNewPass ? <FiEyeOff size={18} /> : <FiEye size={18} />}
+              </button>
+            </div>
           </div>
 
           <div>
             <label className="text-sm font-medium text-slate-700">
               Confirm Password
             </label>
-            <input
-              type="password"
-              className={inputBase}
-              value={confirmPass}
-              onChange={(e) => setConfirmPass(e.target.value)}
-              placeholder="Re-enter password"
-            />
+            <div className="relative">
+              <input
+                type={showConfirmPass ? "text" : "password"}
+                className={inputBase}
+                value={confirmPass}
+                onChange={(e) => setConfirmPass(e.target.value)}
+                placeholder="Re-enter password"
+              />
+              <button
+                type="button"
+                onClick={() => setShowConfirmPass(!showConfirmPass)}
+                className="absolute right-3 top-4 text-slate-400 hover:text-slate-600"
+              >
+                {showConfirmPass ? <FiEyeOff size={18} /> : <FiEye size={18} />}
+              </button>
+            </div>
           </div>
 
         </div>

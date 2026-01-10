@@ -240,16 +240,9 @@ export default function App() {
         }
       />
 
-      {/* ADMIN PANEL */}
       <Route
         path="/admin/*"
-        element={
-          isAuthenticated ? (
-            <AdminPage onLogout={handleLogout} />
-          ) : (
-            <OfficialLoginPage onSubmit={handleLoginSubmit} />
-          )
-        }
+        element={<AdminPage />}
       />
     </Routes>
   );

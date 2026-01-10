@@ -1,0 +1,21 @@
+=== INCOME BREAKDOWN REPORT ===
+
+[USER] MUNNA KUMAR  (LS753401)
+Status: ACTIVATED
+Activated At: 2026-01-03T08:10:48.166Z
+Sponsor: LS958826
+Total Income: 61
+Balance: 61
+
+[DOWNLINE] Rajkishor prasad (LS939413)
+Status: ACTIVATED
+Activated At: 2026-01-03T08:16:46.571Z
+Sponsor: LS753401
+
+[ADMIN] Admin (LS958826)
+Total Income: 121
+Direct Referrals:
+ - MUNNA KUMAR  (LS753401) [ACTIVE]
+
+=== ANALYSIS ===
+Income seems correct.

@@ -21,15 +21,22 @@ const SPONSOR_INCOME = 50;
  */
 async function distributeIncome(beneficiary) {
     try {
-        if (!beneficiary.sponsorId) return;
+        if (!beneficiary.sponsorId) {
+            console.log(`⚠️  No sponsor for ${beneficiary.inviteCode}, skipping income distribution`);
+            return;
+        }
 
+        console.log(`\n💰 Starting income distribution for ${beneficiary.inviteCode}`);
         let currentSponsorCode = beneficiary.sponsorId;
 
         for (let level = 1; level <= 10; level++) {
             if (!currentSponsorCode) break;
 
             const sponsor = await User.findOne({ inviteCode: currentSponsorCode });
-            if (!sponsor) break;
+            if (!sponsor) {
+                console.log(`⚠️  Sponsor not found at level ${level}: ${currentSponsorCode}`);
+                break;
+            }
 
             let totalToCredit = 0;
             const levelRate = LEVEL_INCOME_RATES[level] || 0;
@@ -48,15 +55,16 @@ async function distributeIncome(beneficiary) {
                 sponsor.balance = (Number(sponsor.balance) || 0) + totalToCredit;
                 sponsor.totalIncome = (Number(sponsor.totalIncome) || 0) + totalToCredit;
 
-                console.log(`Crediting Level ${level} Sponsor ${sponsor.inviteCode}: +₹${totalToCredit}`);
+                console.log(`✅ Level ${level}: ${sponsor.inviteCode} (${sponsor.name}) +₹${totalToCredit}`);
                 await sponsor.save();
             }
 
             // Move up to the next sponsor in the chain
             currentSponsorCode = sponsor.sponsorId;
         }
+        console.log(`✅ Income distribution complete for ${beneficiary.inviteCode}\n`);
     } catch (err) {
-        console.error('Error distributing income:', err);
+        console.error('❌ Error distributing income:', err);
     }
 }
 

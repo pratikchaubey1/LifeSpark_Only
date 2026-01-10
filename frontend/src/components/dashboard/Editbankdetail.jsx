@@ -129,7 +129,7 @@ export default function EditBankDetail({ onMenuOpen }) {
   };
 
   const inputBase =
-    "w-full p-3 mt-1 rounded-xl border border-slate-300 bg-slate-50 text-sm focus:ring-2 focus:ring-indigo-500 outline-none";
+    "w-full p-3 mt-1 rounded-xl border border-slate-300 bg-slate-50 text-sm text-slate-900 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 outline-none";
 
   const labelBase = "text-sm font-medium text-slate-700";
 

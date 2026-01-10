@@ -236,6 +236,13 @@ export default function AdminPage() {
   const [expandedKycId, setExpandedKycId] = useState(null);
   const [kycEdits, setKycEdits] = useState({}); // { [kycId]: { panNo, aadhaarNo, ... } }
   const [savingKycId, setSavingKycId] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Member Management
+  const [mgmtSearchQuery, setMgmtSearchQuery] = useState("");
+  const [mgmtUser, setMgmtUser] = useState(null); // The user being edited
+  const [searchingMgmt, setSearchingMgmt] = useState(false);
+  const [updatingMgmt, setUpdatingMgmt] = useState(false);
 
   const API_BASE = config.apiUrl;
 
@@ -320,6 +327,48 @@ export default function AdminPage() {
       setError(err.message || "Failed to fetch users");
     } finally {
       setLoadingUsers(false);
+    }
+  }
+
+  async function searchMgmtUser() {
+    if (!mgmtSearchQuery.trim()) return;
+    setSearchingMgmt(true);
+    setMgmtUser(null);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/admin/users/search/${mgmtSearchQuery.trim()}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "User not found");
+      setMgmtUser(data.user);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSearchingMgmt(false);
+    }
+  }
+
+  async function updateMgmtUser() {
+    if (!mgmtUser || !mgmtUser._id) return;
+    setUpdatingMgmt(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/admin/users/${mgmtUser._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify(mgmtUser),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to update user");
+      alert("User updated successfully!");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUpdatingMgmt(false);
     }
   }
 
@@ -1012,6 +1061,7 @@ export default function AdminPage() {
 
         <nav className="flex-1 space-y-1">
           <SidebarButton label="Dashboard" active={currentPage === "dashboard"} icon={<IconHome />} onClick={() => openPage("dashboard")} />
+          <SidebarButton label="Member Details" active={currentPage === "member-mgmt"} icon={<IconUsers />} onClick={() => openPage("member-mgmt")} />
           <SidebarButton label="Members" active={currentPage === "members"} icon={<IconUsers />} onClick={() => openPage("members")} />
           <SidebarButton label="Bank Details" active={currentPage === "bank"} icon={<IconBank />} onClick={() => openPage("bank")} />
           <SidebarButton label="KYC" active={currentPage === "kyc"} icon={<IconFile />} onClick={() => openPage("kyc")} />
@@ -1609,6 +1659,289 @@ export default function AdminPage() {
                       )}
                     </tbody>
                   </table>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Member Management page */}
+          {currentPage === "member-mgmt" && (
+            <div className="p-6 max-w-6xl mx-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-slate-800">Member Details Management</h2>
+              </div>
+
+              <div className="bg-white border rounded-2xl shadow-sm p-6 mb-8">
+                <label className="block text-sm font-medium text-slate-700 mb-2">Find Member</label>
+                <div className="flex gap-2 max-w-md">
+                  <input
+                    value={mgmtSearchQuery}
+                    onChange={(e) => setMgmtSearchQuery(e.target.value)}
+                    placeholder="Invite Code, Email, or Name..."
+                    className="flex-1 border rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                    onKeyDown={(e) => e.key === "Enter" && searchMgmtUser()}
+                  />
+                  <button
+                    onClick={searchMgmtUser}
+                    disabled={searchingMgmt}
+                    className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-60 transition"
+                  >
+                    {searchingMgmt ? "Searching..." : "Search"}
+                  </button>
+                </div>
+              </div>
+
+              {mgmtUser && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fadeIn pb-20">
+                  {/* Left Column: Basic & Referral */}
+                  <div className="space-y-6">
+                    <div className="bg-white border rounded-2xl shadow-sm p-6">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Basic Information</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-500 mb-1">Full Name</label>
+                          <input
+                            value={mgmtUser.name || ""}
+                            onChange={(e) => setMgmtUser({ ...mgmtUser, name: e.target.value })}
+                            className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-500 mb-1">Email Address</label>
+                          <input
+                            value={mgmtUser.email || ""}
+                            onChange={(e) => setMgmtUser({ ...mgmtUser, email: e.target.value })}
+                            className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Phone</label>
+                            <input
+                              value={mgmtUser.phone || ""}
+                              onChange={(e) => setMgmtUser({ ...mgmtUser, phone: e.target.value })}
+                              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Password</label>
+                            <div className="relative">
+                              <input
+                                type={showPassword ? "text" : "password"}
+                                value={mgmtUser.password || ""}
+                                onChange={(e) => setMgmtUser({ ...mgmtUser, password: e.target.value })}
+                                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowPassword(!showPassword)}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                              >
+                                {showPassword ? (
+                                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878l4.242 4.242" /></svg>
+                                ) : (
+                                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                )}
+                              </button>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (window.confirm("Reset password to '123456'?")) {
+                                  setMgmtUser({ ...mgmtUser, password: '123456' });
+                                  setShowPassword(true);
+                                }
+                              }}
+                              className="mt-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 uppercase tracking-tight"
+                            >
+                              Reset to 123456
+                            </button>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-500 mb-1">Address</label>
+                          <textarea
+                            value={mgmtUser.address || ""}
+                            onChange={(e) => setMgmtUser({ ...mgmtUser, address: e.target.value })}
+                            className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none h-20"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white border rounded-2xl shadow-sm p-6">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Referral Information</h3>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Invite Code</label>
+                            <input
+                              value={mgmtUser.inviteCode || ""}
+                              onChange={(e) => setMgmtUser({ ...mgmtUser, inviteCode: e.target.value })}
+                              className="w-full border rounded-lg px-3 py-2 text-sm bg-slate-50 font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Sponsor ID</label>
+                            <input
+                              value={mgmtUser.sponsorId || ""}
+                              onChange={(e) => setMgmtUser({ ...mgmtUser, sponsorId: e.target.value })}
+                              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-500 mb-1">Sponsor Name</label>
+                          <input
+                            value={mgmtUser.sponsorName || ""}
+                            onChange={(e) => setMgmtUser({ ...mgmtUser, sponsorName: e.target.value })}
+                            className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Right Column: Financial & Bank */}
+                  <div className="space-y-6">
+                    <div className="bg-white border rounded-2xl shadow-sm p-6">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Financial Overview</h3>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-xs font-medium text-slate-500 mb-1">Current Balance</label>
+                          <input
+                            type="number"
+                            value={mgmtUser.balance || 0}
+                            onChange={(e) => setMgmtUser({ ...mgmtUser, balance: e.target.value })}
+                            className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-500 mb-1">Total Income</label>
+                          <input
+                            type="number"
+                            value={mgmtUser.totalIncome || 0}
+                            onChange={(e) => setMgmtUser({ ...mgmtUser, totalIncome: e.target.value })}
+                            className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-500 mb-1">Total Withdrawal</label>
+                          <input
+                            type="number"
+                            value={mgmtUser.withdrawal || 0}
+                            onChange={(e) => setMgmtUser({ ...mgmtUser, withdrawal: e.target.value })}
+                            className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none text-red-600"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-slate-500 mb-1">User Role</label>
+                          <select
+                            value={mgmtUser.role || "member"}
+                            onChange={(e) => setMgmtUser({ ...mgmtUser, role: e.target.value })}
+                            className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+                          >
+                            <option value="member">Member</option>
+                            <option value="franchise">Franchise</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="bg-white border rounded-2xl shadow-sm p-6">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Bank & UPI Details</h3>
+                      <div className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">UPI ID</label>
+                            <input
+                              value={mgmtUser.upiId || ""}
+                              onChange={(e) => setMgmtUser({ ...mgmtUser, upiId: e.target.value })}
+                              className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">UPI Mobile</label>
+                            <input
+                              value={mgmtUser.upiNo || ""}
+                              onChange={(e) => setMgmtUser({ ...mgmtUser, upiNo: e.target.value })}
+                              className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
+                            />
+                          </div>
+                        </div>
+                        <div className="border-t pt-4 mt-2">
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div className="md:col-span-2">
+                              <label className="block text-xs font-medium text-slate-500 mb-1">Account Holder Name</label>
+                              <input
+                                value={mgmtUser.bankDetails?.accountHolder || ""}
+                                onChange={(e) => setMgmtUser({ ...mgmtUser, bankDetails: { ...mgmtUser.bankDetails, accountHolder: e.target.value } })}
+                                className="w-full border rounded-lg px-3 py-2 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-slate-500 mb-1">Bank Name</label>
+                              <input
+                                value={mgmtUser.bankDetails?.bankName || ""}
+                                onChange={(e) => setMgmtUser({ ...mgmtUser, bankDetails: { ...mgmtUser.bankDetails, bankName: e.target.value } })}
+                                className="w-full border rounded-lg px-3 py-2 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-slate-500 mb-1">Account Number</label>
+                              <input
+                                value={mgmtUser.bankDetails?.accountNo || ""}
+                                onChange={(e) => setMgmtUser({ ...mgmtUser, bankDetails: { ...mgmtUser.bankDetails, accountNo: e.target.value } })}
+                                className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-slate-500 mb-1">IFSC Code</label>
+                              <input
+                                value={mgmtUser.bankDetails?.ifsc || ""}
+                                onChange={(e) => setMgmtUser({ ...mgmtUser, bankDetails: { ...mgmtUser.bankDetails, ifsc: e.target.value } })}
+                                className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-slate-500 mb-1">Branch Name</label>
+                              <input
+                                value={mgmtUser.bankDetails?.branchName || ""}
+                                onChange={(e) => setMgmtUser({ ...mgmtUser, bankDetails: { ...mgmtUser.bankDetails, branchName: e.target.value } })}
+                                className="w-full border rounded-lg px-3 py-2 text-sm"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex justify-end gap-3 pt-6">
+                      <button
+                        onClick={() => setMgmtUser(null)}
+                        className="px-6 py-2.5 rounded-xl text-sm font-semibold border hover:bg-slate-50 transition"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={updateMgmtUser}
+                        disabled={updatingMgmt}
+                        className="bg-blue-600 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
+                      >
+                        {updatingMgmt ? "Saving Changes..." : "Save All Details"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {!mgmtUser && !searchingMgmt && (
+                <div className="p-20 text-center border-2 border-dashed rounded-3xl text-slate-400 bg-white/50">
+                  <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <IconUsers />
+                  </div>
+                  <p className="text-sm">Search for a member by Invite Code, Email, or Name to manage their profile.</p>
                 </div>
               )}
             </div>
