@@ -109,6 +109,27 @@ export default function Header({
               )}
             </div>
 
+            {/* Mobile Auth */}
+            <div className="md:hidden flex items-center">
+              {isAuthenticated ? (
+                <button
+                  onClick={onLogoutClick}
+                  className="rounded-full px-4 py-2 text-xs font-semibold 
+                  border border-rose-300 text-rose-600 hover:bg-rose-50 transition"
+                >
+                  Logout
+                </button>
+              ) : (
+                <button
+                  onClick={onLoginClick}
+                  className="rounded-full px-4 py-2 text-xs font-semibold 
+                  bg-sky-600 text-white hover:bg-sky-500 transition"
+                >
+                  Login
+                </button>
+              )}
+            </div>
+
           </div>
         </div>
 
