@@ -2,6 +2,8 @@ const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+
+const auth = require('../middleware/auth');
 const { sendWelcomeEmail } = require('../utils/email');
 
 const router = express.Router();
@@ -282,6 +284,28 @@ router.post('/login', async (req, res) => {
     res.json({ user: userObj, token });
   } catch (err) {
     console.error('Login error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Change Password
+router.put('/change-password', auth, async (req, res) => {
+  try {
+    const { newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ message: 'Password must be at least 6 characters long.' });
+    }
+
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    user.password = hashed;
+    await user.save();
+
+    res.json({ message: 'Password updated successfully' });
+  } catch (err) {
+    console.error('Change password error', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
