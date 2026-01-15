@@ -6,6 +6,7 @@ const API_BASE = config.apiUrl;
 
 const DASHBOARD_ITEMS = [
   { label: "Dashboard", path: "/dashboard" },
+  { label: "Autopool Protocol", path: "/dashboard/autopool" },
   {
     label: "Profile",
     children: [
@@ -58,6 +59,8 @@ const DASHBOARD_ITEMS = [
   // },
 
   { label: "Withdraw", path: "/dashboard/withdraw" },
+  { label: "Marriage Fund", path: "/dashboard/marriage-fund" },
+  { label: "Accident Fund", path: "/dashboard/accident-fund" },
 ];
 
 export default function DashboardSidebar({ open = true, onClose, onLogout, user }) {

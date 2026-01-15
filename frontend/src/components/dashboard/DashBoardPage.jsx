@@ -38,6 +38,16 @@ const topStatConfig = [
     key: "levelIncome",
     color: "bg-gradient-to-r from-indigo-400 to-blue-500",
   },
+  {
+    label: "Marriage Fund",
+    key: "marriageFund",
+    color: "bg-gradient-to-r from-pink-500 to-rose-500",
+  },
+  {
+    label: "Accident Fund",
+    key: "accidentFund",
+    color: "bg-gradient-to-r from-orange-600 to-red-600",
+  },
 ];
 
 const bottomStatConfig = [

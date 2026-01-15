@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 
 import config from "../../config/config";
+import AdminAutopool from "../admin/AdminAutopool";
 
 /**
  * Final AdminPage.jsx (single-file)
@@ -243,6 +244,111 @@ export default function AdminPage() {
   const [mgmtUser, setMgmtUser] = useState(null); // The user being edited
   const [searchingMgmt, setSearchingMgmt] = useState(false);
   const [updatingMgmt, setUpdatingMgmt] = useState(false);
+  // Marriage Fund
+  const [mfSearch, setMfSearch] = useState("");
+  const [mfUser, setMfUser] = useState(null);
+  const [mfAmount, setMfAmount] = useState("");
+  const [mfMessage, setMfMessage] = useState(null);
+  const [mfLoading, setMfLoading] = useState(false);
+
+  // Accident Fund
+  const [afSearch, setAfSearch] = useState("");
+  const [afUser, setAfUser] = useState(null);
+  const [afAmount, setAfAmount] = useState("");
+  const [afMessage, setAfMessage] = useState(null);
+  const [afLoading, setAfLoading] = useState(false);
+
+  async function handleMfSearch() {
+    if (!mfSearch.trim()) return;
+    setMfLoading(true);
+    setMfUser(null);
+    setMfMessage(null);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/admin/users/search/${mfSearch.trim()}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "User not found");
+      setMfUser(data.user);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setMfLoading(false);
+    }
+  }
+
+  async function handleAddMf() {
+    if (!mfUser || !mfAmount) return;
+    setMfLoading(true);
+    setMfMessage(null);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/admin/marriage-fund/add`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({ userId: mfUser._id, amount: mfAmount }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to add funds");
+      setMfUser(data.user);
+      setMfMessage({ type: 'success', text: data.message });
+      setMfAmount("");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setMfLoading(false);
+    }
+  }
+
+  async function handleAfSearch() {
+    if (!afSearch.trim()) return;
+    setAfLoading(true);
+    setAfUser(null);
+    setAfMessage(null);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/admin/users/search/${afSearch.trim()}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "User not found");
+      setAfUser(data.user);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setAfLoading(false);
+    }
+  }
+
+  async function handleAddAf() {
+    if (!afUser || !afAmount) return;
+    setAfLoading(true);
+    setAfMessage(null);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/admin/accident-fund/add`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({ userId: afUser._id, amount: afAmount }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to add funds");
+      setAfUser(data.user);
+      setAfMessage({ type: 'success', text: data.message });
+      setAfAmount("");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setAfLoading(false);
+    }
+  }
 
   const API_BASE = config.apiUrl;
 
@@ -336,7 +442,7 @@ export default function AdminPage() {
     setMgmtUser(null);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/admin/users/search/${mgmtSearchQuery.trim()}`, {
+      const res = await fetch(`${API_BASE}/admin/users/search/${encodeURIComponent(mgmtSearchQuery.trim())}`, {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
       const data = await res.json();
@@ -1068,6 +1174,9 @@ export default function AdminPage() {
           <SidebarButton label="Withdrawals" active={currentPage === "withdrawals"} icon={<IconDollar />} onClick={() => openPage("withdrawals")} />
           <SidebarButton label="E-Pin" active={currentPage === "epin"} icon={<IconKey />} onClick={() => openPage("epin")} />
           <SidebarButton label="Income" active={currentPage === "income"} icon={<IconDollar />} onClick={() => openPage("income")} />
+          <SidebarButton label="Autopool Requests" active={currentPage === "autopool"} icon={<IconUsers />} onClick={() => openPage("autopool")} />
+          <SidebarButton label="Marriage Fund" active={currentPage === "marriageFund"} icon={<IconDollar />} onClick={() => openPage("marriageFund")} />
+          <SidebarButton label="Accident Fund" active={currentPage === "accidentFund"} icon={<IconDollar />} onClick={() => openPage("accidentFund")} />
           <SidebarButton
             label="Rewards"
             active={currentPage === "rewards"}
@@ -2039,7 +2148,15 @@ export default function AdminPage() {
                                   </button>
                                 ) : null}
                               </td>
-                              <td className="p-3 text-right font-semibold">{w.amount}</td>
+                              <td className="p-3 text-right">
+                                <div className="font-semibold">{w.amount}</div>
+                                {/* Upgrade Income Indicator for Admin */}
+                                {w.isFirstAfterThreshold && w.upgradeIncome > 0 && (
+                                  <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 border border-amber-200 text-amber-800 text-[10px] font-bold">
+                                    ↑ L{w.upgradeLevel}: ₹{Number(w.upgradeIncome).toLocaleString()} Upgrade
+                                  </div>
+                                )}
+                              </td>
                               <td className="p-3">
                                 {w.status === "pending" ? (
                                   <span className="text-amber-700 font-semibold">pending</span>
@@ -2296,6 +2413,152 @@ export default function AdminPage() {
           )}
 
 
+          {/* Marriage Fund Page */}
+          {currentPage === "marriageFund" && (
+            <div>
+              <h2 className="text-xl font-bold text-slate-800 mb-4">Marriage Fund Management</h2>
+
+              <div className="bg-white p-6 border rounded-2xl shadow-sm mb-6 max-w-2xl">
+                <div className="text-sm font-semibold mb-3">Search User</div>
+                <div className="flex gap-2 mb-4">
+                  <input
+                    type="text"
+                    placeholder="Enter Invite Code, Email or Name..."
+                    value={mfSearch}
+                    onChange={(e) => setMfSearch(e.target.value)}
+                    className="flex-1 border border-slate-300 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    onKeyDown={(e) => e.key === 'Enter' && handleMfSearch()}
+                  />
+                  <button
+                    onClick={handleMfSearch}
+                    disabled={mfLoading}
+                    className="bg-slate-900 text-white px-6 py-2 rounded-lg font-medium text-sm hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    {mfLoading ? "Searching..." : "Search"}
+                  </button>
+                </div>
+
+                {mfUser && (
+                  <div className="mt-6 border-t pt-6 animate-in slide-in-from-top-2">
+                    <div className="flex items-start justify-between mb-6">
+                      <div>
+                        <div className="text-lg font-bold text-slate-900">{mfUser.name}</div>
+                        <div className="text-sm text-slate-500">{mfUser.email}</div>
+                        <div className="text-xs text-slate-400 mt-1 font-mono">Code: {mfUser.inviteCode}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Current Fund</div>
+                        <div className="text-2xl font-bold text-emerald-600">₹{Number(mfUser.marriageFund || 0).toLocaleString()}</div>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      <div className="text-sm font-semibold mb-2">Add Funds</div>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <span className="absolute left-3 top-2.5 text-slate-400">₹</span>
+                          <input
+                            type="number"
+                            placeholder="Amount"
+                            value={mfAmount}
+                            onChange={(e) => setMfAmount(e.target.value)}
+                            className="w-full border border-slate-300 rounded-lg pl-8 pr-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                        <button
+                          onClick={handleAddMf}
+                          disabled={mfLoading || !mfAmount}
+                          className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-medium text-sm hover:bg-emerald-700 disabled:opacity-50 shadow-sm"
+                        >
+                          {mfLoading ? "Adding..." : "Add Fund"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {mfMessage && (
+                  <div className={`mt-4 p-3 rounded-lg text-sm font-medium ${mfMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                    {mfMessage.text}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Accident Fund Page */}
+          {currentPage === "accidentFund" && (
+            <div>
+              <h2 className="text-xl font-bold text-slate-800 mb-4">Accident Fund Management</h2>
+
+              <div className="bg-white p-6 border rounded-2xl shadow-sm mb-6 max-w-2xl">
+                <div className="text-sm font-semibold mb-3">Search User</div>
+                <div className="flex gap-2 mb-4">
+                  <input
+                    type="text"
+                    placeholder="Enter Invite Code, Email or Name..."
+                    value={afSearch}
+                    onChange={(e) => setAfSearch(e.target.value)}
+                    className="flex-1 border border-slate-300 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    onKeyDown={(e) => e.key === 'Enter' && handleAfSearch()}
+                  />
+                  <button
+                    onClick={handleAfSearch}
+                    disabled={afLoading}
+                    className="bg-slate-900 text-white px-6 py-2 rounded-lg font-medium text-sm hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    {afLoading ? "Searching..." : "Search"}
+                  </button>
+                </div>
+
+                {afUser && (
+                  <div className="mt-6 border-t pt-6 animate-in slide-in-from-top-2">
+                    <div className="flex items-start justify-between mb-6">
+                      <div>
+                        <div className="text-lg font-bold text-slate-900">{afUser.name}</div>
+                        <div className="text-sm text-slate-500">{afUser.email}</div>
+                        <div className="text-xs text-slate-400 mt-1 font-mono">Code: {afUser.inviteCode}</div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Current Fund</div>
+                        <div className="text-2xl font-bold text-emerald-600">₹{Number(afUser.accidentFund || 0).toLocaleString()}</div>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                      <div className="text-sm font-semibold mb-2">Add Funds</div>
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <span className="absolute left-3 top-2.5 text-slate-400">₹</span>
+                          <input
+                            type="number"
+                            placeholder="Amount"
+                            value={afAmount}
+                            onChange={(e) => setAfAmount(e.target.value)}
+                            className="w-full border border-slate-300 rounded-lg pl-8 pr-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                          />
+                        </div>
+                        <button
+                          onClick={handleAddAf}
+                          disabled={afLoading || !afAmount}
+                          className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-medium text-sm hover:bg-emerald-700 disabled:opacity-50 shadow-sm"
+                        >
+                          {afLoading ? "Adding..." : "Add Fund"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {afMessage && (
+                  <div className={`mt-4 p-3 rounded-lg text-sm font-medium ${afMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                    {afMessage.text}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* E-Pin page */}
           {currentPage === "epin" && (
             <div>
@@ -2526,6 +2789,9 @@ export default function AdminPage() {
               )}
             </div>
           )}
+
+          {/* Autopool Page */}
+          {currentPage === "autopool" && <AdminAutopool />}
 
         </div>
 

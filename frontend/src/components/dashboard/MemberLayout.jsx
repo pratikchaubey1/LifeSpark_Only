@@ -3,6 +3,7 @@ import { Routes, Route, useNavigate } from "react-router-dom";
 import config from "../../config/config";
 
 import DashboardSidebar from "./DashboardSidebar";
+import Autopool from "./Autopool";
 
 import DashBoardPage from "./DashBoardPage";
 import EditProfile from "./EditProfile";
@@ -14,6 +15,8 @@ import WelcomeLetter from "./WelcomeLetter";
 import ActivateID from "./ActivateID";
 
 import Withdraw from "./Withdraw";
+import MarriageFund from "./MarriageFund";
+import AccidentFund from "./AccidentFund";
 
 import TransferPin from "./e-pin/TransferPin";
 import TransferToUser from "./e-pin/TransferToUser";
@@ -196,6 +199,19 @@ export default function MemberLayout({ onLogout }) {
           <Route
             path="withdraw"
             element={<Withdraw onMenuOpen={() => setSidebarOpen(true)} />}
+          />
+          <Route
+            path="marriage-fund"
+            element={<MarriageFund onMenuOpen={() => setSidebarOpen(true)} />}
+          />
+          <Route
+            path="accident-fund"
+            element={<AccidentFund onMenuOpen={() => setSidebarOpen(true)} />}
+          />
+
+          <Route
+            path="autopool"
+            element={<Autopool sidebarOpen={sidebarOpen} onMenuOpen={() => setSidebarOpen(true)} />}
           />
 
           {/* Franchise Routes */}

@@ -551,16 +551,32 @@ router.post('/withdrawals/:id/approve', adminAuth, async (req, res) => {
     const user = await User.findById(withdrawal.userId);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    const balance = Number(user.balance) || 0;
     const amount = Number(withdrawal.amount) || 0;
-
     if (amount <= 0) return res.status(400).json({ message: 'Invalid withdrawal amount' });
-    if (amount > balance) {
-      return res.status(400).json({ message: 'User has insufficient balance to approve this withdrawal.' });
+
+    // Deduct from the correct source based on withdrawal type
+    if (withdrawal.source === 'marriageFund') {
+      const marriageFundBalance = Number(user.marriageFund) || 0;
+      if (amount > marriageFundBalance) {
+        return res.status(400).json({ message: 'User has insufficient marriage fund balance.' });
+      }
+      user.marriageFund = marriageFundBalance - amount;
+    } else if (withdrawal.source === 'accidentFund') {
+      const accidentFundBalance = Number(user.accidentFund) || 0;
+      if (amount > accidentFundBalance) {
+        return res.status(400).json({ message: 'User has insufficient accident fund balance.' });
+      }
+      user.accidentFund = accidentFundBalance - amount;
+    } else {
+      // Regular balance withdrawal
+      const balance = Number(user.balance) || 0;
+      if (amount > balance) {
+        return res.status(400).json({ message: 'User has insufficient balance to approve this withdrawal.' });
+      }
+      user.balance = balance - amount;
     }
 
-    // Deduct balance and track total withdrawal
-    user.balance = balance - amount;
+    // Track total withdrawal amount
     user.withdrawal = (Number(user.withdrawal) || 0) + amount;
     await user.save();
 
@@ -571,7 +587,7 @@ router.post('/withdrawals/:id/approve', adminAuth, async (req, res) => {
 
     return res.json({
       withdrawal,
-      user: { id: user._id.toString(), balance: user.balance, withdrawal: user.withdrawal }
+      user: { id: user._id.toString(), balance: user.balance, withdrawal: user.withdrawal, marriageFund: user.marriageFund, accidentFund: user.accidentFund }
     });
   } catch (err) {
     console.error('Approve withdrawal error', err);
@@ -872,6 +888,94 @@ router.post('/rewards/:userId/:level/process', adminAuth, async (req, res) => {
     res.json({ message: 'Reward marked as given', user: { id: user._id, rewardCompletions: user.rewardCompletions } });
   } catch (err) {
     console.error('Process reward error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ================== MARRIAGE FUND MANAGEMENT ==================
+// Add funds to user's marriage fund
+router.post('/marriage-fund/add', adminAuth, async (req, res) => {
+  try {
+    const { userId, inviteCode, email, amount } = req.body || {};
+    const fundAmount = Number(amount);
+
+    if (!Number.isFinite(fundAmount) || fundAmount <= 0) {
+      return res.status(400).json({ message: 'Valid positive amount is required' });
+    }
+
+    // Find user by userId, inviteCode, or email
+    let user = null;
+    if (userId) {
+      user = await User.findById(userId);
+    }
+    if (!user && inviteCode) {
+      user = await User.findOne({ inviteCode: inviteCode.trim() });
+    }
+    if (!user && email) {
+      user = await User.findOne({ email: email.toLowerCase().trim() });
+    }
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Add to marriage fund
+    user.marriageFund = (Number(user.marriageFund) || 0) + fundAmount;
+    await user.save();
+
+    const userObj = user.toObject();
+    delete userObj.password;
+
+    return res.json({
+      message: `Successfully added ₹${fundAmount} to marriage fund`,
+      user: userObj
+    });
+  } catch (err) {
+    console.error('Add marriage fund error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ================== ACCIDENT FUND MANAGEMENT ==================
+// Add funds to user's accident fund
+router.post('/accident-fund/add', adminAuth, async (req, res) => {
+  try {
+    const { userId, inviteCode, email, amount } = req.body || {};
+    const fundAmount = Number(amount);
+
+    if (!Number.isFinite(fundAmount) || fundAmount <= 0) {
+      return res.status(400).json({ message: 'Valid positive amount is required' });
+    }
+
+    // Find user by userId, inviteCode, or email
+    let user = null;
+    if (userId) {
+      user = await User.findById(userId);
+    }
+    if (!user && inviteCode) {
+      user = await User.findOne({ inviteCode: inviteCode.trim() });
+    }
+    if (!user && email) {
+      user = await User.findOne({ email: email.toLowerCase().trim() });
+    }
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Add to accident fund
+    user.accidentFund = (Number(user.accidentFund) || 0) + fundAmount;
+    await user.save();
+
+    const userObj = user.toObject();
+    delete userObj.password;
+
+    return res.json({
+      message: `Successfully added ₹${fundAmount} to accident fund`,
+      user: userObj
+    });
+  } catch (err) {
+    console.error('Add accident fund error', err);
     res.status(500).json({ message: 'Server error' });
   }
 });

@@ -9,7 +9,12 @@ const withdrawalSchema = new mongoose.Schema({
     status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },
     requestedAt: { type: Date, required: true },
     approvedAt: { type: Date, default: null },
-    approvedBy: { type: String, default: null }
+    approvedBy: { type: String, default: null },
+    source: { type: String, enum: ['balance', 'marriageFund', 'accidentFund'], default: 'balance' },
+    // Upgrade Income Tracking
+    upgradeIncome: { type: Number, default: 0 },      // The upgrade income amount (e.g., 1000, 2000, etc.)
+    upgradeLevel: { type: Number, default: 0 },       // Which level threshold was crossed (1-10)
+    isFirstAfterThreshold: { type: Boolean, default: false }  // Flag indicating first withdrawal after threshold
 }, {
     timestamps: true,
     collection: 'withdrawals'

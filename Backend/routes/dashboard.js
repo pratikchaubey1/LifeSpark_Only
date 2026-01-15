@@ -27,6 +27,8 @@ router.get('/', auth, async (req, res) => {
         rankRewardIncome: user.rankRewardIncome || 0,
         levelIncome: teamStats.dailyLevelIncome || 0,
         accumulatedLevelIncome: user.levelIncome || 0,
+        marriageFund: user.marriageFund || 0,
+        accidentFund: user.accidentFund || 0,
         repurchaseIncome: 0, // Not implemented yet
         ...teamStats
       },

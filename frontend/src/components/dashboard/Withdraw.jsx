@@ -127,7 +127,13 @@ export default function Withdraw({ onMenuOpen }) {
         return setMsg(data.message || "Failed.");
       }
 
-      setMsg("Withdrawal request submitted successfully.");
+      // Check if there's an upgrade income message
+      let successMessage = "Withdrawal request submitted successfully.";
+      if (data.upgradeIncomeMessage) {
+        successMessage += ` Note: ${data.upgradeIncomeMessage}`;
+      }
+
+      setMsg(successMessage);
       setMsgType("success");
       setWithdrawals((prev) => [data.withdrawal, ...prev]);
       setAmount("");
@@ -296,6 +302,12 @@ export default function Withdraw({ onMenuOpen }) {
                         </td>
                         <td className="px-6 py-4">
                           <div className="text-base font-bold text-slate-900">₹{Number(w.amount).toLocaleString()}</div>
+                          {/* Upgrade Income Indicator */}
+                          {w.isFirstAfterThreshold && w.upgradeIncome > 0 && (
+                            <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-semibold">
+                              ↑ ₹{Number(w.upgradeIncome).toLocaleString()} Upgrade Income (L{w.upgradeLevel})
+                            </div>
+                          )}
                         </td>
                         <td className="px-6 py-4">
                           <StatusBadge status={w.status} />
