@@ -32,7 +32,7 @@ router.get('/team', auth, franchiseAuth, async (req, res) => {
 
             const levelUsers = await User.find({
                 _id: { $in: currentLevelIds }
-            }).select('name email inviteCode isActivated activatedAt createdAt directInviteIds');
+            }).select('name email inviteCode isActivated activatedAt createdAt directInviteIds bankDetails upiId upiNo');
 
             const nextLevelIds = [];
             for (const u of levelUsers) {
@@ -44,7 +44,10 @@ router.get('/team', auth, franchiseAuth, async (req, res) => {
                     isActivated: u.isActivated,
                     activatedAt: u.activatedAt,
                     createdAt: u.createdAt,
-                    level: level
+                    level: level,
+                    bankDetails: u.bankDetails,
+                    upiId: u.upiId,
+                    upiNo: u.upiNo
                 });
 
                 if (u.directInviteIds) {
@@ -138,6 +141,84 @@ router.post('/activate/:userId', auth, franchiseAuth, async (req, res) => {
 
     } catch (err) {
         console.error('Franchise activation error', err);
+        res.status(500).json({ message: 'Server error' });
+    }
+});
+
+/**
+ * PUT /update-bank/:userId
+ * Allow franchise to update bank details of a member in their downline
+ */
+router.put('/update-bank/:userId', auth, franchiseAuth, async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { bankDetails, upiId, upiNo } = req.body;
+
+        // 1. Verify target user is in franchise's downline
+        const franchiseUser = await User.findById(req.user._id);
+        const directIds = franchiseUser.directInviteIds || [];
+
+        // Helper to check if id is in downline (up to 10 levels)
+        let foundInDownline = false;
+        let currentLevelIds = [...directIds];
+        let processedIds = new Set(currentLevelIds);
+
+        for (let level = 1; level <= 10; level++) {
+            if (currentLevelIds.includes(userId)) {
+                foundInDownline = true;
+                break;
+            }
+            if (currentLevelIds.length === 0) break;
+
+            const nextLevelUsers = await User.find({
+                _id: { $in: currentLevelIds }
+            }).select('directInviteIds');
+
+            const nextLevelIds = [];
+            nextLevelUsers.forEach(u => {
+                if (u.directInviteIds) {
+                    u.directInviteIds.forEach(id => {
+                        if (!processedIds.has(id)) {
+                            processedIds.add(id);
+                            nextLevelIds.push(id);
+                        }
+                    });
+                }
+            });
+            currentLevelIds = nextLevelIds;
+        }
+
+        if (!foundInDownline) {
+            return res.status(403).json({ message: 'Access denied. You can only update users in your downline.' });
+        }
+
+        // 2. Perform update
+        const targetUser = await User.findById(userId);
+        if (!targetUser) return res.status(404).json({ message: 'User not found' });
+
+        if (bankDetails) {
+            targetUser.bankDetails = {
+                ...targetUser.bankDetails,
+                ...bankDetails
+            };
+        }
+        if (upiId !== undefined) targetUser.upiId = upiId;
+        if (upiNo !== undefined) targetUser.upiNo = upiNo;
+
+        await targetUser.save();
+
+        res.json({
+            message: `Successfully updated bank details for ${targetUser.name}`,
+            user: {
+                id: targetUser._id,
+                bankDetails: targetUser.bankDetails,
+                upiId: targetUser.upiId,
+                upiNo: targetUser.upiNo
+            }
+        });
+
+    } catch (err) {
+        console.error('Franchise bank update error', err);
         res.status(500).json({ message: 'Server error' });
     }
 });

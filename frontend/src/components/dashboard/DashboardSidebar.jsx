@@ -78,7 +78,7 @@ export default function DashboardSidebar({ open = true, onClose, onLogout, user 
     allItems.push({
       label: "Franchise Panel",
       children: [
-        { label: "Franchise Team", path: "/dashboard/franchise-team" },
+        { label: "Update Team Bank Details", path: "/dashboard/franchise-bank-update" },
       ],
     });
   }
