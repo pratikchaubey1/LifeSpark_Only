@@ -6,6 +6,7 @@ const API_BASE = config.apiUrl;
 
 const DASHBOARD_ITEMS = [
   { label: "Dashboard", path: "/dashboard" },
+  { label: "Autopool Protocol", path: "/dashboard/autopool" },
   {
     label: "Profile",
     children: [
@@ -29,6 +30,7 @@ const DASHBOARD_ITEMS = [
   {
     label: "My Team Network",
     children: [
+      { label: "Total Team", path: "/dashboard/total-team" },
       { label: "Total Active", path: "/dashboard/total-Active" },
       { label: "Total Direct", path: "/dashboard/total-Direct" },
       { label: "Total Inactive", path: "/dashboard/total-Inactive" },
@@ -39,6 +41,7 @@ const DASHBOARD_ITEMS = [
     label: "Income Report ",
     children: [
       { label: "Auto Pool", path: "/dashboard/direct-team" },
+      { label: "Upgrade Income", path: "/dashboard/upgrade-income" },
       {
         label: "Rank Reward Business",
         path: "/dashboard/level-team",
@@ -58,6 +61,8 @@ const DASHBOARD_ITEMS = [
   // },
 
   { label: "Withdraw", path: "/dashboard/withdraw" },
+  { label: "Marriage Fund", path: "/dashboard/marriage-fund" },
+  { label: "Accident Fund", path: "/dashboard/accident-fund" },
 ];
 
 export default function DashboardSidebar({ open = true, onClose, onLogout, user }) {

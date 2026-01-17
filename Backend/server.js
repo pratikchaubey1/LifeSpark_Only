@@ -21,6 +21,7 @@ const rewardsRoutes = require('./routes/rewards');
 const settingsRoutes = require('./routes/settings');
 const testRoutes = require('./routes/test');
 const franchiseRoutes = require('./routes/franchise');
+const autopoolRoutes = require('./routes/autopool');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -55,6 +56,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/rewards', rewardsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/franchise', franchiseRoutes);
+app.use('/api/autopool', autopoolRoutes);
 
 app.get('/', (req, res) => {
   res.json({ message: 'LifeSpark backend is running' });

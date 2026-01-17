@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
 
 import TransferToUser from "./e-pin/TransferToUser";
+import Autopool from "./Autopool";
 
 // =================== LEFT MENU ITEMS ===================
 const SIDE_MENU = [
   { id: "dashboard", label: "Dashboard" },
   { id: "activeId", label: "Active ID" },
   { id: "epin", label: "E-Pin" },
+  { id: "autopool", label: "Autopool Protocol" },
   { id: "teamNetwork", label: "Team Network" },
   { id: "incomeReport", label: "Income Report" },
   { id: "support", label: "Support" },
@@ -250,11 +252,10 @@ const MemberLayout = () => {
               <button
                 key={item.id}
                 onClick={() => setActiveTab(item.id)}
-                className={`w-full text-left px-3 py-2 rounded-md transition ${
-                  isActive
-                    ? "bg-slate-700 text-white"
-                    : "text-slate-200 hover:bg-slate-800"
-                }`}
+                className={`w-full text-left px-3 py-2 rounded-md transition ${isActive
+                  ? "bg-slate-700 text-white"
+                  : "text-slate-200 hover:bg-slate-800"
+                  }`}
               >
                 {item.label}
               </button>
@@ -285,6 +286,7 @@ const MemberLayout = () => {
             {activeTab === "dashboard" && <MP_Dashboard />}
             {activeTab === "activeId" && <MP_ActiveId />}
             {canSeeEpin && activeTab === "epin" && <MP_Epin />}
+            {activeTab === "autopool" && <Autopool />}
             {activeTab === "teamNetwork" && <MP_TeamNetwork />}
             {activeTab === "incomeReport" && <MP_IncomeReport />}
             {activeTab === "support" && <MP_Support />}

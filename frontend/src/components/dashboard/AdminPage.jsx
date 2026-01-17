@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 
 import config from "../../config/config";
+import AdminAutopool from "../admin/AdminAutopool";
+import AdminAutopoolTree from "../admin/AdminAutopoolTree";
 
 /**
  * Final AdminPage.jsx (single-file)
@@ -169,7 +171,7 @@ export default function AdminPage() {
   const [withdrawals, setWithdrawals] = useState([]);
 
   // ui
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(() => {
     try {
       const path = window.location.pathname.replace(/^\/+/, "");
@@ -230,6 +232,11 @@ export default function AdminPage() {
   const [paymentEdits, setPaymentEdits] = useState({}); // { [userId]: { upiId, upiNo, bankDetails: {...} } }
   const [savingPaymentUserId, setSavingPaymentUserId] = useState(null);
 
+  // withdrawals: filter & pagination
+  const [withdrawalFilter, setWithdrawalFilter] = useState("all"); // all, pending, approved, rejected
+  const [withdrawalPage, setWithdrawalPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
+
   // KYC: search and edit
   const [kycSearch, setKycSearch] = useState("");
   const [memberSearch, setMemberSearch] = useState("");
@@ -243,6 +250,111 @@ export default function AdminPage() {
   const [mgmtUser, setMgmtUser] = useState(null); // The user being edited
   const [searchingMgmt, setSearchingMgmt] = useState(false);
   const [updatingMgmt, setUpdatingMgmt] = useState(false);
+  // Marriage Fund
+  const [mfSearch, setMfSearch] = useState("");
+  const [mfUser, setMfUser] = useState(null);
+  const [mfAmount, setMfAmount] = useState("");
+  const [mfMessage, setMfMessage] = useState(null);
+  const [mfLoading, setMfLoading] = useState(false);
+
+  // Accident Fund
+  const [afSearch, setAfSearch] = useState("");
+  const [afUser, setAfUser] = useState(null);
+  const [afAmount, setAfAmount] = useState("");
+  const [afMessage, setAfMessage] = useState(null);
+  const [afLoading, setAfLoading] = useState(false);
+
+  async function handleMfSearch() {
+    if (!mfSearch.trim()) return;
+    setMfLoading(true);
+    setMfUser(null);
+    setMfMessage(null);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/admin/users/search/${mfSearch.trim()}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "User not found");
+      setMfUser(data.user);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setMfLoading(false);
+    }
+  }
+
+  async function handleAddMf() {
+    if (!mfUser || !mfAmount) return;
+    setMfLoading(true);
+    setMfMessage(null);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/admin/marriage-fund/add`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({ userId: mfUser._id, amount: mfAmount }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to add funds");
+      setMfUser(data.user);
+      setMfMessage({ type: 'success', text: data.message });
+      setMfAmount("");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setMfLoading(false);
+    }
+  }
+
+  async function handleAfSearch() {
+    if (!afSearch.trim()) return;
+    setAfLoading(true);
+    setAfUser(null);
+    setAfMessage(null);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/admin/users/search/${afSearch.trim()}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "User not found");
+      setAfUser(data.user);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setAfLoading(false);
+    }
+  }
+
+  async function handleAddAf() {
+    if (!afUser || !afAmount) return;
+    setAfLoading(true);
+    setAfMessage(null);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/admin/accident-fund/add`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({ userId: afUser._id, amount: afAmount }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to add funds");
+      setAfUser(data.user);
+      setAfMessage({ type: 'success', text: data.message });
+      setAfAmount("");
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setAfLoading(false);
+    }
+  }
 
   const API_BASE = config.apiUrl;
 
@@ -336,7 +448,7 @@ export default function AdminPage() {
     setMgmtUser(null);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/admin/users/search/${mgmtSearchQuery.trim()}`, {
+      const res = await fetch(`${API_BASE}/admin/users/search/${encodeURIComponent(mgmtSearchQuery.trim())}`, {
         headers: { Authorization: `Bearer ${adminToken}` },
       });
       const data = await res.json();
@@ -1045,314 +1157,634 @@ export default function AdminPage() {
 
   /* Main admin UI */
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex relative overflow-hidden">
+
+      {/* Mobile Sidebar Overlay */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 md:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
-      <aside className="w-64 bg-white border-r min-h-screen p-4 flex flex-col">
-        <div className="flex items-center justify-between mb-4">
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r shadow-xl transform transition-transform duration-300 md:relative md:translate-x-0 md:shadow-none flex flex-col
+          ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
+        `}
+      >
+        <div className="flex items-center justify-between p-4 mb-2">
           <div className="flex items-center gap-3">
-            <div className="h-9 w-9 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold">A</div>
+            <div className="h-9 w-9 bg-blue-600 rounded-full flex items-center justify-center text-white font-bold shrink-0">A</div>
             <div>
-              <div className="font-semibold">{siteName}</div>
+              <div className="font-semibold truncate max-w-[140px]">{siteName}</div>
               <div className="text-xs text-slate-500">Admin Panel</div>
             </div>
           </div>
-          <button onClick={() => setSidebarOpen(false)} className="md:hidden p-2 rounded hover:bg-slate-100"><IconClose /></button>
+          <button onClick={() => setSidebarOpen(false)} className="md:hidden p-2 rounded hover:bg-slate-100 text-slate-500">
+            <IconClose />
+          </button>
         </div>
 
-        <nav className="flex-1 space-y-1">
-          <SidebarButton label="Dashboard" active={currentPage === "dashboard"} icon={<IconHome />} onClick={() => openPage("dashboard")} />
-          <SidebarButton label="Member Details" active={currentPage === "member-mgmt"} icon={<IconUsers />} onClick={() => openPage("member-mgmt")} />
-          <SidebarButton label="Members" active={currentPage === "members"} icon={<IconUsers />} onClick={() => openPage("members")} />
-          <SidebarButton label="Bank Details" active={currentPage === "bank"} icon={<IconBank />} onClick={() => openPage("bank")} />
-          <SidebarButton label="KYC" active={currentPage === "kyc"} icon={<IconFile />} onClick={() => openPage("kyc")} />
-          <SidebarButton label="Withdrawals" active={currentPage === "withdrawals"} icon={<IconDollar />} onClick={() => openPage("withdrawals")} />
-          <SidebarButton label="E-Pin" active={currentPage === "epin"} icon={<IconKey />} onClick={() => openPage("epin")} />
-          <SidebarButton label="Income" active={currentPage === "income"} icon={<IconDollar />} onClick={() => openPage("income")} />
+        <nav className="flex-1 space-y-1 overflow-y-auto p-4 pt-0">
+          <SidebarButton label="Dashboard" active={currentPage === "dashboard"} icon={<IconHome />} onClick={() => { openPage("dashboard"); setSidebarOpen(false); }} />
+          <SidebarButton label="Member Details" active={currentPage === "member-mgmt"} icon={<IconUsers />} onClick={() => { openPage("member-mgmt"); setSidebarOpen(false); }} />
+          <SidebarButton label="Members" active={currentPage === "members"} icon={<IconUsers />} onClick={() => { openPage("members"); setSidebarOpen(false); }} />
+          <SidebarButton label="Bank Details" active={currentPage === "bank"} icon={<IconBank />} onClick={() => { openPage("bank"); setSidebarOpen(false); }} />
+          <SidebarButton label="KYC" active={currentPage === "kyc"} icon={<IconFile />} onClick={() => { openPage("kyc"); setSidebarOpen(false); }} />
+          <SidebarButton label="Withdrawals" active={currentPage === "withdrawals"} icon={<IconDollar />} onClick={() => { openPage("withdrawals"); setSidebarOpen(false); }} />
+          <SidebarButton label="E-Pin" active={currentPage === "epin"} icon={<IconKey />} onClick={() => { openPage("epin"); setSidebarOpen(false); }} />
+          <SidebarButton label="Income" active={currentPage === "income"} icon={<IconDollar />} onClick={() => { openPage("income"); setSidebarOpen(false); }} />
+          <SidebarButton label="Autopool Requests" active={currentPage === "autopool"} icon={<IconUsers />} onClick={() => { openPage("autopool"); setSidebarOpen(false); }} />
+          <SidebarButton label="Autopool Tree" active={currentPage === "autopool-tree"} icon={<IconUsers />} onClick={() => { openPage("autopool-tree"); setSidebarOpen(false); }} />
+          <SidebarButton label="Marriage Fund" active={currentPage === "marriageFund"} icon={<IconDollar />} onClick={() => { openPage("marriageFund"); setSidebarOpen(false); }} />
+          <SidebarButton label="Accident Fund" active={currentPage === "accidentFund"} icon={<IconDollar />} onClick={() => { openPage("accidentFund"); setSidebarOpen(false); }} />
           <SidebarButton
             label="Rewards"
             active={currentPage === "rewards"}
             icon={<IconAward />}
-            onClick={() => openPage("rewards")}
+            onClick={() => { openPage("rewards"); setSidebarOpen(false); }}
           />
           <SidebarButton
             label="Site Content"
             active={currentPage === "site"}
             icon={<IconFile />}
-            onClick={() => openPage("site")}
+            onClick={() => { openPage("site"); setSidebarOpen(false); }}
           />
           <SidebarButton
             label="User Activation"
             active={currentPage === "activateUsers"}
             icon={<IconCheckCircle />}
-            onClick={() => openPage("activateUsers")}
+            onClick={() => { openPage("activateUsers"); setSidebarOpen(false); }}
           />
           <SidebarButton
             label="Site Settings"
             active={currentPage === "settings"}
             icon={<IconSettings />}
-            onClick={() => openPage("settings")}
+            onClick={() => { openPage("settings"); setSidebarOpen(false); }}
           />
         </nav>
 
-        <div className="mt-6">
-          <div className="text-xs text-slate-500 mb-2">E-Pin</div>
-          <div className="flex gap-2">
-            <button onClick={createEpin} className="flex-1 bg-blue-600 text-white px-3 py-2 rounded">{creatingEpin ? "Creating..." : "Generate"}</button>
-            <button onClick={() => fetchEpins(adminToken)} className="flex-1 border px-3 py-2 rounded">Refresh</button>
+        <div className="p-4 bg-slate-50 border-t">
+          <div className="text-xs text-slate-500 mb-2 font-medium">Quick Actions</div>
+          <div className="flex gap-2 mb-4">
+            <button onClick={createEpin} className="flex-1 bg-blue-600 text-white px-3 py-2 rounded text-xs font-medium hover:bg-blue-700 transition">{creatingEpin ? "..." : "New Pin"}</button>
+            <button onClick={() => fetchEpins(adminToken)} className="flex-1 border border-slate-300 bg-white px-3 py-2 rounded text-xs font-medium hover:bg-slate-50 text-slate-700 transition">Refresh</button>
           </div>
-        </div>
 
-        <div className="mt-auto pt-4 text-xs text-slate-500">
-          <div>Logged in as <span className="font-mono">admin</span></div>
-          <button onClick={handleLogout} className="mt-2 w-full flex items-center gap-2 border px-3 py-2 rounded text-sm">
-            <IconLogout /> Logout
-          </button>
+          <div className="pt-2 text-xs text-slate-500 border-t border-slate-200">
+            <div className="flex items-center justify-between">
+              <span>Logged in as <span className="font-mono font-medium text-slate-700">admin</span></span>
+              <button onClick={handleLogout} className="text-red-600 hover:underline flex items-center gap-1">
+                Logout
+              </button>
+            </div>
+          </div>
         </div>
       </aside>
 
       {/* Content */}
-      <div className="flex-1 p-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+        {/* Header - Mobile Menu Button */}
+        <div className="flex items-center justify-between p-4 border-b bg-white md:hidden shrink-0">
           <div className="flex items-center gap-3">
-            <button className="md:hidden p-2 bg-white border rounded" onClick={() => setSidebarOpen((s) => !s)}><IconMenu /></button>
-            <h1 className="text-2xl font-semibold">Admin Dashboard</h1>
+            <button className="p-2 -ml-2 rounded-md hover:bg-slate-100 text-slate-600" onClick={() => setSidebarOpen(true)}>
+              <IconMenu />
+            </button>
+            <h1 className="text-lg font-semibold text-slate-800">Admin Panel</h1>
           </div>
-          <div className="text-sm text-slate-600">{siteName}</div>
+          {/* Maybe add small avatar or notification icon here */}
         </div>
 
-        <div className="bg-white border rounded-lg p-4">
-          {/* Dashboard page */}
-          {currentPage === "dashboard" && (
-            <div>
-              <h2 className="text-lg font-semibold mb-3">Overview</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
-                <StatCard title="Total Members" value={users.length} />
-                <StatCard title="Active Members" value={users.filter((u) => u.isActivated).length} />
-                <StatCard title="Inactive Members" value={users.filter((u) => !u.isActivated).length} />
-                <StatCard title="E-Pins" value={epins.length} />
-              </div>
-            </div>
-          )}
+        <div className={`flex-1 p-4 md:p-8 scroll-smooth ${currentPage === 'members' ? 'flex flex-col overflow-hidden' : 'overflow-auto'}`}>
+          {/* Desktop Header Title (Hidden on Mobile as we have the top bar) */}
+          <div className="hidden md:flex items-center justify-between mb-8">
+            <h1 className="text-2xl font-bold text-slate-800">Admin Dashboard</h1>
+            <div className="text-sm px-3 py-1 bg-white border rounded-full text-slate-600 shadow-sm">{siteName}</div>
+          </div>
 
-          {/* Members page - visible only when clicked */}
-          {currentPage === "members" && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-semibold">Members</h2>
-                <div className="flex items-center gap-4">
-                  <input
-                    type="text"
-                    placeholder="Search name, ID or code..."
-                    value={memberSearch}
-                    onChange={(e) => setMemberSearch(e.target.value)}
-                    className="border rounded px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                  />
-                  <div className="text-xs text-slate-500">Active: <span className="font-mono">{users.filter(u => u.isActivated).length}</span> — Inactive: <span className="font-mono">{users.filter(u => !u.isActivated).length}</span></div>
+
+          <div className={`bg-white border rounded-lg p-4 ${currentPage === 'members' ? 'flex flex-col h-full overflow-hidden' : ''}`}>
+            {/* Dashboard page */}
+            {currentPage === "dashboard" && (
+              <div>
+                <h2 className="text-lg font-semibold mb-3">Overview</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+                  <StatCard title="Total Members" value={users.length} />
+                  <StatCard title="Active Members" value={users.filter((u) => u.isActivated).length} />
+                  <StatCard title="Inactive Members" value={users.filter((u) => !u.isActivated).length} />
+                  <StatCard title="E-Pins" value={epins.length} />
                 </div>
               </div>
+            )}
 
-              <div className="mb-4 border rounded p-3 bg-slate-50">
-                <div className="text-sm font-semibold mb-2">Add New Member (WSE Dedicated)</div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <input
-                    value={newMember.name}
-                    onChange={(e) => setNewMember((s) => ({ ...s, name: e.target.value }))}
-                    className="border rounded px-3 py-2 text-sm"
-                    placeholder="Name"
-                  />
-                  <input
-                    value={newMember.email}
-                    onChange={(e) => setNewMember((s) => ({ ...s, email: e.target.value }))}
-                    className="border rounded px-3 py-2 text-sm"
-                    placeholder="Email"
-                  />
-                  <input
-                    value={newMember.password}
-                    onChange={(e) => setNewMember((s) => ({ ...s, password: e.target.value }))}
-                    className="border rounded px-3 py-2 text-sm"
-                    placeholder="Password"
-                    type="text"
-                  />
-                  <input
-                    value={newMember.phone}
-                    onChange={(e) => setNewMember((s) => ({ ...s, phone: e.target.value }))}
-                    className="border rounded px-3 py-2 text-sm"
-                    placeholder="Phone (optional)"
-                  />
-                  <input
-                    value={newMember.sponsorId}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setNewMember((s) => ({ ...s, sponsorId: value }));
-                      // Auto-lookup sponsor after user stops typing
-                      if (value.trim()) {
-                        setTimeout(() => lookupSponsor(value), 500);
-                      }
-                    }}
-                    className="border rounded px-3 py-2 text-sm"
-                    placeholder="Sponsor invite code (e.g., ADMIN1254)"
-                  />
-                  <div className="relative">
+            {/* Members page - visible only when clicked */}
+            {currentPage === "members" && (
+              <div className="flex flex-col h-full overflow-hidden">
+                <div className="flex items-center justify-between mb-3 shrink-0">
+                  <h2 className="text-lg font-semibold">Members</h2>
+                  <div className="flex items-center gap-4">
                     <input
-                      value={newMember.sponsorName}
-                      onChange={(e) => setNewMember((s) => ({ ...s, sponsorName: e.target.value }))}
-                      className="border rounded px-3 py-2 text-sm w-full"
-                      placeholder="Sponsor name (auto-filled)"
-                      readOnly={lookingSponsor}
+                      type="text"
+                      placeholder="Search name, ID or code..."
+                      value={memberSearch}
+                      onChange={(e) => setMemberSearch(e.target.value)}
+                      className="border rounded px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                     />
-                    {lookingSponsor && (
-                      <div className="absolute right-2 top-2.5 text-xs text-gray-500">Looking up...</div>
-                    )}
+                    <div className="text-xs text-slate-500">Active: <span className="font-mono">{users.filter(u => u.isActivated).length}</span> — Inactive: <span className="font-mono">{users.filter(u => !u.isActivated).length}</span></div>
                   </div>
                 </div>
-                <div className="mt-2 flex justify-end">
-                  <button
-                    onClick={createMember}
-                    disabled={creatingMember}
-                    className="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-60"
-                  >
-                    {creatingMember ? "Creating..." : "Create Member"}
-                  </button>
+
+                <div className="mb-4 border rounded p-3 bg-slate-50">
+                  <div className="text-sm font-semibold mb-2">Add New Member (WSE Dedicated)</div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                    <input
+                      value={newMember.name}
+                      onChange={(e) => setNewMember((s) => ({ ...s, name: e.target.value }))}
+                      className="border rounded px-3 py-2 text-sm"
+                      placeholder="Name"
+                    />
+                    <input
+                      value={newMember.email}
+                      onChange={(e) => setNewMember((s) => ({ ...s, email: e.target.value }))}
+                      className="border rounded px-3 py-2 text-sm"
+                      placeholder="Email"
+                    />
+                    <input
+                      value={newMember.password}
+                      onChange={(e) => setNewMember((s) => ({ ...s, password: e.target.value }))}
+                      className="border rounded px-3 py-2 text-sm"
+                      placeholder="Password"
+                      type="text"
+                    />
+                    <input
+                      value={newMember.phone}
+                      onChange={(e) => setNewMember((s) => ({ ...s, phone: e.target.value }))}
+                      className="border rounded px-3 py-2 text-sm"
+                      placeholder="Phone (optional)"
+                    />
+                    <input
+                      value={newMember.sponsorId}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setNewMember((s) => ({ ...s, sponsorId: value }));
+                        // Auto-lookup sponsor after user stops typing
+                        if (value.trim()) {
+                          setTimeout(() => lookupSponsor(value), 500);
+                        }
+                      }}
+                      className="border rounded px-3 py-2 text-sm"
+                      placeholder="Sponsor invite code (e.g., ADMIN1254)"
+                    />
+                    <div className="relative">
+                      <input
+                        value={newMember.sponsorName}
+                        onChange={(e) => setNewMember((s) => ({ ...s, sponsorName: e.target.value }))}
+                        className="border rounded px-3 py-2 text-sm w-full"
+                        placeholder="Sponsor name (auto-filled)"
+                        readOnly={lookingSponsor}
+                      />
+                      {lookingSponsor && (
+                        <div className="absolute right-2 top-2.5 text-xs text-gray-500">Looking up...</div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      onClick={createMember}
+                      disabled={creatingMember}
+                      className="bg-blue-600 text-white px-4 py-2 rounded text-sm disabled:opacity-60"
+                    >
+                      {creatingMember ? "Creating..." : "Create Member"}
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              {loadingUsers ? (
-                <div className="text-sm text-slate-500">Loading members...</div>
-              ) : (
-                <div className="overflow-auto max-h-[60vh] border rounded">
-                  <table className="min-w-[1200px] w-full text-sm">
-                    <thead className="bg-slate-50 sticky top-0">
-                      <tr>
-                        <th className="p-3 text-left">Name</th>
-                        <th className="p-3 text-left">User ID</th>
-                        <th className="p-3 text-left">Email</th>
-                        <th className="p-3 text-left">Invite Code</th>
-                        <th className="p-3 text-left">Invite People</th>
-                        <th className="p-3 text-left">Role</th>
-                        <th className="p-3 text-left">E-Pin</th>
-                        <th className="p-3 text-left">Status</th>
-                        <th className="p-3 text-right">Balance</th>
-                        <th className="p-3 text-right">Income</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {(() => {
-                        const term = memberSearch.trim().toLowerCase();
-                        const visibleUsers = users.filter(u => {
-                          if (!term) return true;
-                          return (
-                            u.name?.toLowerCase().includes(term) ||
-                            u.id?.toLowerCase().includes(term) ||
-                            u.email?.toLowerCase().includes(term) ||
-                            u.inviteCode?.toLowerCase().includes(term)
-                          );
-                        });
+                {loadingUsers ? (
+                  <div className="text-sm text-slate-500">Loading members...</div>
+                ) : (
+                  <div className="flex-1 overflow-auto border rounded min-h-0">
+                    <table className="min-w-[1200px] w-full text-sm">
+                      <thead className="bg-slate-50 sticky top-0">
+                        <tr>
+                          <th className="p-3 text-left">Name</th>
+                          <th className="p-3 text-left">User ID</th>
+                          <th className="p-3 text-left">Email</th>
+                          <th className="p-3 text-left">Invite Code</th>
+                          <th className="p-3 text-left">Invite People</th>
+                          <th className="p-3 text-left">Role</th>
+                          <th className="p-3 text-left">E-Pin</th>
+                          <th className="p-3 text-left">Status</th>
+                          <th className="p-3 text-right">Balance</th>
+                          <th className="p-3 text-right">Income</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          const term = memberSearch.trim().toLowerCase();
+                          const visibleUsers = users.filter(u => {
+                            if (!term) return true;
+                            return (
+                              u.name?.toLowerCase().includes(term) ||
+                              u.id?.toLowerCase().includes(term) ||
+                              u.email?.toLowerCase().includes(term) ||
+                              u.inviteCode?.toLowerCase().includes(term)
+                            );
+                          });
 
-                        return visibleUsers.map((u) => {
-                          const inviteCount = u.directInviteCount ?? (Array.isArray(u.invitees) ? u.invitees.length : 0);
-                          const isExpanded = expandedInviteUserId === u.id;
+                          return visibleUsers.map((u) => {
+                            const inviteCount = u.directInviteCount ?? (Array.isArray(u.invitees) ? u.invitees.length : 0);
+                            const isExpanded = expandedInviteUserId === u.id;
 
-                          return (
-                            <React.Fragment key={u.id}>
-                              <tr className="border-t hover:bg-slate-50">
-                                <td className="p-3">{u.name}</td>
-                                <td className="p-3 font-mono text-xs">{u.id}</td>
-                                <td className="p-3">{u.email}</td>
-                                <td className="p-3">
-                                  <button
-                                    type="button"
-                                    onClick={() => copyToClipboard(u.inviteCode)}
-                                    className="font-mono text-blue-600 hover:underline"
-                                    title="Copy invite code"
-                                  >
-                                    {u.inviteCode}
-                                  </button>
-                                </td>
-                                <td className="p-3">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xs text-slate-600">{inviteCount}</span>
+                            return (
+                              <React.Fragment key={u.id}>
+                                <tr className="border-t hover:bg-slate-50">
+                                  <td className="p-3">{u.name}</td>
+                                  <td className="p-3 font-mono text-xs">{u.id}</td>
+                                  <td className="p-3">{u.email}</td>
+                                  <td className="p-3">
                                     <button
                                       type="button"
-                                      onClick={() => setExpandedInviteUserId((prev) => (prev === u.id ? null : u.id))}
-                                      className="border px-2 py-1 rounded text-xs hover:bg-white"
+                                      onClick={() => copyToClipboard(u.inviteCode)}
+                                      className="font-mono text-blue-600 hover:underline"
+                                      title="Copy invite code"
                                     >
-                                      {isExpanded ? "Hide" : "View"}
+                                      {u.inviteCode}
                                     </button>
+                                  </td>
+                                  <td className="p-3">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-slate-600">{inviteCount}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => setExpandedInviteUserId((prev) => (prev === u.id ? null : u.id))}
+                                        className="border px-2 py-1 rounded text-xs hover:bg-white"
+                                      >
+                                        {isExpanded ? "Hide" : "View"}
+                                      </button>
+                                    </div>
+                                  </td>
+                                  <td className="p-3">
+                                    <select
+                                      value={u.role || "member"}
+                                      onChange={(e) => updateUserRole(u.id, e.target.value)}
+                                      className="border rounded px-2 py-1 text-xs"
+                                    >
+                                      <option value="member">member</option>
+                                      <option value="franchise">franchise</option>
+                                    </select>
+                                  </td>
+                                  <td className="p-3 font-mono">{u.activationPin || "-"}</td>
+                                  <td className="p-3">
+                                    {u.isActivated ? (
+                                      <span className="text-green-600 font-semibold">Active</span>
+                                    ) : (
+                                      <span className="text-slate-500">Inactive</span>
+                                    )}
+                                  </td>
+                                  <td className="p-3 text-right">{u.balance ?? 0}</td>
+                                  <td className="p-3 text-right font-semibold text-green-600">{u.totalIncome ?? 0}</td>
+                                </tr>
+
+                                {isExpanded && (
+                                  <tr className="border-t bg-slate-50/60">
+                                    <td colSpan={10} className="p-3">
+                                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                                        <div className="bg-white border rounded p-3">
+                                          <div className="text-sm font-semibold mb-1">Invite People</div>
+                                          <div className="text-xs text-slate-600">
+                                            Share this invite code with new members (they will enter it in Sponsor Invite Code during registration).
+                                          </div>
+                                          <div className="mt-2 flex items-center gap-2">
+                                            <div className="font-mono text-sm px-2 py-1 border rounded bg-slate-50">
+                                              {u.inviteCode}
+                                            </div>
+                                            <button
+                                              type="button"
+                                              onClick={() => copyToClipboard(u.inviteCode)}
+                                              className="border px-3 py-1.5 rounded text-xs hover:bg-slate-50"
+                                            >
+                                              Copy
+                                            </button>
+                                          </div>
+                                        </div>
+
+                                        <div className="bg-white border rounded p-3">
+                                          <div className="text-sm font-semibold mb-2">Direct Invitees</div>
+                                          <div className="overflow-x-auto">
+                                            <table className="min-w-full text-xs">
+                                              <thead className="bg-slate-50 sticky top-0">
+                                                <tr>
+                                                  <th className="p-2 text-left">Name</th>
+                                                  <th className="p-2 text-left">User ID</th>
+                                                  <th className="p-2 text-left">Invite Code</th>
+                                                </tr>
+                                              </thead>
+                                              <tbody>
+                                                {(u.invitees || []).map((m) => (
+                                                  <tr key={m.id} className="border-t">
+                                                    <td className="p-2">{m.name}</td>
+                                                    <td className="p-2 font-mono">{m.id}</td>
+                                                    <td className="p-2 font-mono text-blue-700">{m.inviteCode}</td>
+                                                  </tr>
+                                                ))}
+                                                {(u.invitees || []).length === 0 && (
+                                                  <tr>
+                                                    <td colSpan={3} className="p-3 text-center text-slate-500">
+                                                      No invitees yet.
+                                                    </td>
+                                                  </tr>
+                                                )}
+                                              </tbody>
+                                            </table>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
+                            );
+                          })
+                        })()}
+                        {users.length === 0 && (
+                          <tr>
+                            <td colSpan={10} className="p-6 text-center text-slate-500">
+                              No members found.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Bank Details page */}
+            {currentPage === "bank" && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-semibold">All Bank Details</h2>
+                  <div className="text-xs text-slate-500">{users.length} members</div>
+                </div>
+
+                <div className="flex gap-2 mb-4">
+                  <button
+                    onClick={() => fetchUsers(adminToken)}
+                    className="border px-4 py-2 rounded"
+                  >
+                    Refresh
+                  </button>
+                </div>
+
+                {loadingUsers ? (
+                  <div className="text-sm text-slate-500">Loading members...</div>
+                ) : (
+                  <div className="overflow-auto max-h-[60vh] border rounded">
+                    <table className="min-w-[1200px] w-full text-sm">
+                      <thead className="bg-slate-50 sticky top-0">
+                        <tr>
+                          <th className="p-3 text-left">User</th>
+                          <th className="p-3 text-left">UPI</th>
+                          <th className="p-3 text-left">Account Holder</th>
+                          <th className="p-3 text-left">Bank</th>
+                          <th className="p-3 text-left">Account No</th>
+                          <th className="p-3 text-left">IFSC</th>
+                          <th className="p-3 text-left">Branch</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {users.map((u) => {
+                          const b = u.bankDetails || {};
+                          return (
+                            <tr key={u.id} className="border-t hover:bg-slate-50">
+                              <td className="p-3">
+                                <div className="font-medium">{u.name}</div>
+                                <div className="text-xs text-slate-500">{u.email}</div>
+                                <div className="text-[11px] text-slate-500 font-mono">{u.id}</div>
+                              </td>
+                              <td className="p-3">
+                                <div className="font-mono text-xs">{u.upiId || "-"}</div>
+                                <div className="text-xs text-slate-500">{u.upiNo || ""}</div>
+                              </td>
+                              <td className="p-3 text-xs">{b.accountHolder || "-"}</td>
+                              <td className="p-3 text-xs">{b.bankName || "-"}</td>
+                              <td className="p-3 font-mono text-xs">{b.accountNo || "-"}</td>
+                              <td className="p-3 font-mono text-xs">{b.ifsc || "-"}</td>
+                              <td className="p-3 text-xs">{b.branchName || "-"}</td>
+                            </tr>
+                          );
+                        })}
+
+                        {users.length === 0 && (
+                          <tr>
+                            <td colSpan={7} className="p-6 text-center text-slate-500">
+                              No members found.
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* KYC page */}
+            {currentPage === "kyc" && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-semibold">KYC Uploads</h2>
+                  <div className="text-xs text-slate-500">{kycs.length} records</div>
+                </div>
+
+                <div className="flex gap-2 mb-4">
+                  <button onClick={() => fetchKycs(adminToken)} className="border px-4 py-2 rounded">Refresh</button>
+                </div>
+
+                {loadingKycs ? (
+                  <div className="text-sm text-slate-500">Loading KYC records...</div>
+                ) : (
+                  <div className="overflow-auto max-h-[70vh] border rounded">
+                    <div className="p-3 bg-slate-50 border-b flex items-center gap-2 min-w-[1200px]">
+                      <input
+                        value={kycSearch}
+                        onChange={(e) => setKycSearch(e.target.value)}
+                        placeholder="Search by Invite Code or PAN..."
+                        className="border rounded px-3 py-1.5 text-sm w-full max-w-sm"
+                      />
+                      {kycSearch && (
+                        <button onClick={() => setKycSearch("")} className="text-xs text-blue-600 hover:underline">Clear</button>
+                      )}
+                    </div>
+                    <table className="min-w-[1200px] w-full text-sm">
+                      <thead className="bg-slate-50 sticky top-0">
+                        <tr>
+                          <th className="p-3 text-left">User</th>
+                          <th className="p-3 text-left">Invite Code</th>
+                          <th className="p-3 text-left">Email</th>
+                          <th className="p-3 text-left">PAN / Aadhaar</th>
+                          <th className="p-3 text-left">Status</th>
+                          <th className="p-3 text-left">Updated</th>
+                          <th className="p-3 text-left">Documents</th>
+                          <th className="p-3 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {kycs.filter(k => {
+                          const search = kycSearch.toLowerCase().trim();
+                          if (!search) return true;
+                          const ic = (k.user?.inviteCode || "").toLowerCase();
+                          const pan = (k.panNo || "").toLowerCase();
+                          const name = (k.user?.name || "").toLowerCase();
+                          return ic.includes(search) || pan.includes(search) || name.includes(search);
+                        }).map((k) => {
+                          const kycId = k.id || k._id;
+                          const isExpanded = expandedKycId === kycId;
+                          const edit = kycEdits[kycId];
+
+                          return (
+                            <React.Fragment key={kycId}>
+                              <tr className="border-t hover:bg-slate-50">
+                                <td className="p-3">
+                                  <div className="font-medium">{k.user?.name || k.userId}</div>
+                                  <div className="text-[10px] text-slate-500 font-mono">{k.userId}</div>
+                                </td>
+                                <td className="p-3 font-mono text-blue-700">{k.user?.inviteCode || "-"}</td>
+                                <td className="p-3 text-slate-500">{k.user?.email || "-"}</td>
+                                <td className="p-3">
+                                  <div className="text-xs">
+                                    <div><span className="text-slate-400">PAN:</span> {k.panNo || "-"}</div>
+                                    <div><span className="text-slate-400">UID:</span> {k.aadhaarNo || "-"}</div>
                                   </div>
                                 </td>
-                                <td className="p-3">
-                                  <select
-                                    value={u.role || "member"}
-                                    onChange={(e) => updateUserRole(u.id, e.target.value)}
-                                    className="border rounded px-2 py-1 text-xs"
-                                  >
-                                    <option value="member">member</option>
-                                    <option value="franchise">franchise</option>
-                                  </select>
-                                </td>
-                                <td className="p-3 font-mono">{u.activationPin || "-"}</td>
-                                <td className="p-3">
-                                  {u.isActivated ? (
-                                    <span className="text-green-600 font-semibold">Active</span>
+                                <td className="p-3 text-xs">
+                                  {k.status === 'approved' ? (
+                                    <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Approved</span>
+                                  ) : k.status === 'rejected' ? (
+                                    <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">Rejected</span>
                                   ) : (
-                                    <span className="text-slate-500">Inactive</span>
+                                    <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">Pending</span>
                                   )}
                                 </td>
-                                <td className="p-3 text-right">{u.balance ?? 0}</td>
-                                <td className="p-3 text-right font-semibold text-green-600">{u.totalIncome ?? 0}</td>
+                                <td className="p-3 text-slate-500">{k.updatedAt ? String(k.updatedAt).slice(0, 19).replace("T", " ") : "-"}</td>
+                                <td className="p-3">
+                                  <div className="flex flex-col gap-1">
+                                    {k.documents &&
+                                      Object.entries(k.documents)
+                                        .filter(([, v]) => v && (typeof v === 'string' ? v : v.filePath))
+                                        .map(([key, v]) => (
+                                          <a
+                                            key={key}
+                                            href={`${API_BASE}${typeof v === 'string' ? v : v.filePath}`}
+                                            target="_blank"
+                                            rel="noreferrer"
+                                            className="text-blue-700 underline text-[11px]"
+                                          >
+                                            {key}
+                                          </a>
+                                        ))}
+                                    {!k.documents && k.filePath && (
+                                      <a
+                                        href={`${API_BASE}${k.filePath}`}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="text-blue-700 underline text-[11px]"
+                                      >
+                                        document
+                                      </a>
+                                    )}
+                                  </div>
+                                </td>
+                                <td className="p-3 text-right">
+                                  <button
+                                    onClick={() => openKycEditor(k)}
+                                    className="text-xs bg-slate-100 hover:bg-slate-200 border rounded px-3 py-1.5 transition-colors"
+                                  >
+                                    {isExpanded ? "Close" : "Edit"}
+                                  </button>
+                                </td>
                               </tr>
 
-                              {isExpanded && (
-                                <tr className="border-t bg-slate-50/60">
-                                  <td colSpan={10} className="p-3">
-                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                                      <div className="bg-white border rounded p-3">
-                                        <div className="text-sm font-semibold mb-1">Invite People</div>
-                                        <div className="text-xs text-slate-600">
-                                          Share this invite code with new members (they will enter it in Sponsor Invite Code during registration).
-                                        </div>
-                                        <div className="mt-2 flex items-center gap-2">
-                                          <div className="font-mono text-sm px-2 py-1 border rounded bg-slate-50">
-                                            {u.inviteCode}
-                                          </div>
+                              {isExpanded && edit && (
+                                <tr className="border-t bg-slate-50/50">
+                                  <td colSpan={8} className="p-4">
+                                    <div className="bg-white border rounded shadow-sm p-4 max-w-4xl">
+                                      <div className="flex items-center justify-between mb-4">
+                                        <h3 className="font-semibold text-sm">Update KYC Information</h3>
+                                        <div className="flex gap-2">
                                           <button
-                                            type="button"
-                                            onClick={() => copyToClipboard(u.inviteCode)}
-                                            className="border px-3 py-1.5 rounded text-xs hover:bg-slate-50"
+                                            onClick={() => setExpandedKycId(null)}
+                                            className="text-xs border px-3 py-1.5 rounded"
                                           >
-                                            Copy
+                                            Cancel
+                                          </button>
+                                          <button
+                                            onClick={() => saveKycDetails(kycId)}
+                                            disabled={savingKycId === kycId}
+                                            className="text-xs bg-blue-600 text-white px-4 py-1.5 rounded disabled:opacity-60"
+                                          >
+                                            {savingKycId === kycId ? "Saving..." : "Save Details"}
                                           </button>
                                         </div>
                                       </div>
 
-                                      <div className="bg-white border rounded p-3">
-                                        <div className="text-sm font-semibold mb-2">Direct Invitees</div>
-                                        <div className="overflow-auto max-h-48">
-                                          <table className="min-w-full text-xs">
-                                            <thead className="bg-slate-50 sticky top-0">
-                                              <tr>
-                                                <th className="p-2 text-left">Name</th>
-                                                <th className="p-2 text-left">User ID</th>
-                                                <th className="p-2 text-left">Invite Code</th>
-                                              </tr>
-                                            </thead>
-                                            <tbody>
-                                              {(u.invitees || []).map((m) => (
-                                                <tr key={m.id} className="border-t">
-                                                  <td className="p-2">{m.name}</td>
-                                                  <td className="p-2 font-mono">{m.id}</td>
-                                                  <td className="p-2 font-mono text-blue-700">{m.inviteCode}</td>
-                                                </tr>
-                                              ))}
-                                              {(u.invitees || []).length === 0 && (
-                                                <tr>
-                                                  <td colSpan={3} className="p-3 text-center text-slate-500">
-                                                    No invitees yet.
-                                                  </td>
-                                                </tr>
-                                              )}
-                                            </tbody>
-                                          </table>
+                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                                        <div>
+                                          <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">PAN Number</label>
+                                          <input
+                                            value={edit.panNo}
+                                            onChange={(e) => updateKycEdit(kycId, "panNo", e.target.value.toUpperCase())}
+                                            className="w-full border rounded px-3 py-2 text-sm"
+                                            placeholder="ABCDE1234F"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Aadhaar Number</label>
+                                          <input
+                                            value={edit.aadhaarNo}
+                                            onChange={(e) => updateKycEdit(kycId, "aadhaarNo", e.target.value)}
+                                            className="w-full border rounded px-3 py-2 text-sm"
+                                            placeholder="12-digit number"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Status</label>
+                                          <select
+                                            value={edit.status}
+                                            onChange={(e) => updateKycEdit(kycId, "status", e.target.value)}
+                                            className="w-full border rounded px-3 py-2 text-sm"
+                                          >
+                                            <option value="pending">Pending</option>
+                                            <option value="approved">Approved</option>
+                                            <option value="rejected">Rejected</option>
+                                          </select>
+                                        </div>
+                                        <div className="md:col-span-2">
+                                          <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Address (as per Aadhaar)</label>
+                                          <input
+                                            value={edit.aadhaarAddress}
+                                            onChange={(e) => updateKycEdit(kycId, "aadhaarAddress", e.target.value)}
+                                            className="w-full border rounded px-3 py-2 text-sm"
+                                          />
+                                        </div>
+                                        <div>
+                                          <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Issued State</label>
+                                          <input
+                                            value={edit.issuedState}
+                                            onChange={(e) => updateKycEdit(kycId, "issuedState", e.target.value)}
+                                            className="w-full border rounded px-3 py-2 text-sm"
+                                          />
+                                        </div>
+                                        <div className="md:col-span-3">
+                                          <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Remarks / Rejection Reason</label>
+                                          <textarea
+                                            value={edit.remarks}
+                                            onChange={(e) => updateKycEdit(kycId, "remarks", e.target.value)}
+                                            className="w-full border rounded px-3 py-2 text-sm h-16"
+                                            placeholder="Notes for the user..."
+                                          />
                                         </div>
                                       </div>
                                     </div>
@@ -1361,1176 +1793,1084 @@ export default function AdminPage() {
                               )}
                             </React.Fragment>
                           );
-                        })
-                      })()}
-                      {users.length === 0 && (
-                        <tr>
-                          <td colSpan={10} className="p-6 text-center text-slate-500">
-                            No members found.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Bank Details page */}
-          {currentPage === "bank" && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-semibold">All Bank Details</h2>
-                <div className="text-xs text-slate-500">{users.length} members</div>
-              </div>
-
-              <div className="flex gap-2 mb-4">
-                <button
-                  onClick={() => fetchUsers(adminToken)}
-                  className="border px-4 py-2 rounded"
-                >
-                  Refresh
-                </button>
-              </div>
-
-              {loadingUsers ? (
-                <div className="text-sm text-slate-500">Loading members...</div>
-              ) : (
-                <div className="overflow-auto max-h-[60vh] border rounded">
-                  <table className="min-w-[1200px] w-full text-sm">
-                    <thead className="bg-slate-50 sticky top-0">
-                      <tr>
-                        <th className="p-3 text-left">User</th>
-                        <th className="p-3 text-left">UPI</th>
-                        <th className="p-3 text-left">Account Holder</th>
-                        <th className="p-3 text-left">Bank</th>
-                        <th className="p-3 text-left">Account No</th>
-                        <th className="p-3 text-left">IFSC</th>
-                        <th className="p-3 text-left">Branch</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {users.map((u) => {
-                        const b = u.bankDetails || {};
-                        return (
-                          <tr key={u.id} className="border-t hover:bg-slate-50">
-                            <td className="p-3">
-                              <div className="font-medium">{u.name}</div>
-                              <div className="text-xs text-slate-500">{u.email}</div>
-                              <div className="text-[11px] text-slate-500 font-mono">{u.id}</div>
+                        })}
+                        {kycs.length === 0 && (
+                          <tr>
+                            <td colSpan={5} className="p-6 text-center text-slate-500">
+                              No KYC records found.
                             </td>
-                            <td className="p-3">
-                              <div className="font-mono text-xs">{u.upiId || "-"}</div>
-                              <div className="text-xs text-slate-500">{u.upiNo || ""}</div>
-                            </td>
-                            <td className="p-3 text-xs">{b.accountHolder || "-"}</td>
-                            <td className="p-3 text-xs">{b.bankName || "-"}</td>
-                            <td className="p-3 font-mono text-xs">{b.accountNo || "-"}</td>
-                            <td className="p-3 font-mono text-xs">{b.ifsc || "-"}</td>
-                            <td className="p-3 text-xs">{b.branchName || "-"}</td>
                           </tr>
-                        );
-                      })}
-
-                      {users.length === 0 && (
-                        <tr>
-                          <td colSpan={7} className="p-6 text-center text-slate-500">
-                            No members found.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* KYC page */}
-          {currentPage === "kyc" && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-semibold">KYC Uploads</h2>
-                <div className="text-xs text-slate-500">{kycs.length} records</div>
-              </div>
-
-              <div className="flex gap-2 mb-4">
-                <button onClick={() => fetchKycs(adminToken)} className="border px-4 py-2 rounded">Refresh</button>
-              </div>
-
-              {loadingKycs ? (
-                <div className="text-sm text-slate-500">Loading KYC records...</div>
-              ) : (
-                <div className="overflow-auto max-h-[70vh] border rounded">
-                  <div className="p-3 bg-slate-50 border-b flex items-center gap-2 min-w-[1200px]">
-                    <input
-                      value={kycSearch}
-                      onChange={(e) => setKycSearch(e.target.value)}
-                      placeholder="Search by Invite Code or PAN..."
-                      className="border rounded px-3 py-1.5 text-sm w-full max-w-sm"
-                    />
-                    {kycSearch && (
-                      <button onClick={() => setKycSearch("")} className="text-xs text-blue-600 hover:underline">Clear</button>
-                    )}
-                  </div>
-                  <table className="min-w-[1200px] w-full text-sm">
-                    <thead className="bg-slate-50 sticky top-0">
-                      <tr>
-                        <th className="p-3 text-left">User</th>
-                        <th className="p-3 text-left">Invite Code</th>
-                        <th className="p-3 text-left">Email</th>
-                        <th className="p-3 text-left">PAN / Aadhaar</th>
-                        <th className="p-3 text-left">Status</th>
-                        <th className="p-3 text-left">Updated</th>
-                        <th className="p-3 text-left">Documents</th>
-                        <th className="p-3 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {kycs.filter(k => {
-                        const search = kycSearch.toLowerCase().trim();
-                        if (!search) return true;
-                        const ic = (k.user?.inviteCode || "").toLowerCase();
-                        const pan = (k.panNo || "").toLowerCase();
-                        const name = (k.user?.name || "").toLowerCase();
-                        return ic.includes(search) || pan.includes(search) || name.includes(search);
-                      }).map((k) => {
-                        const kycId = k.id || k._id;
-                        const isExpanded = expandedKycId === kycId;
-                        const edit = kycEdits[kycId];
-
-                        return (
-                          <React.Fragment key={kycId}>
-                            <tr className="border-t hover:bg-slate-50">
-                              <td className="p-3">
-                                <div className="font-medium">{k.user?.name || k.userId}</div>
-                                <div className="text-[10px] text-slate-500 font-mono">{k.userId}</div>
-                              </td>
-                              <td className="p-3 font-mono text-blue-700">{k.user?.inviteCode || "-"}</td>
-                              <td className="p-3 text-slate-500">{k.user?.email || "-"}</td>
-                              <td className="p-3">
-                                <div className="text-xs">
-                                  <div><span className="text-slate-400">PAN:</span> {k.panNo || "-"}</div>
-                                  <div><span className="text-slate-400">UID:</span> {k.aadhaarNo || "-"}</div>
-                                </div>
-                              </td>
-                              <td className="p-3 text-xs">
-                                {k.status === 'approved' ? (
-                                  <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Approved</span>
-                                ) : k.status === 'rejected' ? (
-                                  <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">Rejected</span>
-                                ) : (
-                                  <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">Pending</span>
-                                )}
-                              </td>
-                              <td className="p-3 text-slate-500">{k.updatedAt ? String(k.updatedAt).slice(0, 19).replace("T", " ") : "-"}</td>
-                              <td className="p-3">
-                                <div className="flex flex-col gap-1">
-                                  {k.documents &&
-                                    Object.entries(k.documents)
-                                      .filter(([, v]) => v && (typeof v === 'string' ? v : v.filePath))
-                                      .map(([key, v]) => (
-                                        <a
-                                          key={key}
-                                          href={`${API_BASE}${typeof v === 'string' ? v : v.filePath}`}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                          className="text-blue-700 underline text-[11px]"
-                                        >
-                                          {key}
-                                        </a>
-                                      ))}
-                                  {!k.documents && k.filePath && (
-                                    <a
-                                      href={`${API_BASE}${k.filePath}`}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-blue-700 underline text-[11px]"
-                                    >
-                                      document
-                                    </a>
-                                  )}
-                                </div>
-                              </td>
-                              <td className="p-3 text-right">
-                                <button
-                                  onClick={() => openKycEditor(k)}
-                                  className="text-xs bg-slate-100 hover:bg-slate-200 border rounded px-3 py-1.5 transition-colors"
-                                >
-                                  {isExpanded ? "Close" : "Edit"}
-                                </button>
-                              </td>
-                            </tr>
-
-                            {isExpanded && edit && (
-                              <tr className="border-t bg-slate-50/50">
-                                <td colSpan={8} className="p-4">
-                                  <div className="bg-white border rounded shadow-sm p-4 max-w-4xl">
-                                    <div className="flex items-center justify-between mb-4">
-                                      <h3 className="font-semibold text-sm">Update KYC Information</h3>
-                                      <div className="flex gap-2">
-                                        <button
-                                          onClick={() => setExpandedKycId(null)}
-                                          className="text-xs border px-3 py-1.5 rounded"
-                                        >
-                                          Cancel
-                                        </button>
-                                        <button
-                                          onClick={() => saveKycDetails(kycId)}
-                                          disabled={savingKycId === kycId}
-                                          className="text-xs bg-blue-600 text-white px-4 py-1.5 rounded disabled:opacity-60"
-                                        >
-                                          {savingKycId === kycId ? "Saving..." : "Save Details"}
-                                        </button>
-                                      </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                      <div>
-                                        <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">PAN Number</label>
-                                        <input
-                                          value={edit.panNo}
-                                          onChange={(e) => updateKycEdit(kycId, "panNo", e.target.value.toUpperCase())}
-                                          className="w-full border rounded px-3 py-2 text-sm"
-                                          placeholder="ABCDE1234F"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Aadhaar Number</label>
-                                        <input
-                                          value={edit.aadhaarNo}
-                                          onChange={(e) => updateKycEdit(kycId, "aadhaarNo", e.target.value)}
-                                          className="w-full border rounded px-3 py-2 text-sm"
-                                          placeholder="12-digit number"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Status</label>
-                                        <select
-                                          value={edit.status}
-                                          onChange={(e) => updateKycEdit(kycId, "status", e.target.value)}
-                                          className="w-full border rounded px-3 py-2 text-sm"
-                                        >
-                                          <option value="pending">Pending</option>
-                                          <option value="approved">Approved</option>
-                                          <option value="rejected">Rejected</option>
-                                        </select>
-                                      </div>
-                                      <div className="md:col-span-2">
-                                        <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Address (as per Aadhaar)</label>
-                                        <input
-                                          value={edit.aadhaarAddress}
-                                          onChange={(e) => updateKycEdit(kycId, "aadhaarAddress", e.target.value)}
-                                          className="w-full border rounded px-3 py-2 text-sm"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Issued State</label>
-                                        <input
-                                          value={edit.issuedState}
-                                          onChange={(e) => updateKycEdit(kycId, "issuedState", e.target.value)}
-                                          className="w-full border rounded px-3 py-2 text-sm"
-                                        />
-                                      </div>
-                                      <div className="md:col-span-3">
-                                        <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Remarks / Rejection Reason</label>
-                                        <textarea
-                                          value={edit.remarks}
-                                          onChange={(e) => updateKycEdit(kycId, "remarks", e.target.value)}
-                                          className="w-full border rounded px-3 py-2 text-sm h-16"
-                                          placeholder="Notes for the user..."
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                      {kycs.length === 0 && (
-                        <tr>
-                          <td colSpan={5} className="p-6 text-center text-slate-500">
-                            No KYC records found.
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Member Management page */}
-          {currentPage === "member-mgmt" && (
-            <div className="p-6 max-w-6xl mx-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-slate-800">Member Details Management</h2>
-              </div>
-
-              <div className="bg-white border rounded-2xl shadow-sm p-6 mb-8">
-                <label className="block text-sm font-medium text-slate-700 mb-2">Find Member</label>
-                <div className="flex gap-2 max-w-md">
-                  <input
-                    value={mgmtSearchQuery}
-                    onChange={(e) => setMgmtSearchQuery(e.target.value)}
-                    placeholder="Invite Code, Email, or Name..."
-                    className="flex-1 border rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                    onKeyDown={(e) => e.key === "Enter" && searchMgmtUser()}
-                  />
-                  <button
-                    onClick={searchMgmtUser}
-                    disabled={searchingMgmt}
-                    className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-60 transition"
-                  >
-                    {searchingMgmt ? "Searching..." : "Search"}
-                  </button>
-                </div>
-              </div>
-
-              {mgmtUser && (
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fadeIn pb-20">
-                  {/* Left Column: Basic & Referral */}
-                  <div className="space-y-6">
-                    <div className="bg-white border rounded-2xl shadow-sm p-6">
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Basic Information</h3>
-                      <div className="space-y-4">
-                        <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-1">Full Name</label>
-                          <input
-                            value={mgmtUser.name || ""}
-                            onChange={(e) => setMgmtUser({ ...mgmtUser, name: e.target.value })}
-                            className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-1">Email Address</label>
-                          <input
-                            value={mgmtUser.email || ""}
-                            onChange={(e) => setMgmtUser({ ...mgmtUser, email: e.target.value })}
-                            className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                          />
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs font-medium text-slate-500 mb-1">Phone</label>
-                            <input
-                              value={mgmtUser.phone || ""}
-                              onChange={(e) => setMgmtUser({ ...mgmtUser, phone: e.target.value })}
-                              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-slate-500 mb-1">Password</label>
-                            <div className="relative">
-                              <input
-                                type={showPassword ? "text" : "password"}
-                                value={mgmtUser.password || ""}
-                                onChange={(e) => setMgmtUser({ ...mgmtUser, password: e.target.value })}
-                                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => setShowPassword(!showPassword)}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
-                              >
-                                {showPassword ? (
-                                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878l4.242 4.242" /></svg>
-                                ) : (
-                                  <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                )}
-                              </button>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                if (window.confirm("Reset password to '123456'?")) {
-                                  setMgmtUser({ ...mgmtUser, password: '123456' });
-                                  setShowPassword(true);
-                                }
-                              }}
-                              className="mt-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 uppercase tracking-tight"
-                            >
-                              Reset to 123456
-                            </button>
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-1">Address</label>
-                          <textarea
-                            value={mgmtUser.address || ""}
-                            onChange={(e) => setMgmtUser({ ...mgmtUser, address: e.target.value })}
-                            className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none h-20"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-white border rounded-2xl shadow-sm p-6">
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Referral Information</h3>
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs font-medium text-slate-500 mb-1">Invite Code</label>
-                            <input
-                              value={mgmtUser.inviteCode || ""}
-                              onChange={(e) => setMgmtUser({ ...mgmtUser, inviteCode: e.target.value })}
-                              className="w-full border rounded-lg px-3 py-2 text-sm bg-slate-50 font-mono"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-slate-500 mb-1">Sponsor ID</label>
-                            <input
-                              value={mgmtUser.sponsorId || ""}
-                              onChange={(e) => setMgmtUser({ ...mgmtUser, sponsorId: e.target.value })}
-                              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                            />
-                          </div>
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-1">Sponsor Name</label>
-                          <input
-                            value={mgmtUser.sponsorName || ""}
-                            onChange={(e) => setMgmtUser({ ...mgmtUser, sponsorName: e.target.value })}
-                            className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Column: Financial & Bank */}
-                  <div className="space-y-6">
-                    <div className="bg-white border rounded-2xl shadow-sm p-6">
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Financial Overview</h3>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-1">Current Balance</label>
-                          <input
-                            type="number"
-                            value={mgmtUser.balance || 0}
-                            onChange={(e) => setMgmtUser({ ...mgmtUser, balance: e.target.value })}
-                            className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-1">Total Income</label>
-                          <input
-                            type="number"
-                            value={mgmtUser.totalIncome || 0}
-                            onChange={(e) => setMgmtUser({ ...mgmtUser, totalIncome: e.target.value })}
-                            className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-1">Total Withdrawal</label>
-                          <input
-                            type="number"
-                            value={mgmtUser.withdrawal || 0}
-                            onChange={(e) => setMgmtUser({ ...mgmtUser, withdrawal: e.target.value })}
-                            className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none text-red-600"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-500 mb-1">User Role</label>
-                          <select
-                            value={mgmtUser.role || "member"}
-                            onChange={(e) => setMgmtUser({ ...mgmtUser, role: e.target.value })}
-                            className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
-                          >
-                            <option value="member">Member</option>
-                            <option value="franchise">Franchise</option>
-                          </select>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="bg-white border rounded-2xl shadow-sm p-6">
-                      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Bank & UPI Details</h3>
-                      <div className="space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <label className="block text-xs font-medium text-slate-500 mb-1">UPI ID</label>
-                            <input
-                              value={mgmtUser.upiId || ""}
-                              onChange={(e) => setMgmtUser({ ...mgmtUser, upiId: e.target.value })}
-                              className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs font-medium text-slate-500 mb-1">UPI Mobile</label>
-                            <input
-                              value={mgmtUser.upiNo || ""}
-                              onChange={(e) => setMgmtUser({ ...mgmtUser, upiNo: e.target.value })}
-                              className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
-                            />
-                          </div>
-                        </div>
-                        <div className="border-t pt-4 mt-2">
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="md:col-span-2">
-                              <label className="block text-xs font-medium text-slate-500 mb-1">Account Holder Name</label>
-                              <input
-                                value={mgmtUser.bankDetails?.accountHolder || ""}
-                                onChange={(e) => setMgmtUser({ ...mgmtUser, bankDetails: { ...mgmtUser.bankDetails, accountHolder: e.target.value } })}
-                                className="w-full border rounded-lg px-3 py-2 text-sm"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-slate-500 mb-1">Bank Name</label>
-                              <input
-                                value={mgmtUser.bankDetails?.bankName || ""}
-                                onChange={(e) => setMgmtUser({ ...mgmtUser, bankDetails: { ...mgmtUser.bankDetails, bankName: e.target.value } })}
-                                className="w-full border rounded-lg px-3 py-2 text-sm"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-slate-500 mb-1">Account Number</label>
-                              <input
-                                value={mgmtUser.bankDetails?.accountNo || ""}
-                                onChange={(e) => setMgmtUser({ ...mgmtUser, bankDetails: { ...mgmtUser.bankDetails, accountNo: e.target.value } })}
-                                className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-slate-500 mb-1">IFSC Code</label>
-                              <input
-                                value={mgmtUser.bankDetails?.ifsc || ""}
-                                onChange={(e) => setMgmtUser({ ...mgmtUser, bankDetails: { ...mgmtUser.bankDetails, ifsc: e.target.value } })}
-                                className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-slate-500 mb-1">Branch Name</label>
-                              <input
-                                value={mgmtUser.bankDetails?.branchName || ""}
-                                onChange={(e) => setMgmtUser({ ...mgmtUser, bankDetails: { ...mgmtUser.bankDetails, branchName: e.target.value } })}
-                                className="w-full border rounded-lg px-3 py-2 text-sm"
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex justify-end gap-3 pt-6">
-                      <button
-                        onClick={() => setMgmtUser(null)}
-                        className="px-6 py-2.5 rounded-xl text-sm font-semibold border hover:bg-slate-50 transition"
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={updateMgmtUser}
-                        disabled={updatingMgmt}
-                        className="bg-blue-600 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
-                      >
-                        {updatingMgmt ? "Saving Changes..." : "Save All Details"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {!mgmtUser && !searchingMgmt && (
-                <div className="p-20 text-center border-2 border-dashed rounded-3xl text-slate-400 bg-white/50">
-                  <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <IconUsers />
-                  </div>
-                  <p className="text-sm">Search for a member by Invite Code, Email, or Name to manage their profile.</p>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Withdrawals page */}
-          {currentPage === "withdrawals" && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-semibold">Withdrawal Requests</h2>
-                <div className="text-xs text-slate-500">{withdrawals.length} requests</div>
-              </div>
-
-              <div className="flex gap-2 mb-4">
-                <button onClick={() => fetchWithdrawals(adminToken)} className="border px-4 py-2 rounded">Refresh</button>
-              </div>
-
-              {loadingWithdrawals ? (
-                <div className="text-sm text-slate-500">Loading withdrawals...</div>
-              ) : (
-                <div className="overflow-auto max-h-[60vh] border rounded">
-                  <table className="min-w-[1200px] w-full text-sm">
-                    <thead className="bg-slate-50 sticky top-0">
-                      <tr>
-                        <th className="p-3 text-left">ID</th>
-                        <th className="p-3 text-left">User</th>
-                        <th className="p-3 text-left">UPI</th>
-                        <th className="p-3 text-left">Bank</th>
-                        <th className="p-3 text-right">Amount</th>
-                        <th className="p-3 text-left">Status</th>
-                        <th className="p-3 text-left">Requested</th>
-                        <th className="p-3 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {withdrawals.map((w) => {
-                        const bank = w.user?.bankDetails;
-                        const bankLine = bank?.accountNo
-                          ? `${bank.bankName || ""} • ${bank.accountNo}`
-                          : "-";
-                        const upiLine = w.upiId || w.user?.upiId || "-";
-                        const upiNoLine = w.upiNo || w.user?.upiNo || "";
-                        const userId = w.user?.id || w.userId;
-                        const isPaymentOpen = !!userId && expandedPaymentUserId === userId;
-                        const edit = userId ? paymentEdits[userId] : null;
-
-                        return (
-                          <React.Fragment key={w._id || w.id || w.withdrawalId}>
-                            <tr className="border-t hover:bg-slate-50 text-slate-700">
-                              <td className="p-3 font-mono text-[10px] text-slate-500">{w.withdrawalId || "-"}</td>
-                              <td className="p-3">
-                                <div className="font-medium">{w.user?.name || "-"}</div>
-                                <div className="text-xs text-slate-500">{w.user?.email || ""}</div>
-                                {w.user?.balance !== undefined ? (
-                                  <div className="text-[11px] text-slate-500">
-                                    Balance: <span className="font-mono">₹{w.user.balance}</span>
-                                  </div>
-                                ) : null}
-                              </td>
-                              <td className="p-3">
-                                <div className="font-mono">{upiLine}</div>
-                                <div className="text-xs text-slate-500">{upiNoLine}</div>
-                              </td>
-                              <td className="p-3">
-                                <div className="space-y-0.5 text-xs">
-                                  <div>
-                                    <span className="text-slate-500">Holder:</span>{" "}
-                                    {bank?.accountHolder || "-"}
-                                  </div>
-                                  <div>
-                                    <span className="text-slate-500">Bank:</span>{" "}
-                                    {bank?.bankName || "-"}
-                                  </div>
-                                  <div className="font-mono text-[11px]">
-                                    <span className="text-slate-500 font-sans">A/c:</span>{" "}
-                                    {bank?.accountNo || "-"}
-                                  </div>
-                                  <div className="font-mono text-[11px]">
-                                    <span className="text-slate-500 font-sans">IFSC:</span>{" "}
-                                    {bank?.ifsc || "-"}
-                                  </div>
-                                  <div>
-                                    <span className="text-slate-500">Branch:</span>{" "}
-                                    {bank?.branchName || "-"}
-                                  </div>
-                                </div>
-
-                                {w.user?.id ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => openPaymentEditor(w.user)}
-                                    className="mt-2 inline-flex items-center gap-2 text-xs border px-2 py-1 rounded hover:bg-white"
-                                  >
-                                    {isPaymentOpen ? "Close" : "Edit"} Bank/UPI
-                                  </button>
-                                ) : null}
-                              </td>
-                              <td className="p-3 text-right font-semibold">{w.amount}</td>
-                              <td className="p-3">
-                                {w.status === "pending" ? (
-                                  <span className="text-amber-700 font-semibold">pending</span>
-                                ) : w.status === "approved" ? (
-                                  <span className="text-emerald-700 font-semibold">approved</span>
-                                ) : (
-                                  <span className="text-slate-600">{w.status}</span>
-                                )}
-                              </td>
-                              <td className="p-3">
-                                {w.requestedAt
-                                  ? String(w.requestedAt)
-                                    .slice(0, 19)
-                                    .replace("T", " ")
-                                  : "-"}
-                              </td>
-                              <td className="p-3 text-right">
-                                {w.status === "pending" ? (
-                                  <div className="flex flex-col gap-1.5">
-                                    <button
-                                      onClick={() => approveWithdrawal(w._id || w.id)}
-                                      disabled={approvingWithdrawalId === (w._id || w.id)}
-                                      className="bg-emerald-600 text-white px-3 py-1.5 rounded text-xs disabled:opacity-60 transition-colors hover:bg-emerald-700 font-medium shadow-sm"
-                                    >
-                                      {approvingWithdrawalId === (w._id || w.id) ? "Wait.." : "Approve"}
-                                    </button>
-                                    <button
-                                      onClick={() => rejectWithdrawal(w._id || w.id)}
-                                      disabled={approvingWithdrawalId === (w._id || w.id)}
-                                      className="bg-white border-red-200 border text-red-600 px-3 py-1.5 rounded text-xs disabled:opacity-60 transition-colors hover:bg-red-50 font-medium"
-                                    >
-                                      {approvingWithdrawalId === (w._id || w.id) ? "Wait.." : "Reject"}
-                                    </button>
-                                  </div>
-                                ) : w.status === "approved" ? (
-                                  <span className="text-xs font-bold text-emerald-600 uppercase tracking-wider">Approved</span>
-                                ) : (
-                                  <span className="text-xs font-bold text-red-600 uppercase tracking-wider">Rejected</span>
-                                )}
-                              </td>
-                            </tr>
-
-                            {isPaymentOpen && edit && (
-                              <tr className="border-t bg-slate-50/60">
-                                <td colSpan={8} className="p-4">
-                                  <div className="bg-white border rounded p-4">
-                                    <div className="flex items-center justify-between mb-3">
-                                      <div>
-                                        <div className="text-sm font-semibold">Payment Details</div>
-                                        <div className="text-xs text-slate-500">
-                                          Update bank/UPI before processing payment.
-                                        </div>
-                                      </div>
-                                      <div className="flex gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={() => setExpandedPaymentUserId(null)}
-                                          className="border px-3 py-1.5 rounded text-xs"
-                                        >
-                                          Cancel
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => savePaymentDetails(userId)}
-                                          disabled={savingPaymentUserId === userId}
-                                          className="bg-blue-600 text-white px-3 py-1.5 rounded text-xs disabled:opacity-60"
-                                        >
-                                          {savingPaymentUserId === userId ? "Saving..." : "Save"}
-                                        </button>
-                                      </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                      <div>
-                                        <label className="block text-xs text-slate-600 mb-1">
-                                          UPI ID
-                                        </label>
-                                        <input
-                                          value={edit.upiId || ""}
-                                          onChange={(e) => updatePaymentEdit(userId, "upiId", e.target.value)}
-                                          className="w-full border rounded px-3 py-2 text-sm"
-                                          placeholder="yourid@bank"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label className="block text-xs text-slate-600 mb-1">
-                                          UPI Mobile
-                                        </label>
-                                        <input
-                                          value={edit.upiNo || ""}
-                                          onChange={(e) => updatePaymentEdit(userId, "upiNo", e.target.value)}
-                                          className="w-full border rounded px-3 py-2 text-sm"
-                                          placeholder="UPI linked mobile number"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label className="block text-xs text-slate-600 mb-1">
-                                          Account Holder
-                                        </label>
-                                        <input
-                                          value={edit.bankDetails?.accountHolder || ""}
-                                          onChange={(e) =>
-                                            updatePaymentEdit(
-                                              userId,
-                                              "bankDetails.accountHolder",
-                                              e.target.value
-                                            )
-                                          }
-                                          className="w-full border rounded px-3 py-2 text-sm"
-                                          placeholder="Account holder name"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label className="block text-xs text-slate-600 mb-1">
-                                          Bank Name
-                                        </label>
-                                        <input
-                                          value={edit.bankDetails?.bankName || ""}
-                                          onChange={(e) =>
-                                            updatePaymentEdit(userId, "bankDetails.bankName", e.target.value)
-                                          }
-                                          className="w-full border rounded px-3 py-2 text-sm"
-                                          placeholder="Bank name"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label className="block text-xs text-slate-600 mb-1">
-                                          Account No
-                                        </label>
-                                        <input
-                                          value={edit.bankDetails?.accountNo || ""}
-                                          onChange={(e) =>
-                                            updatePaymentEdit(userId, "bankDetails.accountNo", e.target.value)
-                                          }
-                                          className="w-full border rounded px-3 py-2 text-sm"
-                                          placeholder="Account number"
-                                        />
-                                      </div>
-                                      <div>
-                                        <label className="block text-xs text-slate-600 mb-1">
-                                          IFSC
-                                        </label>
-                                        <input
-                                          value={edit.bankDetails?.ifsc || ""}
-                                          onChange={(e) =>
-                                            updatePaymentEdit(userId, "bankDetails.ifsc", e.target.value)
-                                          }
-                                          className="w-full border rounded px-3 py-2 text-sm font-mono"
-                                          placeholder="SBIN0123456"
-                                        />
-                                      </div>
-                                      <div className="md:col-span-2">
-                                        <label className="block text-xs text-slate-600 mb-1">
-                                          Branch Name
-                                        </label>
-                                        <input
-                                          value={edit.bankDetails?.branchName || ""}
-                                          onChange={(e) =>
-                                            updatePaymentEdit(userId, "bankDetails.branchName", e.target.value)
-                                          }
-                                          className="w-full border rounded px-3 py-2 text-sm"
-                                          placeholder="Branch name"
-                                        />
-                                      </div>
-                                    </div>
-                                  </div>
-                                </td>
-                              </tr>
-                            )}
-                          </React.Fragment>
-                        );
-                      })}
-                      {withdrawals.length === 0 && (
-                        <tr>
-                          <td colSpan={8} className="p-6 text-center text-slate-500">No withdrawal requests.</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Rewards page */}
-          {currentPage === "rewards" && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-slate-800">Reward Completions</h2>
-                <button
-                  onClick={() => fetchPendingRewards(adminToken)}
-                  className="bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition active:scale-90"
-                >
-                  <IconRefresh className={loadingRewards ? "animate-spin" : ""} />
-                </button>
-              </div>
-
-              {loadingRewards ? (
-                <div className="p-10 text-center text-slate-500">
-                  <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-                  Loading pending rewards...
-                </div>
-              ) : (
-                <div className="bg-white border rounded-2xl shadow-sm overflow-hidden">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="bg-slate-50 border-b">
-                        <th className="p-4 text-left font-semibold">User</th>
-                        <th className="p-4 text-left font-semibold">Invite Code</th>
-                        <th className="p-4 text-left font-semibold">Level Reached</th>
-                        <th className="p-4 text-left font-semibold">Completed On</th>
-                        <th className="p-4 text-right font-semibold">Actions</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pendingRewards.map((r, idx) => (
-                        <tr key={`${r.userId}-${r.level}`} className="border-b hover:bg-slate-50 transition">
-                          <td className="p-4">
-                            <div className="font-semibold text-slate-800">{r.name}</div>
-                            <div className="text-xs text-slate-500">{r.email}</div>
-                          </td>
-                          <td className="p-4 font-mono text-xs">{r.inviteCode}</td>
-                          <td className="p-4">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 text-xs font-bold">
-                              LEVEL {r.level}
-                            </span>
-                          </td>
-                          <td className="p-4 text-slate-600 text-xs">
-                            {r.completedAt ? new Date(r.completedAt).toLocaleString() : "-"}
-                          </td>
-                          <td className="p-4 text-right">
-                            <button
-                              onClick={() => processReward(r.userId, r.level)}
-                              disabled={processingRewardId === `${r.userId}-${r.level}`}
-                              className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-xs font-semibold shadow-md hover:bg-blue-700 transition disabled:opacity-50"
-                            >
-                              {processingRewardId === `${r.userId}-${r.level}` ? "Wait..." : "Mark as Given"}
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      {pendingRewards.length === 0 && (
-                        <tr>
-                          <td colSpan={5} className="p-10 text-center text-slate-500 font-medium">
-                            No pending rewards found. All rewards are up to date!
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          )}
-
-
-          {/* E-Pin page */}
-          {currentPage === "epin" && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-semibold">E-Pin Management</h2>
-                <div className="text-xs text-slate-500">Pool pins available: {epins.length}</div>
-              </div>
-
-              <div className="flex gap-2 mb-4">
-                <button onClick={createEpin} className="bg-blue-600 text-white px-4 py-2 rounded">{creatingEpin ? "Creating..." : "Generate E-Pin"}</button>
-                <button onClick={() => fetchEpins(adminToken)} className="border px-4 py-2 rounded">Refresh</button>
-              </div>
-
-              <div className="border rounded p-3 mb-4 bg-slate-50">
-                <div className="text-sm font-semibold mb-2">Transfer E-Pins to Member (max 10)</div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                  <input
-                    value={epinTransfer.toUserId}
-                    onChange={(e) => setEpinTransfer((s) => ({ ...s, toUserId: e.target.value }))}
-                    className="border rounded px-3 py-2 text-sm"
-                    placeholder="User ID or Invite Code"
-                  />
-                  <input
-                    value={epinTransfer.count}
-                    onChange={(e) => setEpinTransfer((s) => ({ ...s, count: e.target.value }))}
-                    className="border rounded px-3 py-2 text-sm"
-                    placeholder="Count (1-10)"
-                  />
-                  <button
-                    onClick={transferEpinsFromPool}
-                    disabled={transferringEpins}
-                    className="bg-emerald-600 text-white px-4 py-2 rounded text-sm disabled:opacity-60"
-                  >
-                    {transferringEpins ? "Transferring..." : "Transfer"}
-                  </button>
-                </div>
-                <div className="mt-2 text-xs text-slate-600">
-                  💡 Tip: You can use the member's <span className="font-semibold">Invite Code</span> (e.g., LS123456), <span className="font-semibold">User ID</span>, or <span className="font-semibold">Email</span> to transfer e-pins.
-                </div>
-
-                {lastEpinTransfer && (
-                  <div className="mt-3 text-sm">
-                    <div className="font-semibold">Transferred {lastEpinTransfer.count} pins to {lastEpinTransfer.toUserName}</div>
-                    <div className="mt-1 flex flex-wrap gap-2">
-                      {lastEpinTransfer.codes.map((c) => (
-                        <span key={c} className="px-2 py-1 rounded border bg-white font-mono text-xs">{c}</span>
-                      ))}
-                    </div>
+                        )}
+                      </tbody>
+                    </table>
                   </div>
                 )}
               </div>
+            )}
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                {epins.length === 0 ? <div className="text-slate-500 p-3">No available pool pins.</div> : epins.map((e, i) => (<div key={i} className="p-2 border rounded font-mono text-sm truncate">{e}</div>))}
-              </div>
-            </div>
-          )}
-
-          {/* Income page (member-wise + totals) */}
-          {currentPage === "income" && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-lg font-semibold">Income Overview</h2>
-                <div className="text-xs text-slate-500">Member-wise and totals</div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                <div className="p-4 border rounded bg-white">
-                  <div className="text-xs text-slate-500">Total Income (all members)</div>
-                  <div className="text-2xl font-semibold mt-1">{totalIncome}</div>
+            {/* Member Management page */}
+            {currentPage === "member-mgmt" && (
+              <div className="p-6 max-w-6xl mx-auto">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-slate-800">Member Details Management</h2>
                 </div>
-                <div className="p-4 border rounded bg-white">
-                  <div className="text-xs text-slate-500">Total Balance (all members)</div>
-                  <div className="text-2xl font-semibold mt-1">{totalBalance}</div>
-                </div>
-              </div>
 
-              <div className="bg-white border rounded p-4">
-                <h3 className="text-lg font-semibold mb-3">Member-wise Income</h3>
-
-                <div className="overflow-auto max-h-[60vh] border rounded">
-                  <table className="min-w-[1000px] w-full text-sm">
-                    <thead className="bg-slate-50 sticky top-0">
-                      <tr>
-                        <th className="p-3 text-left">Name</th>
-                        <th className="p-3 text-left">Email</th>
-                        <th className="p-3 text-right">Income</th>
-                        <th className="p-3 text-right">Balance</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {users.map((u) => (
-                        <tr key={u.id} className="border-t hover:bg-slate-50">
-                          <td className="p-3">{u.name}</td>
-                          <td className="p-3">{u.email}</td>
-                          <td className="p-3 text-right font-semibold text-green-600">{u.totalIncome ?? 0}</td>
-                          <td className="p-3 text-right">{u.balance ?? 0}</td>
-                        </tr>
-                      ))}
-                      {users.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-slate-500">No members found.</td></tr>}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* User Activation page */}
-          {currentPage === "activateUsers" && renderActivationPage()}
-
-          {/* Site Settings page */}
-          {currentPage === "settings" && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-slate-800">Site Settings</h2>
-                <button
-                  onClick={() => fetchSiteSettings(adminToken)}
-                  className="p-2 text-slate-500 hover:text-blue-600 transition-colors"
-                  title="Refresh Settings"
-                >
-                  <IconRefresh className={loadingSettings ? "animate-spin" : ""} />
-                </button>
-              </div>
-
-              {loadingSettings ? (
-                <div className="flex items-center justify-center p-12">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {/* Marquee Section */}
-                  <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
-                        <IconSpeaker />
-                      </div>
-                      <h3 className="font-semibold text-slate-800">Announcement Bar (Marquee)</h3>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                        <span className="text-sm font-medium text-slate-700">Enable Announcement Bar</span>
-                        <button
-                          onClick={() => setSiteSettings(s => ({ ...s, marqueeEnabled: !s.marqueeEnabled }))}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${siteSettings.marqueeEnabled ? 'bg-blue-600' : 'bg-slate-300'}`}
-                        >
-                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${siteSettings.marqueeEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-                        </button>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Announcement Text</label>
-                        <textarea
-                          value={siteSettings.marqueeText}
-                          onChange={(e) => setSiteSettings(s => ({ ...s, marqueeText: e.target.value }))}
-                          className="w-full border border-slate-200 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
-                          placeholder="Enter moving text here..."
-                          rows={2}
-                        />
-                        <p className="mt-1 text-[11px] text-slate-400">This text will scroll from right to left on the user dashboard.</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Popup Section */}
-                  <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
-                        <IconFile />
-                      </div>
-                      <h3 className="font-semibold text-slate-800">Login/Registration Popup</h3>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
-                        <span className="text-sm font-medium text-slate-700">Enable Popup Modal</span>
-                        <button
-                          onClick={() => setSiteSettings(s => ({ ...s, popupEnabled: !s.popupEnabled }))}
-                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${siteSettings.popupEnabled ? 'bg-purple-600' : 'bg-slate-300'}`}
-                        >
-                          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${siteSettings.popupEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
-                        </button>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Popup Image URL</label>
-                        <input
-                          type="text"
-                          value={siteSettings.popupImageUrl}
-                          onChange={(e) => setSiteSettings(s => ({ ...s, popupImageUrl: e.target.value }))}
-                          className="w-full border border-slate-200 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
-                          placeholder="https://example.com/banner.jpg"
-                        />
-                        <p className="mt-1 text-[11px] text-slate-400">Provide an image URL to show in the popup. Best used for important notices or offers.</p>
-                      </div>
-
-                      {siteSettings.popupImageUrl && (
-                        <div className="mt-2 p-2 border border-dashed border-slate-200 rounded-lg bg-slate-50">
-                          <p className="text-[10px] uppercase font-bold text-slate-400 mb-2">Preview:</p>
-                          <img
-                            src={siteSettings.popupImageUrl}
-                            alt="Popup Preview"
-                            className="max-h-40 mx-auto rounded shadow-sm"
-                            onError={(e) => { e.target.src = "https://via.placeholder.com/300x150?text=Invalid+Image+URL"; }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end pt-4">
+                <div className="bg-white border rounded-2xl shadow-sm p-6 mb-8">
+                  <label className="block text-sm font-medium text-slate-700 mb-2">Find Member</label>
+                  <div className="flex gap-2 max-w-md">
+                    <input
+                      value={mgmtSearchQuery}
+                      onChange={(e) => setMgmtSearchQuery(e.target.value)}
+                      placeholder="Invite Code, Email, or Name..."
+                      className="flex-1 border rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                      onKeyDown={(e) => e.key === "Enter" && searchMgmtUser()}
+                    />
                     <button
-                      onClick={updateSiteSettings}
-                      disabled={savingSettings}
-                      className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-8 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center gap-2 disabled:opacity-70"
+                      onClick={searchMgmtUser}
+                      disabled={searchingMgmt}
+                      className="bg-blue-600 text-white px-6 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 disabled:opacity-60 transition"
                     >
-                      {savingSettings ? (
-                        <>
-                          <div className="animate-spin h-4 w-4 border-2 border-white/30 border-t-white rounded-full"></div>
-                          Saving Settings...
-                        </>
-                      ) : (
-                        "Save All Changes"
-                      )}
+                      {searchingMgmt ? "Searching..." : "Search"}
                     </button>
                   </div>
                 </div>
-              )}
-            </div>
-          )}
 
-        </div>
+                {mgmtUser && (
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-fadeIn pb-20">
+                    {/* Left Column: Basic & Referral */}
+                    <div className="space-y-6">
+                      <div className="bg-white border rounded-2xl shadow-sm p-6">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Basic Information</h3>
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Full Name</label>
+                            <input
+                              value={mgmtUser.name || ""}
+                              onChange={(e) => setMgmtUser({ ...mgmtUser, name: e.target.value })}
+                              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Email Address</label>
+                            <input
+                              value={mgmtUser.email || ""}
+                              onChange={(e) => setMgmtUser({ ...mgmtUser, email: e.target.value })}
+                              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                            />
+                          </div>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-medium text-slate-500 mb-1">Phone</label>
+                              <input
+                                value={mgmtUser.phone || ""}
+                                onChange={(e) => setMgmtUser({ ...mgmtUser, phone: e.target.value })}
+                                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-slate-500 mb-1">Password</label>
+                              <div className="relative">
+                                <input
+                                  type={showPassword ? "text" : "password"}
+                                  value={mgmtUser.password || ""}
+                                  onChange={(e) => setMgmtUser({ ...mgmtUser, password: e.target.value })}
+                                  className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setShowPassword(!showPassword)}
+                                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-400 hover:text-slate-600"
+                                >
+                                  {showPassword ? (
+                                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878l4.242 4.242" /></svg>
+                                  ) : (
+                                    <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                  )}
+                                </button>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (window.confirm("Reset password to '123456'?")) {
+                                    setMgmtUser({ ...mgmtUser, password: '123456' });
+                                    setShowPassword(true);
+                                  }
+                                }}
+                                className="mt-1 text-[10px] font-bold text-blue-600 hover:text-blue-800 uppercase tracking-tight"
+                              >
+                                Reset to 123456
+                              </button>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Address</label>
+                            <textarea
+                              value={mgmtUser.address || ""}
+                              onChange={(e) => setMgmtUser({ ...mgmtUser, address: e.target.value })}
+                              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none h-20"
+                            />
+                          </div>
+                        </div>
+                      </div>
 
-        <div className="mt-4 text-sm text-slate-500">Tip: Invite code can be shared and used unlimited times.</div>
-      </div>
-    </div>
+                      <div className="bg-white border rounded-2xl shadow-sm p-6">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Referral Information</h3>
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-medium text-slate-500 mb-1">Invite Code</label>
+                              <input
+                                value={mgmtUser.inviteCode || ""}
+                                onChange={(e) => setMgmtUser({ ...mgmtUser, inviteCode: e.target.value })}
+                                className="w-full border rounded-lg px-3 py-2 text-sm bg-slate-50 font-mono"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-slate-500 mb-1">Sponsor ID</label>
+                              <input
+                                value={mgmtUser.sponsorId || ""}
+                                onChange={(e) => setMgmtUser({ ...mgmtUser, sponsorId: e.target.value })}
+                                className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                              />
+                            </div>
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Sponsor Name</label>
+                            <input
+                              value={mgmtUser.sponsorName || ""}
+                              onChange={(e) => setMgmtUser({ ...mgmtUser, sponsorName: e.target.value })}
+                              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Right Column: Financial & Bank */}
+                    <div className="space-y-6">
+                      <div className="bg-white border rounded-2xl shadow-sm p-6">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Financial Overview</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Current Balance</label>
+                            <input
+                              type="number"
+                              value={mgmtUser.balance || 0}
+                              onChange={(e) => setMgmtUser({ ...mgmtUser, balance: e.target.value })}
+                              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Total Income</label>
+                            <input
+                              type="number"
+                              value={mgmtUser.totalIncome || 0}
+                              onChange={(e) => setMgmtUser({ ...mgmtUser, totalIncome: e.target.value })}
+                              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">Total Withdrawal</label>
+                            <input
+                              type="number"
+                              value={mgmtUser.withdrawal || 0}
+                              onChange={(e) => setMgmtUser({ ...mgmtUser, withdrawal: e.target.value })}
+                              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none text-red-600"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-500 mb-1">User Role</label>
+                            <select
+                              value={mgmtUser.role || "member"}
+                              onChange={(e) => setMgmtUser({ ...mgmtUser, role: e.target.value })}
+                              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none transition-colors"
+                            >
+                              <option value="member">Member</option>
+                              <option value="franchise">Franchise</option>
+                            </select>
+                          </div>
+                          <div className="col-span-2">
+                            <label className="block text-xs font-medium text-slate-500 mb-1">E-Pins Left</label>
+                            <div className="w-full border rounded-lg px-3 py-2 text-sm bg-slate-50 font-bold text-blue-600">
+                              {mgmtUser.epinCount ?? 0}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-white border rounded-2xl shadow-sm p-6">
+                        <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Bank & UPI Details</h3>
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-medium text-slate-500 mb-1">UPI ID</label>
+                              <input
+                                value={mgmtUser.upiId || ""}
+                                onChange={(e) => setMgmtUser({ ...mgmtUser, upiId: e.target.value })}
+                                className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-slate-500 mb-1">UPI Mobile</label>
+                              <input
+                                value={mgmtUser.upiNo || ""}
+                                onChange={(e) => setMgmtUser({ ...mgmtUser, upiNo: e.target.value })}
+                                className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
+                              />
+                            </div>
+                          </div>
+                          <div className="border-t pt-4 mt-2">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="md:col-span-2">
+                                <label className="block text-xs font-medium text-slate-500 mb-1">Account Holder Name</label>
+                                <input
+                                  value={mgmtUser.bankDetails?.accountHolder || ""}
+                                  onChange={(e) => setMgmtUser({ ...mgmtUser, bankDetails: { ...mgmtUser.bankDetails, accountHolder: e.target.value } })}
+                                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-slate-500 mb-1">Bank Name</label>
+                                <input
+                                  value={mgmtUser.bankDetails?.bankName || ""}
+                                  onChange={(e) => setMgmtUser({ ...mgmtUser, bankDetails: { ...mgmtUser.bankDetails, bankName: e.target.value } })}
+                                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-slate-500 mb-1">Account Number</label>
+                                <input
+                                  value={mgmtUser.bankDetails?.accountNo || ""}
+                                  onChange={(e) => setMgmtUser({ ...mgmtUser, bankDetails: { ...mgmtUser.bankDetails, accountNo: e.target.value } })}
+                                  className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-slate-500 mb-1">IFSC Code</label>
+                                <input
+                                  value={mgmtUser.bankDetails?.ifsc || ""}
+                                  onChange={(e) => setMgmtUser({ ...mgmtUser, bankDetails: { ...mgmtUser.bankDetails, ifsc: e.target.value } })}
+                                  className="w-full border rounded-lg px-3 py-2 text-sm font-mono"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-slate-500 mb-1">Branch Name</label>
+                                <input
+                                  value={mgmtUser.bankDetails?.branchName || ""}
+                                  onChange={(e) => setMgmtUser({ ...mgmtUser, bankDetails: { ...mgmtUser.bankDetails, branchName: e.target.value } })}
+                                  className="w-full border rounded-lg px-3 py-2 text-sm"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex justify-end gap-3 pt-6">
+                        <button
+                          onClick={() => setMgmtUser(null)}
+                          className="px-6 py-2.5 rounded-xl text-sm font-semibold border hover:bg-slate-50 transition"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={updateMgmtUser}
+                          disabled={updatingMgmt}
+                          className="bg-blue-600 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
+                        >
+                          {updatingMgmt ? "Saving Changes..." : "Save All Details"}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {!mgmtUser && !searchingMgmt && (
+                  <div className="p-20 text-center border-2 border-dashed rounded-3xl text-slate-400 bg-white/50">
+                    <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <IconUsers />
+                    </div>
+                    <p className="text-sm">Search for a member by Invite Code, Email, or Name to manage their profile.</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Withdrawals page */}
+            {currentPage === "withdrawals" && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-lg font-semibold">Withdrawal Requests</h2>
+                  <div className="flex gap-2">
+                    <select
+                      value={withdrawalFilter}
+                      onChange={(e) => { setWithdrawalFilter(e.target.value); setWithdrawalPage(1); }}
+                      className="border rounded px-2 py-1 text-sm bg-white"
+                    >
+                      <option value="all">All Status</option>
+                      <option value="pending">Pending</option>
+                      <option value="approved">Approved</option>
+                      <option value="rejected">Rejected</option>
+                    </select>
+                    <button onClick={() => fetchWithdrawals(adminToken)} className="border px-3 py-1 rounded text-sm bg-white hover:bg-slate-50">Refresh</button>
+                  </div>
+                </div>
+
+                {loadingWithdrawals ? (
+                  <div className="text-sm text-slate-500">Loading withdrawals...</div>
+                ) : (
+                  <div className="overflow-x-auto border rounded bg-white">
+                    <table className="min-w-[1200px] w-full text-sm">
+                      <thead className="bg-slate-50 sticky top-0 z-10">
+                        <tr>
+                          <th className="p-3 text-left">ID</th>
+                          <th className="p-3 text-left">User</th>
+                          <th className="p-3 text-left">UPI</th>
+                          <th className="p-3 text-left">Bank</th>
+                          <th className="p-3 text-right">Amount</th>
+                          <th className="p-3 text-left">Status</th>
+                          <th className="p-3 text-left">Requested</th>
+                          <th className="p-3 text-right">Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {(() => {
+                          // Client-side Sorting & Filtering
+                          let filtered = [...withdrawals];
+
+                          // 1. Sort by Date (Latest First)
+                          filtered.sort((a, b) => {
+                            const da = new Date(a.createdAt || 0).getTime();
+                            const db = new Date(b.createdAt || 0).getTime();
+                            return db - da; // Descending
+                          });
+
+                          // 2. Filter
+                          if (withdrawalFilter !== "all") {
+                            filtered = filtered.filter(w => w.status === withdrawalFilter);
+                          }
+
+                          // 3. Pagination & Consts
+                          const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+                          const startIndex = (withdrawalPage - 1) * ITEMS_PER_PAGE;
+                          const currentItems = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+
+                          if (currentItems.length === 0) {
+                            return (
+                              <tr>
+                                <td colSpan={8} className="p-8 text-center text-slate-500">
+                                  No requests found.
+                                </td>
+                              </tr>
+                            );
+                          }
+
+                          return (
+                            <>
+                              {currentItems.map((w) => {
+                                const bank = w.user?.bankDetails;
+                                const bankLine = bank?.accountNo
+                                  ? `${bank.bankName || ""} • ${bank.accountNo}`
+                                  : "-";
+                                const upiLine = w.upiId || w.user?.upiId || "-";
+                                const upiNoLine = w.upiNo || w.user?.upiNo || "";
+                                const userId = w.user?.id || w.userId;
+                                const isPaymentOpen = !!userId && expandedPaymentUserId === userId;
+                                const edit = userId ? paymentEdits[userId] : null;
+
+                                return (
+                                  <React.Fragment key={w._id || w.id || w.withdrawalId}>
+                                    <tr className="border-t hover:bg-slate-50 text-slate-700">
+                                      <td className="p-3 font-mono text-[10px] text-slate-500">{w.withdrawalId || "-"}</td>
+                                      <td className="p-3">
+                                        <div className="font-medium">{w.user?.name || "-"}</div>
+                                        <div className="text-xs text-slate-500">{w.user?.email || ""}</div>
+                                        {w.user?.balance !== undefined ? (
+                                          <div className="text-[11px] text-slate-500">
+                                            Balance: <span className="font-mono">₹{w.user.balance}</span>
+                                          </div>
+                                        ) : null}
+                                      </td>
+                                      <td className="p-3">
+                                        <div className="font-mono">{upiLine}</div>
+                                        <div className="text-xs text-slate-500">{upiNoLine}</div>
+                                      </td>
+                                      <td className="p-3">
+                                        <div className="space-y-0.5 text-xs">
+                                          <div>
+                                            <span className="text-slate-500">Holder:</span>{" "}
+                                            {bank?.accountHolder || "-"}
+                                          </div>
+                                          <div>
+                                            <span className="text-slate-500">Bank:</span>{" "}
+                                            {bank?.bankName || "-"}
+                                          </div>
+                                          <div className="font-mono text-[11px]">
+                                            <span className="text-slate-500 font-sans">A/c:</span>{" "}
+                                            {bank?.accountNo || "-"}
+                                          </div>
+                                          <div className="font-mono text-[11px]">
+                                            <span className="text-slate-500 font-sans">IFSC:</span>{" "}
+                                            {bank?.ifsc || "-"}
+                                          </div>
+                                          <div>
+                                            <span className="text-slate-500">Branch:</span>{" "}
+                                            {bank?.branchName || "-"}
+                                          </div>
+                                        </div>
+
+                                        {w.user?.id ? (
+                                          <button
+                                            type="button"
+                                            onClick={() => openPaymentEditor(w.user)}
+                                            className="mt-2 inline-flex items-center gap-2 text-xs border px-2 py-1 rounded hover:bg-white"
+                                          >
+                                            {isPaymentOpen ? "Close" : "Edit"} Bank/UPI
+                                          </button>
+                                        ) : null}
+                                      </td>
+                                      <td className="p-3 text-right">
+                                        <div className="font-semibold">{w.amount}</div>
+                                        {w.isFirstAfterThreshold && w.upgradeIncome > 0 && (
+                                          <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 border border-amber-200 text-amber-800 text-[10px] font-bold">
+                                            ↑ L{w.upgradeLevel}: ₹{Number(w.upgradeIncome).toLocaleString()} Upgrade
+                                          </div>
+                                        )}
+                                      </td>
+                                      <td className="p-3">
+                                        {w.status === "pending" ? (
+                                          <span className="text-amber-700 font-semibold">pending</span>
+                                        ) : w.status === "approved" ? (
+                                          <span className="text-emerald-700 font-semibold">approved</span>
+                                        ) : (
+                                          <span className="text-red-700 font-semibold">rejected</span>
+                                        )}
+                                      </td>
+                                      <td className="p-3 text-xs text-slate-500">
+                                        {w.createdAt ? new Date(w.createdAt).toLocaleDateString() : "-"}
+                                      </td>
+                                      <td className="p-3 text-right">
+                                        {w.status === "pending" && (
+                                          <div className="flex flex-col gap-2 items-end">
+                                            <button
+                                              onClick={() => approveWithdrawal(w._id || w.id)}
+                                              disabled={!!approvingWithdrawalId}
+                                              className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 w-24"
+                                            >
+                                              Approve
+                                            </button>
+                                            <button
+                                              onClick={() => rejectWithdrawal(w._id || w.id)}
+                                              disabled={!!approvingWithdrawalId}
+                                              className="bg-red-600 text-white px-3 py-1 rounded text-xs hover:bg-red-700 w-24"
+                                            >
+                                              Reject
+                                            </button>
+                                          </div>
+                                        )}
+                                        {w.status !== "pending" && (
+                                          <div className="text-xs text-slate-400 italic">
+                                            {w.status}
+                                          </div>
+                                        )}
+                                      </td>
+                                    </tr>
+
+                                    {isPaymentOpen && edit && (
+                                      <tr className="border-t bg-slate-50/60">
+                                        <td colSpan={8} className="p-4">
+                                          <div className="max-w-3xl mx-auto bg-white border rounded shadow p-4">
+                                            <div className="font-semibold text-sm mb-3">Edit Payment Details for {w.user?.name}</div>
+                                            <div className="grid grid-cols-2 gap-4 text-xs">
+                                              <div>
+                                                <label className="block text-slate-500 mb-1">UPI ID</label>
+                                                <input
+                                                  value={edit.upiId || ""}
+                                                  onChange={(e) => updatePaymentEdit(userId, "upiId", e.target.value)}
+                                                  className="border w-full p-2 rounded"
+                                                />
+                                              </div>
+                                              <div>
+                                                <label className="block text-slate-500 mb-1">UPI Mobile</label>
+                                                <input
+                                                  value={edit.upiNo || ""}
+                                                  onChange={(e) => updatePaymentEdit(userId, "upiNo", e.target.value)}
+                                                  className="border w-full p-2 rounded"
+                                                />
+                                              </div>
+                                            </div>
+                                            <div className="mt-3 pt-3 border-t grid grid-cols-2 md:grid-cols-3 gap-4 text-xs">
+                                              <div>
+                                                <label className="block text-slate-500 mb-1">Holder Name</label>
+                                                <input
+                                                  value={edit.bankDetails?.accountHolder || ""}
+                                                  onChange={(e) => updatePaymentEdit(userId, "bankDetails.accountHolder", e.target.value)}
+                                                  className="border w-full p-2 rounded"
+                                                />
+                                              </div>
+                                              <div>
+                                                <label className="block text-slate-500 mb-1">Bank Name</label>
+                                                <input
+                                                  value={edit.bankDetails?.bankName || ""}
+                                                  onChange={(e) => updatePaymentEdit(userId, "bankDetails.bankName", e.target.value)}
+                                                  className="border w-full p-2 rounded"
+                                                />
+                                              </div>
+                                              <div>
+                                                <label className="block text-slate-500 mb-1">Account No</label>
+                                                <input
+                                                  value={edit.bankDetails?.accountNo || ""}
+                                                  onChange={(e) => updatePaymentEdit(userId, "bankDetails.accountNo", e.target.value)}
+                                                  className="border w-full p-2 rounded"
+                                                />
+                                              </div>
+                                              <div>
+                                                <label className="block text-slate-500 mb-1">IFSC</label>
+                                                <input
+                                                  value={edit.bankDetails?.ifsc || ""}
+                                                  onChange={(e) => updatePaymentEdit(userId, "bankDetails.ifsc", e.target.value)}
+                                                  className="border w-full p-2 rounded"
+                                                />
+                                              </div>
+                                              <div>
+                                                <label className="block text-slate-500 mb-1">Branch</label>
+                                                <input
+                                                  value={edit.bankDetails?.branchName || ""}
+                                                  onChange={(e) => updatePaymentEdit(userId, "bankDetails.branchName", e.target.value)}
+                                                  className="border w-full p-2 rounded"
+                                                />
+                                              </div>
+                                            </div>
+                                            <div className="mt-4 flex justify-end gap-2">
+                                              <button
+                                                onClick={() => savePaymentDetails(userId)}
+                                                disabled={savingPaymentUserId === userId}
+                                                className="bg-blue-600 text-white px-3 py-1.5 rounded text-xs disabled:opacity-50"
+                                              >
+                                                {savingPaymentUserId === userId ? "Saving..." : "Save Details"}
+                                              </button>
+                                            </div>
+                                          </div>
+                                        </td>
+                                      </tr>
+                                    )}
+                                  </React.Fragment>
+                                );
+                              })}
+
+                              {/* Pagination Controls Row */}
+                              {totalPages > 1 && (
+                                <tr>
+                                  <td colSpan={8} className="p-4 bg-slate-50 border-t">
+                                    <div className="flex items-center justify-between">
+                                      <div className="text-xs text-slate-500">
+                                        Showing {startIndex + 1}-{Math.min(startIndex + ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
+                                      </div>
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          onClick={() => setWithdrawalPage(p => Math.max(1, p - 1))}
+                                          disabled={withdrawalPage === 1}
+                                          className="px-3 py-1 border rounded text-xs bg-white hover:bg-slate-50 disabled:opacity-50"
+                                        >
+                                          Previous
+                                        </button>
+                                        <span className="text-xs font-semibold px-2">Page {withdrawalPage} of {totalPages}</span>
+                                        <button
+                                          onClick={() => setWithdrawalPage(p => Math.min(totalPages, p + 1))}
+                                          disabled={withdrawalPage === totalPages}
+                                          className="px-3 py-1 border rounded text-xs bg-white hover:bg-slate-50 disabled:opacity-50"
+                                        >
+                                          Next
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </tbody>
+                    </table >
+                  </div >
+                )
+                }
+              </div >
+            )}
+
+            {/* Rewards page */}
+            {
+              currentPage === "rewards" && (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-slate-800">Reward Completions</h2>
+                    <button
+                      onClick={() => fetchPendingRewards(adminToken)}
+                      className="bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition active:scale-90"
+                    >
+                      <IconRefresh className={loadingRewards ? "animate-spin" : ""} />
+                    </button>
+                  </div>
+
+                  {loadingRewards ? (
+                    <div className="p-10 text-center text-slate-500">
+                      <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                      Loading pending rewards...
+                    </div>
+                  ) : (
+                    <div className="bg-white border rounded-2xl shadow-sm overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-slate-50 border-b">
+                            <th className="p-4 text-left font-semibold">User</th>
+                            <th className="p-4 text-left font-semibold">Invite Code</th>
+                            <th className="p-4 text-left font-semibold">Level Reached</th>
+                            <th className="p-4 text-left font-semibold">Completed On</th>
+                            <th className="p-4 text-right font-semibold">Actions</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {pendingRewards.map((r, idx) => (
+                            <tr key={`${r.userId}-${r.level}`} className="border-b hover:bg-slate-50 transition">
+                              <td className="p-4">
+                                <div className="font-semibold text-slate-800">{r.name}</div>
+                                <div className="text-xs text-slate-500">{r.email}</div>
+                              </td>
+                              <td className="p-4 font-mono text-xs">{r.inviteCode}</td>
+                              <td className="p-4">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 text-xs font-bold">
+                                  LEVEL {r.level}
+                                </span>
+                              </td>
+                              <td className="p-4 text-slate-600 text-xs">
+                                {r.completedAt ? new Date(r.completedAt).toLocaleString() : "-"}
+                              </td>
+                              <td className="p-4 text-right">
+                                <button
+                                  onClick={() => processReward(r.userId, r.level)}
+                                  disabled={processingRewardId === `${r.userId}-${r.level}`}
+                                  className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-xs font-semibold shadow-md hover:bg-blue-700 transition disabled:opacity-50"
+                                >
+                                  {processingRewardId === `${r.userId}-${r.level}` ? "Wait..." : "Mark as Given"}
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                          {pendingRewards.length === 0 && (
+                            <tr>
+                              <td colSpan={5} className="p-10 text-center text-slate-500 font-medium">
+                                No pending rewards found. All rewards are up to date!
+                              </td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )
+            }
+
+
+            {/* Marriage Fund Page */}
+            {
+              currentPage === "marriageFund" && (
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800 mb-4">Marriage Fund Management</h2>
+
+                  <div className="bg-white p-6 border rounded-2xl shadow-sm mb-6 max-w-2xl">
+                    <div className="text-sm font-semibold mb-3">Search User</div>
+                    <div className="flex gap-2 mb-4">
+                      <input
+                        type="text"
+                        placeholder="Enter Invite Code, Email or Name..."
+                        value={mfSearch}
+                        onChange={(e) => setMfSearch(e.target.value)}
+                        className="flex-1 border border-slate-300 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        onKeyDown={(e) => e.key === 'Enter' && handleMfSearch()}
+                      />
+                      <button
+                        onClick={handleMfSearch}
+                        disabled={mfLoading}
+                        className="bg-slate-900 text-white px-6 py-2 rounded-lg font-medium text-sm hover:bg-slate-800 disabled:opacity-50"
+                      >
+                        {mfLoading ? "Searching..." : "Search"}
+                      </button>
+                    </div>
+
+                    {mfUser && (
+                      <div className="mt-6 border-t pt-6 animate-in slide-in-from-top-2">
+                        <div className="flex items-start justify-between mb-6">
+                          <div>
+                            <div className="text-lg font-bold text-slate-900">{mfUser.name}</div>
+                            <div className="text-sm text-slate-500">{mfUser.email}</div>
+                            <div className="text-xs text-slate-400 mt-1 font-mono">Code: {mfUser.inviteCode}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Current Fund</div>
+                            <div className="text-2xl font-bold text-emerald-600">₹{Number(mfUser.marriageFund || 0).toLocaleString()}</div>
+                          </div>
+                        </div>
+
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                          <div className="text-sm font-semibold mb-2">Add Funds</div>
+                          <div className="flex gap-2">
+                            <div className="relative flex-1">
+                              <span className="absolute left-3 top-2.5 text-slate-400">₹</span>
+                              <input
+                                type="number"
+                                placeholder="Amount"
+                                value={mfAmount}
+                                onChange={(e) => setMfAmount(e.target.value)}
+                                className="w-full border border-slate-300 rounded-lg pl-8 pr-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              />
+                            </div>
+                            <button
+                              onClick={handleAddMf}
+                              disabled={mfLoading || !mfAmount}
+                              className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-medium text-sm hover:bg-emerald-700 disabled:opacity-50 shadow-sm"
+                            >
+                              {mfLoading ? "Adding..." : "Add Fund"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {mfMessage && (
+                      <div className={`mt-4 p-3 rounded-lg text-sm font-medium ${mfMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                        {mfMessage.text}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            }
+
+            {/* Accident Fund Page */}
+            {
+              currentPage === "accidentFund" && (
+                <div>
+                  <h2 className="text-xl font-bold text-slate-800 mb-4">Accident Fund Management</h2>
+
+                  <div className="bg-white p-6 border rounded-2xl shadow-sm mb-6 max-w-2xl">
+                    <div className="text-sm font-semibold mb-3">Search User</div>
+                    <div className="flex gap-2 mb-4">
+                      <input
+                        type="text"
+                        placeholder="Enter Invite Code, Email or Name..."
+                        value={afSearch}
+                        onChange={(e) => setAfSearch(e.target.value)}
+                        className="flex-1 border border-slate-300 rounded-lg px-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                        onKeyDown={(e) => e.key === 'Enter' && handleAfSearch()}
+                      />
+                      <button
+                        onClick={handleAfSearch}
+                        disabled={afLoading}
+                        className="bg-slate-900 text-white px-6 py-2 rounded-lg font-medium text-sm hover:bg-slate-800 disabled:opacity-50"
+                      >
+                        {afLoading ? "Searching..." : "Search"}
+                      </button>
+                    </div>
+
+                    {afUser && (
+                      <div className="mt-6 border-t pt-6 animate-in slide-in-from-top-2">
+                        <div className="flex items-start justify-between mb-6">
+                          <div>
+                            <div className="text-lg font-bold text-slate-900">{afUser.name}</div>
+                            <div className="text-sm text-slate-500">{afUser.email}</div>
+                            <div className="text-xs text-slate-400 mt-1 font-mono">Code: {afUser.inviteCode}</div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Current Fund</div>
+                            <div className="text-2xl font-bold text-emerald-600">₹{Number(afUser.accidentFund || 0).toLocaleString()}</div>
+                          </div>
+                        </div>
+
+                        <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                          <div className="text-sm font-semibold mb-2">Add Funds</div>
+                          <div className="flex gap-2">
+                            <div className="relative flex-1">
+                              <span className="absolute left-3 top-2.5 text-slate-400">₹</span>
+                              <input
+                                type="number"
+                                placeholder="Amount"
+                                value={afAmount}
+                                onChange={(e) => setAfAmount(e.target.value)}
+                                className="w-full border border-slate-300 rounded-lg pl-8 pr-4 py-2 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                              />
+                            </div>
+                            <button
+                              onClick={handleAddAf}
+                              disabled={afLoading || !afAmount}
+                              className="bg-emerald-600 text-white px-6 py-2 rounded-lg font-medium text-sm hover:bg-emerald-700 disabled:opacity-50 shadow-sm"
+                            >
+                              {afLoading ? "Adding..." : "Add Fund"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {afMessage && (
+                      <div className={`mt-4 p-3 rounded-lg text-sm font-medium ${afMessage.type === 'success' ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                        {afMessage.text}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )
+            }
+
+            {/* E-Pin page */}
+            {
+              currentPage === "epin" && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-lg font-semibold">E-Pin Management</h2>
+                    <div className="text-xs text-slate-500">Pool pins available: {epins.length}</div>
+                  </div>
+
+                  <div className="flex gap-2 mb-4">
+                    <button onClick={createEpin} className="bg-blue-600 text-white px-4 py-2 rounded">{creatingEpin ? "Creating..." : "Generate E-Pin"}</button>
+                    <button onClick={() => fetchEpins(adminToken)} className="border px-4 py-2 rounded">Refresh</button>
+                  </div>
+
+                  <div className="border rounded p-3 mb-4 bg-slate-50">
+                    <div className="text-sm font-semibold mb-2">Transfer E-Pins to Member (max 10)</div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                      <input
+                        value={epinTransfer.toUserId}
+                        onChange={(e) => setEpinTransfer((s) => ({ ...s, toUserId: e.target.value }))}
+                        className="border rounded px-3 py-2 text-sm"
+                        placeholder="User ID or Invite Code"
+                      />
+                      <input
+                        value={epinTransfer.count}
+                        onChange={(e) => setEpinTransfer((s) => ({ ...s, count: e.target.value }))}
+                        className="border rounded px-3 py-2 text-sm"
+                        placeholder="Count (1-10)"
+                      />
+                      <button
+                        onClick={transferEpinsFromPool}
+                        disabled={transferringEpins}
+                        className="bg-emerald-600 text-white px-4 py-2 rounded text-sm disabled:opacity-60"
+                      >
+                        {transferringEpins ? "Transferring..." : "Transfer"}
+                      </button>
+                    </div>
+                    <div className="mt-2 text-xs text-slate-600">
+                      💡 Tip: You can use the member's <span className="font-semibold">Invite Code</span> (e.g., LS123456), <span className="font-semibold">User ID</span>, or <span className="font-semibold">Email</span> to transfer e-pins.
+                    </div>
+
+                    {lastEpinTransfer && (
+                      <div className="mt-3 text-sm">
+                        <div className="font-semibold">Transferred {lastEpinTransfer.count} pins to {lastEpinTransfer.toUserName}</div>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          {lastEpinTransfer.codes.map((c) => (
+                            <span key={c} className="px-2 py-1 rounded border bg-white font-mono text-xs">{c}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    {epins.length === 0 ? <div className="text-slate-500 p-3">No available pool pins.</div> : epins.map((e, i) => (<div key={i} className="p-2 border rounded font-mono text-sm truncate">{e}</div>))}
+                  </div>
+                </div>
+              )
+            }
+
+            {/* Income page (member-wise + totals) */}
+            {
+              currentPage === "income" && (
+                <div>
+                  <div className="flex items-center justify-between mb-3">
+                    <h2 className="text-lg font-semibold">Income Overview</h2>
+                    <div className="text-xs text-slate-500">Member-wise and totals</div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <div className="p-4 border rounded bg-white">
+                      <div className="text-xs text-slate-500">Total Income (all members)</div>
+                      <div className="text-2xl font-semibold mt-1">{totalIncome}</div>
+                    </div>
+                    <div className="p-4 border rounded bg-white">
+                      <div className="text-xs text-slate-500">Total Balance (all members)</div>
+                      <div className="text-2xl font-semibold mt-1">{totalBalance}</div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white border rounded p-4">
+                    <h3 className="text-lg font-semibold mb-3">Member-wise Income</h3>
+
+                    <div className="overflow-auto max-h-[60vh] border rounded">
+                      <table className="min-w-[1000px] w-full text-sm">
+                        <thead className="bg-slate-50 sticky top-0">
+                          <tr>
+                            <th className="p-3 text-left">Name</th>
+                            <th className="p-3 text-left">Email</th>
+                            <th className="p-3 text-right">Income</th>
+                            <th className="p-3 text-right">Balance</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {users.map((u) => (
+                            <tr key={u.id} className="border-t hover:bg-slate-50">
+                              <td className="p-3">{u.name}</td>
+                              <td className="p-3">{u.email}</td>
+                              <td className="p-3 text-right font-semibold text-green-600">{u.totalIncome ?? 0}</td>
+                              <td className="p-3 text-right">{u.balance ?? 0}</td>
+                            </tr>
+                          ))}
+                          {users.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-slate-500">No members found.</td></tr>}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+
+            {/* User Activation page */}
+            {currentPage === "activateUsers" && renderActivationPage()}
+
+            {/* Site Settings page */}
+            {
+              currentPage === "settings" && (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-slate-800">Site Settings</h2>
+                    <button
+                      onClick={() => fetchSiteSettings(adminToken)}
+                      className="p-2 text-slate-500 hover:text-blue-600 transition-colors"
+                      title="Refresh Settings"
+                    >
+                      <IconRefresh className={loadingSettings ? "animate-spin" : ""} />
+                    </button>
+                  </div>
+
+                  {loadingSettings ? (
+                    <div className="flex items-center justify-center p-12">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {/* Marquee Section */}
+                      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                            <IconSpeaker />
+                          </div>
+                          <h3 className="font-semibold text-slate-800">Announcement Bar (Marquee)</h3>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                            <span className="text-sm font-medium text-slate-700">Enable Announcement Bar</span>
+                            <button
+                              onClick={() => setSiteSettings(s => ({ ...s, marqueeEnabled: !s.marqueeEnabled }))}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${siteSettings.marqueeEnabled ? 'bg-blue-600' : 'bg-slate-300'}`}
+                            >
+                              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${siteSettings.marqueeEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                            </button>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Announcement Text</label>
+                            <textarea
+                              value={siteSettings.marqueeText}
+                              onChange={(e) => setSiteSettings(s => ({ ...s, marqueeText: e.target.value }))}
+                              className="w-full border border-slate-200 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                              placeholder="Enter moving text here..."
+                              rows={2}
+                            />
+                            <p className="mt-1 text-[11px] text-slate-400">This text will scroll from right to left on the user dashboard.</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Popup Section */}
+                      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="p-2 bg-purple-50 text-purple-600 rounded-lg">
+                            <IconFile />
+                          </div>
+                          <h3 className="font-semibold text-slate-800">Login/Registration Popup</h3>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                            <span className="text-sm font-medium text-slate-700">Enable Popup Modal</span>
+                            <button
+                              onClick={() => setSiteSettings(s => ({ ...s, popupEnabled: !s.popupEnabled }))}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${siteSettings.popupEnabled ? 'bg-purple-600' : 'bg-slate-300'}`}
+                            >
+                              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${siteSettings.popupEnabled ? 'translate-x-6' : 'translate-x-1'}`} />
+                            </button>
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-semibold text-slate-500 uppercase mb-1">Popup Image URL</label>
+                            <input
+                              type="text"
+                              value={siteSettings.popupImageUrl}
+                              onChange={(e) => setSiteSettings(s => ({ ...s, popupImageUrl: e.target.value }))}
+                              className="w-full border border-slate-200 rounded-lg px-4 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 outline-none transition-all"
+                              placeholder="https://example.com/banner.jpg"
+                            />
+                            <p className="mt-1 text-[11px] text-slate-400">Provide an image URL to show in the popup. Best used for important notices or offers.</p>
+                          </div>
+
+                          {siteSettings.popupImageUrl && (
+                            <div className="mt-2 p-2 border border-dashed border-slate-200 rounded-lg bg-slate-50">
+                              <p className="text-[10px] uppercase font-bold text-slate-400 mb-2">Preview:</p>
+                              <img
+                                src={siteSettings.popupImageUrl}
+                                alt="Popup Preview"
+                                className="max-h-40 mx-auto rounded shadow-sm"
+                                onError={(e) => { e.target.src = "https://via.placeholder.com/300x150?text=Invalid+Image+URL"; }}
+                              />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex justify-end pt-4">
+                        <button
+                          onClick={updateSiteSettings}
+                          disabled={savingSettings}
+                          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-8 rounded-xl shadow-lg shadow-blue-200 transition-all flex items-center gap-2 disabled:opacity-70"
+                        >
+                          {savingSettings ? (
+                            <>
+                              <div className="animate-spin h-4 w-4 border-2 border-white/30 border-t-white rounded-full"></div>
+                              Saving Settings...
+                            </>
+                          ) : (
+                            "Save All Changes"
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            }
+
+            {/* Autopool Page */}
+            {currentPage === "autopool" && <AdminAutopool />}
+
+            {/* Autopool Tree Page */}
+            {currentPage === "autopool-tree" && <AdminAutopoolTree />}
+
+          </div >
+
+          <div className="mt-4 text-sm text-slate-500">Tip: Invite code can be shared and used unlimited times.</div>
+        </div >
+      </div >
+    </div >
   );
 }

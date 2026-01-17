@@ -19,8 +19,8 @@ const topStatConfig = [
     color: "bg-gradient-to-r from-red-500 to-rose-600",
   },
   {
-    label: "Freadom(Pool) Income",
-    key: "freedomIncome",
+    label: "Autopool Income",
+    key: "autopoolIncome",
     color: "bg-gradient-to-r from-emerald-500 to-teal-600",
   },
   {
@@ -37,6 +37,16 @@ const topStatConfig = [
     label: "Daily Level Income",
     key: "levelIncome",
     color: "bg-gradient-to-r from-indigo-400 to-blue-500",
+  },
+  {
+    label: "Marriage Fund",
+    key: "marriageFund",
+    color: "bg-gradient-to-r from-pink-500 to-rose-500",
+  },
+  {
+    label: "Accident Fund",
+    key: "accidentFund",
+    color: "bg-gradient-to-r from-orange-600 to-red-600",
   },
 ];
 
