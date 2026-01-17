@@ -32,7 +32,7 @@ import TotalDirectUser from "./MyTeamNetwork/TotalDirectUser";
 import TotalInactiveUser from "./MyTeamNetwork/TotalInActiveUser";
 import TotalTeam from "./MyTeamNetwork/TotalTeam";
 
-import FranchiseTeam from "./FranchiseTeam";
+import FranchiseBankUpdate from "./FranchiseBankUpdate";
 
 
 import IncomeReport from "./IncomeReport";
@@ -227,8 +227,8 @@ export default function MemberLayout({ onLogout }) {
 
           {/* Franchise Routes */}
           <Route
-            path="franchise-team"
-            element={<FranchiseTeam onMenuOpen={() => setSidebarOpen(true)} />}
+            path="franchise-bank-update"
+            element={<FranchiseBankUpdate onMenuOpen={() => setSidebarOpen(true)} />}
           />
         </Routes>
       </div>
