@@ -1,7 +1,7 @@
 // components/Header.jsx
 import React, { useState } from "react";
 import DashboardSidebar from "./dashboard/DashboardSidebar.jsx";
-import DashBoardPage from "./dashboard/DashboardPage.jsx";
+import DashBoardPage from "./dashboard/MemberDashboardPage.jsx";
 
 export default function Header({
   activeSection,
