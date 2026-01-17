@@ -19,8 +19,8 @@ const topStatConfig = [
     color: "bg-gradient-to-r from-red-500 to-rose-600",
   },
   {
-    label: "Freadom(Pool) Income",
-    key: "freedomIncome",
+    label: "Autopool Income",
+    key: "autopoolIncome",
     color: "bg-gradient-to-r from-emerald-500 to-teal-600",
   },
   {

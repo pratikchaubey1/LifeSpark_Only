@@ -9,6 +9,12 @@ export default function Autopool({ sidebarOpen, onMenuOpen }) {
     const [error, setError] = useState(null);
     const [requesting, setRequesting] = useState(false);
 
+    // Team view state
+    const [showTeamModal, setShowTeamModal] = useState(false);
+    const [selectedLevel, setSelectedLevel] = useState(null);
+    const [teamMembers, setTeamMembers] = useState([]);
+    const [teamLoading, setTeamLoading] = useState(false);
+
     useEffect(() => {
         fetchStatus();
     }, []);
@@ -25,6 +31,25 @@ export default function Autopool({ sidebarOpen, onMenuOpen }) {
             console.error(err);
             setError("Failed to load Autopool status");
             setLoading(false);
+        }
+    };
+
+    const fetchTeamMembers = async (level) => {
+        try {
+            setTeamLoading(true);
+            setSelectedLevel(level);
+            setShowTeamModal(true);
+
+            const token = localStorage.getItem('token');
+            const response = await axios.get(`${config.apiUrl}/autopool/team/${level}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            setTeamMembers(response.data.members || []);
+        } catch (err) {
+            console.error(err);
+            setTeamMembers([]);
+        } finally {
+            setTeamLoading(false);
         }
     };
 
@@ -83,7 +108,8 @@ export default function Autopool({ sidebarOpen, onMenuOpen }) {
 
                 <div className={`px-4 py-2 rounded-full font-bold text-sm uppercase tracking-wider
             ${data?.status === 'active' ? 'bg-green-100 text-green-700' :
-                        data?.status === 'requested' ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-600'}`}>
+                        data?.status === 'requested' ? 'bg-yellow-100 text-yellow-700' :
+                            data?.status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>
                     {data?.status || 'UNKNOWN'}
                 </div>
             </div>
@@ -94,16 +120,22 @@ export default function Autopool({ sidebarOpen, onMenuOpen }) {
                 </div>
             )}
 
-            {/* ================= INACTIVE STATE ================= */}
-            {(!data?.status || data?.status === 'inactive') && (
+            {/* ================= INACTIVE OR REJECTED STATE ================= */}
+            {(!data?.status || data?.status === 'inactive' || data?.status === 'rejected') && (
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200 mt-10"
                 >
-                    <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 text-white text-center">
-                        <h2 className="text-3xl font-bold mb-2">Join the Global Autopool</h2>
-                        <p className="opacity-90">Unlock passive income through the global 3x3 matrix</p>
+                    <div className={`p-8 text-white text-center ${data?.status === 'rejected' ? 'bg-gradient-to-r from-red-600 to-orange-700' : 'bg-gradient-to-r from-blue-600 to-indigo-700'}`}>
+                        <h2 className="text-3xl font-bold mb-2">
+                            {data?.status === 'rejected' ? 'Request Rejected' : 'Join the Global Autopool'}
+                        </h2>
+                        <p className="opacity-90">
+                            {data?.status === 'rejected'
+                                ? 'Your previous request was rejected by the admin. You can try submitting a new request.'
+                                : 'Unlock passive income through the global 3x3 matrix'}
+                        </p>
                     </div>
 
                     <div className="p-8">
@@ -125,9 +157,10 @@ export default function Autopool({ sidebarOpen, onMenuOpen }) {
                         <button
                             onClick={handleJoin}
                             disabled={requesting}
-                            className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 rounded-xl shadow-lg transform transition hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed"
+                            className={`w-full text-white font-bold py-4 rounded-xl shadow-lg transform transition hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed
+                                ${data?.status === 'rejected' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
                         >
-                            {requesting ? "Processing Request..." : "Request Access Now"}
+                            {requesting ? "Processing Request..." : (data?.status === 'rejected' ? "Re-Submit Request" : "Request Access Now")}
                         </button>
                     </div>
                 </motion.div>
@@ -186,7 +219,8 @@ export default function Autopool({ sidebarOpen, onMenuOpen }) {
                                         <th className="px-6 py-4 text-left">Level</th>
                                         <th className="px-6 py-4 text-left">Team Size</th>
                                         <th className="px-6 py-4 text-left">Income</th>
-                                        <th className="px-6 py-4 text-right">Status</th>
+                                        <th className="px-6 py-4 text-center">Status</th>
+                                        <th className="px-6 py-4 text-center">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
@@ -208,7 +242,7 @@ export default function Autopool({ sidebarOpen, onMenuOpen }) {
                                                 <td className="px-6 py-4 font-medium text-slate-800">Level {level.lvl}</td>
                                                 <td className="px-6 py-4 text-slate-600">{level.team.toLocaleString()}</td>
                                                 <td className="px-6 py-4 font-bold text-slate-700">₹ {level.inc.toLocaleString()}</td>
-                                                <td className="px-6 py-4 text-right">
+                                                <td className="px-6 py-4 text-center">
                                                     {isCompleted ? (
                                                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
                                                             Paid
@@ -217,11 +251,78 @@ export default function Autopool({ sidebarOpen, onMenuOpen }) {
                                                         <span className="text-slate-400 text-xs">Pending</span>
                                                     )}
                                                 </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    <button
+                                                        onClick={() => fetchTeamMembers(level.lvl)}
+                                                        className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-100 text-blue-700 hover:bg-blue-200 transition"
+                                                    >
+                                                        👁 View Team
+                                                    </button>
+                                                </td>
                                             </tr>
                                         )
                                     })}
                                 </tbody>
                             </table>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Team Members Modal */}
+            {showTeamModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] overflow-hidden">
+                        {/* Modal Header */}
+                        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 text-white px-6 py-4 flex justify-between items-center">
+                            <h3 className="font-bold text-lg">Level {selectedLevel} Team Members</h3>
+                            <button
+                                onClick={() => setShowTeamModal(false)}
+                                className="p-1 hover:bg-white/20 rounded-full transition"
+                            >
+                                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-6 overflow-y-auto max-h-[60vh]">
+                            {teamLoading ? (
+                                <div className="text-center py-8 text-slate-500">Loading team members...</div>
+                            ) : teamMembers.length === 0 ? (
+                                <div className="text-center py-8">
+                                    <div className="text-5xl mb-4">👥</div>
+                                    <p className="text-slate-500">No team members at this level yet</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3">
+                                    {teamMembers.map((member, idx) => (
+                                        <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 rounded-xl border border-slate-100">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-blue-600 font-bold">
+                                                    {member.name?.charAt(0)?.toUpperCase() || '?'}
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium text-slate-800">{member.name}</p>
+                                                    <p className="text-xs text-slate-500">ID: {member.inviteCode}</p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm text-slate-600">{member.phone}</p>
+                                                <p className="text-xs text-slate-400">Joined: {member.joinDate}</p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="px-6 py-4 bg-slate-50 border-t border-slate-100">
+                            <p className="text-center text-sm text-slate-500">
+                                Total: <span className="font-bold text-slate-700">{teamMembers.length}</span> member(s)
+                            </p>
                         </div>
                     </div>
                 </div>

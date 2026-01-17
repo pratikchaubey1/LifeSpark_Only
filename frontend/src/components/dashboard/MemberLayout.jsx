@@ -5,7 +5,7 @@ import config from "../../config/config";
 import DashboardSidebar from "./DashboardSidebar";
 import Autopool from "./Autopool";
 
-import DashBoardPage from "./DashBoardPage";
+import DashBoardPage from "./DashboardPage";
 import EditProfile from "./EditProfile";
 import ImageUpload from "./Imageuploader";
 import EditBankDetail from "./Editbankdetail";
@@ -30,10 +30,13 @@ import LevelIncome from "./MyTeamBusiness/LevelIncome";
 import TotalActiveUser from "./MyTeamNetwork/TotalActiveUser";
 import TotalDirectUser from "./MyTeamNetwork/TotalDirectUser";
 import TotalInactiveUser from "./MyTeamNetwork/TotalInActiveUser";
+import TotalTeam from "./MyTeamNetwork/TotalTeam";
 
 import FranchiseTeam from "./FranchiseTeam";
 
+
 import IncomeReport from "./IncomeReport";
+import UpgradeIncome from "./UpgradeIncome";
 
 export default function MemberLayout({ onLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -180,6 +183,10 @@ export default function MemberLayout({ onLogout }) {
           />
 
           <Route
+            path="total-team"
+            element={<TotalTeam onMenuOpen={() => setSidebarOpen(true)} />}
+          />
+          <Route
             path="total-Active"
             element={<TotalActiveUser onMenuOpen={() => setSidebarOpen(true)} />}
           />
@@ -195,6 +202,10 @@ export default function MemberLayout({ onLogout }) {
           <Route
             path="income-report"
             element={<IncomeReport onMenuOpen={() => setSidebarOpen(true)} />}
+          />
+          <Route
+            path="upgrade-income"
+            element={<UpgradeIncome onMenuOpen={() => setSidebarOpen(true)} />}
           />
           <Route
             path="withdraw"
