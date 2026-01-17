@@ -30,6 +30,7 @@ const DASHBOARD_ITEMS = [
   {
     label: "My Team Network",
     children: [
+      { label: "Total Team", path: "/dashboard/total-team" },
       { label: "Total Active", path: "/dashboard/total-Active" },
       { label: "Total Direct", path: "/dashboard/total-Direct" },
       { label: "Total Inactive", path: "/dashboard/total-Inactive" },
@@ -40,6 +41,7 @@ const DASHBOARD_ITEMS = [
     label: "Income Report ",
     children: [
       { label: "Auto Pool", path: "/dashboard/direct-team" },
+      { label: "Upgrade Income", path: "/dashboard/upgrade-income" },
       {
         label: "Rank Reward Business",
         path: "/dashboard/level-team",

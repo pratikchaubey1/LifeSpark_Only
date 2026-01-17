@@ -48,7 +48,7 @@ const userSchema = new mongoose.Schema({
   ],
 
   // Autopool System
-  autopoolStatus: { type: String, enum: ['inactive', 'requested', 'active'], default: 'inactive' },
+  autopoolStatus: { type: String, enum: ['inactive', 'requested', 'active', 'rejected'], default: 'inactive' },
   autopoolParent: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
   autopoolChildren: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   autopoolJoinDate: { type: Date, default: null },

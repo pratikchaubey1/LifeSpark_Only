@@ -251,8 +251,17 @@ router.get('/users/search/:query', adminAuth, async (req, res) => {
 
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Return full user object
-    res.json({ user });
+    // Count unused E-Pins owned by this user
+    const epinCount = await Epin.countDocuments({
+      ownerUserId: user._id.toString(),
+      used: false
+    });
+
+    // Return full user object with epin count
+    const userObj = user.toObject();
+    userObj.epinCount = epinCount;
+
+    res.json({ user: userObj });
   } catch (err) {
     console.error('Search user error', err);
     res.status(500).json({ message: 'Server error' });

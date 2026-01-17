@@ -23,7 +23,7 @@ router.get('/', auth, async (req, res) => {
         withdrawal: user.withdrawal || 0,
         balance: user.balance || 0,
         dailyBonusIncome: user.dailyBonusIncome || 0,
-        freedomIncome: user.freedomIncome || 0,
+        autopoolIncome: user.autopoolLevelIncome || 0,
         rankRewardIncome: user.rankRewardIncome || 0,
         levelIncome: teamStats.dailyLevelIncome || 0,
         accumulatedLevelIncome: user.levelIncome || 0,
