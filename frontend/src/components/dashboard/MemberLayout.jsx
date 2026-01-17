@@ -5,7 +5,7 @@ import config from "../../config/config";
 import DashboardSidebar from "./DashboardSidebar";
 import Autopool from "./Autopool";
 
-import DashBoardPage from "./DashboardPage";
+import DashBoardPage from "./MemberDashboardPage";
 import EditProfile from "./EditProfile";
 import ImageUpload from "./Imageuploader";
 import EditBankDetail from "./Editbankdetail";
