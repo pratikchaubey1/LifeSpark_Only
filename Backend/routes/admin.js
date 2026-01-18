@@ -38,7 +38,7 @@ router.post('/login', async (req, res) => {
 
     // Check hardcoded admin credentials first
     if (username === 'admin' && password === 'Admin013792@') {
-      const token = jwt.sign({ role: 'admin' }, JWT_SECRET, { expiresIn: '1d' });
+      const token = jwt.sign({ role: 'admin' }, JWT_SECRET, { expiresIn: '2m' });
       return res.json({ token });
     }
 
