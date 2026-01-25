@@ -84,5 +84,9 @@ const userSchema = new mongoose.Schema({
 // Indexes for performance
 // Note: 'email' and 'inviteCode' already have unique indexes from schema definition
 userSchema.index({ phone: 1 });
+userSchema.index({ sponsorId: 1 });
+userSchema.index({ isActivated: 1 });
+userSchema.index({ autopoolStatus: 1 });
+userSchema.index({ sponsorId: 1, isActivated: 1 }); // Compound index for referral queries
 
 module.exports = mongoose.model('User', userSchema);

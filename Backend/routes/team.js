@@ -15,7 +15,7 @@ router.get('/direct', auth, async (req, res) => {
     // Find all users whose IDs are in the directInviteIds array
     const directMembers = await User.find({
       _id: { $in: ids }
-    }).select('_id name inviteCode isActivated role createdAt');
+    }).select('_id name inviteCode isActivated role createdAt').lean();
 
     const members = directMembers.map((u) => ({
       id: u._id.toString(),

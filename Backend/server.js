@@ -1,6 +1,7 @@
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
+const compression = require('compression');
 const path = require('path');
 const mongoose = require('mongoose');
 const cron = require("node-cron");
@@ -35,6 +36,9 @@ app.use(cors({
 }));
 
 app.use(express.json());
+
+// Enable gzip compression for all responses
+app.use(compression());
 
 // Static KYC uploads
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

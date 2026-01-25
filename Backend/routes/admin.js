@@ -190,50 +190,88 @@ router.post('/users', adminAuth, async (req, res) => {
 // Get all users with invite stats for admin panel
 router.get('/users', adminAuth, async (req, res) => {
   try {
-    const users = await User.find(); // Include password by default, but select('-password') if not needed.
-    // However, the existing UI might depend on select('-password').
-    // I'll add a specific search route instead to avoid breaking existing logic.
-    const result = await Promise.all(users.map(async (user) => {
-      const userInvitees = await User.find({ sponsorId: user.inviteCode }).select('_id name email phone balance inviteCode');
-
-      const leftWithMe = await Epin.countDocuments({ ownerUserId: user._id.toString(), used: false });
-      const usedByMe = await Epin.countDocuments({ ownerUserId: user._id.toString(), used: true });
-
-      return {
-        id: user._id.toString(),
-        name: user.name,
-        email: user.email,
-        phone: user.phone || '',
-        address: user.address || '',
-        sponsorId: user.sponsorId || '',
-        sponsorName: user.sponsorName || '',
-        inviteCode: user.inviteCode,
-        role: user.role || 'member',
-        isActivated: !!user.isActivated,
-        activationPackage: user.activationPackage || null,
-        balance: user.balance || 0,
-        totalIncome: user.totalIncome || 0,
-        withdrawal: user.withdrawal || 0,
-        freedomIncome: user.freedomIncome || 0,
-        dailyBonusIncome: user.dailyBonusIncome || 0,
-        rankRewardIncome: user.rankRewardIncome || 0,
-        createdAt: user.createdAt || null,
-        upiId: user.upiId || '',
-        upiNo: user.upiNo || '',
-        bankDetails: user.bankDetails || null,
-        directInviteCount: userInvitees.length,
-        leftWithMe,
-        usedByMe,
-        invitees: userInvitees.map((inv) => ({
-          id: inv._id.toString(),
-          name: inv.name,
-          email: inv.email,
-          phone: inv.phone || '',
-          balance: inv.balance || 0,
-          inviteCode: inv.inviteCode,
-        })),
-      };
-    }));
+    // Use aggregation pipeline to avoid N+1 queries
+    const result = await User.aggregate([
+      // Stage 1: Lookup invitees (users who have this user's inviteCode as sponsorId)
+      {
+        $lookup: {
+          from: 'users',
+          let: { inviteCode: '$inviteCode' },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$sponsorId', '$$inviteCode'] } } },
+            { $project: { _id: 1, name: 1, email: 1, phone: 1, balance: 1, inviteCode: 1 } }
+          ],
+          as: 'invitees'
+        }
+      },
+      // Stage 2: Lookup unused E-pins owned by this user
+      {
+        $lookup: {
+          from: 'epins',
+          let: { oderId: { $toString: '$_id' } },
+          pipeline: [
+            { $match: { $expr: { $and: [{ $eq: ['$ownerUserId', '$$oderId'] }, { $eq: ['$used', false] }] } } },
+            { $count: 'count' }
+          ],
+          as: 'unusedEpins'
+        }
+      },
+      // Stage 3: Lookup used E-pins owned by this user
+      {
+        $lookup: {
+          from: 'epins',
+          let: { oderId: { $toString: '$_id' } },
+          pipeline: [
+            { $match: { $expr: { $and: [{ $eq: ['$ownerUserId', '$$oderId'] }, { $eq: ['$used', true] }] } } },
+            { $count: 'count' }
+          ],
+          as: 'usedEpins'
+        }
+      },
+      // Stage 4: Project to final shape
+      {
+        $project: {
+          id: { $toString: '$_id' },
+          name: 1,
+          email: 1,
+          phone: { $ifNull: ['$phone', ''] },
+          address: { $ifNull: ['$address', ''] },
+          sponsorId: { $ifNull: ['$sponsorId', ''] },
+          sponsorName: { $ifNull: ['$sponsorName', ''] },
+          inviteCode: 1,
+          role: { $ifNull: ['$role', 'member'] },
+          isActivated: { $ifNull: ['$isActivated', false] },
+          activationPackage: { $ifNull: ['$activationPackage', null] },
+          balance: { $ifNull: ['$balance', 0] },
+          totalIncome: { $ifNull: ['$totalIncome', 0] },
+          withdrawal: { $ifNull: ['$withdrawal', 0] },
+          freedomIncome: { $ifNull: ['$freedomIncome', 0] },
+          dailyBonusIncome: { $ifNull: ['$dailyBonusIncome', 0] },
+          rankRewardIncome: { $ifNull: ['$rankRewardIncome', 0] },
+          createdAt: { $ifNull: ['$createdAt', null] },
+          upiId: { $ifNull: ['$upiId', ''] },
+          upiNo: { $ifNull: ['$upiNo', ''] },
+          bankDetails: { $ifNull: ['$bankDetails', null] },
+          directInviteCount: { $size: '$invitees' },
+          leftWithMe: { $ifNull: [{ $arrayElemAt: ['$unusedEpins.count', 0] }, 0] },
+          usedByMe: { $ifNull: [{ $arrayElemAt: ['$usedEpins.count', 0] }, 0] },
+          invitees: {
+            $map: {
+              input: '$invitees',
+              as: 'inv',
+              in: {
+                id: { $toString: '$$inv._id' },
+                name: '$$inv.name',
+                email: '$$inv.email',
+                phone: { $ifNull: ['$$inv.phone', ''] },
+                balance: { $ifNull: ['$$inv.balance', 0] },
+                inviteCode: '$$inv.inviteCode'
+              }
+            }
+          }
+        }
+      }
+    ]);
 
     res.json({ users: result });
   } catch (err) {
@@ -448,22 +486,42 @@ router.put('/users/:id/activate', adminAuth, async (req, res) => {
 // Get KYC uploads for admin panel
 router.get('/kyc', adminAuth, async (req, res) => {
   try {
-    const kycs = await Kyc.find();
-
-    const result = await Promise.all(kycs.map(async (k) => {
-      const user = await User.findById(k.userId).select('_id name email phone role inviteCode');
-      return {
-        ...k.toObject(),
-        user: user ? {
-          id: user._id.toString(),
-          name: user.name,
-          email: user.email,
-          phone: user.phone || '',
-          role: user.role || 'member',
-          inviteCode: user.inviteCode || '',
-        } : null,
-      };
-    }));
+    // Use aggregation to avoid N+1 queries
+    const result = await Kyc.aggregate([
+      // Lookup user info
+      {
+        $lookup: {
+          from: 'users',
+          let: { usrId: '$userId' },
+          pipeline: [
+            { $match: { $expr: { $eq: [{ $toString: '$_id' }, '$$usrId'] } } },
+            { $project: { _id: 1, name: 1, email: 1, phone: 1, role: 1, inviteCode: 1 } }
+          ],
+          as: 'userInfo'
+        }
+      },
+      // Unwind user info (will be null if not found)
+      {
+        $addFields: {
+          user: {
+            $cond: {
+              if: { $gt: [{ $size: '$userInfo' }, 0] },
+              then: {
+                id: { $toString: { $arrayElemAt: ['$userInfo._id', 0] } },
+                name: { $arrayElemAt: ['$userInfo.name', 0] },
+                email: { $arrayElemAt: ['$userInfo.email', 0] },
+                phone: { $ifNull: [{ $arrayElemAt: ['$userInfo.phone', 0] }, ''] },
+                role: { $ifNull: [{ $arrayElemAt: ['$userInfo.role', 0] }, 'member'] },
+                inviteCode: { $ifNull: [{ $arrayElemAt: ['$userInfo.inviteCode', 0] }, ''] }
+              },
+              else: null
+            }
+          }
+        }
+      },
+      // Remove temporary field
+      { $project: { userInfo: 0 } }
+    ]);
 
     res.json({ kycs: result });
   } catch (err) {
@@ -525,25 +583,47 @@ async function updateKycRecord(kyc, req, res) {
 // Withdrawal requests for admin
 router.get('/withdrawals', adminAuth, async (req, res) => {
   try {
-    const withdrawals = await Withdrawal.find().sort({ requestedAt: -1 });
-
-    const result = await Promise.all(withdrawals.map(async (w) => {
-      const user = await User.findById(w.userId).select('_id name email phone role balance upiId upiNo bankDetails');
-      return {
-        ...w.toObject(),
-        user: user ? {
-          id: user._id.toString(),
-          name: user.name,
-          email: user.email,
-          phone: user.phone || '',
-          role: user.role || 'member',
-          balance: user.balance || 0,
-          upiId: user.upiId || '',
-          upiNo: user.upiNo || '',
-          bankDetails: user.bankDetails || null,
-        } : null,
-      };
-    }));
+    // Use aggregation to avoid N+1 queries
+    const result = await Withdrawal.aggregate([
+      // Sort by requestedAt descending
+      { $sort: { requestedAt: -1 } },
+      // Lookup user info
+      {
+        $lookup: {
+          from: 'users',
+          let: { usrId: '$userId' },
+          pipeline: [
+            { $match: { $expr: { $eq: [{ $toString: '$_id' }, '$$usrId'] } } },
+            { $project: { _id: 1, name: 1, email: 1, phone: 1, role: 1, balance: 1, upiId: 1, upiNo: 1, bankDetails: 1 } }
+          ],
+          as: 'userInfo'
+        }
+      },
+      // Add user field
+      {
+        $addFields: {
+          user: {
+            $cond: {
+              if: { $gt: [{ $size: '$userInfo' }, 0] },
+              then: {
+                id: { $toString: { $arrayElemAt: ['$userInfo._id', 0] } },
+                name: { $arrayElemAt: ['$userInfo.name', 0] },
+                email: { $arrayElemAt: ['$userInfo.email', 0] },
+                phone: { $ifNull: [{ $arrayElemAt: ['$userInfo.phone', 0] }, ''] },
+                role: { $ifNull: [{ $arrayElemAt: ['$userInfo.role', 0] }, 'member'] },
+                balance: { $ifNull: [{ $arrayElemAt: ['$userInfo.balance', 0] }, 0] },
+                upiId: { $ifNull: [{ $arrayElemAt: ['$userInfo.upiId', 0] }, ''] },
+                upiNo: { $ifNull: [{ $arrayElemAt: ['$userInfo.upiNo', 0] }, ''] },
+                bankDetails: { $ifNull: [{ $arrayElemAt: ['$userInfo.bankDetails', 0] }, null] }
+              },
+              else: null
+            }
+          }
+        }
+      },
+      // Remove temporary field
+      { $project: { userInfo: 0 } }
+    ]);
 
     return res.json({ withdrawals: result });
   } catch (err) {

@@ -18,5 +18,6 @@ const epinSchema = new mongoose.Schema({
 // Note: 'code' already has a unique index from schema definition
 epinSchema.index({ ownerUserId: 1 });
 epinSchema.index({ used: 1 });
+epinSchema.index({ ownerUserId: 1, used: 1 }); // Compound index for owner + availability queries
 
 module.exports = mongoose.model('Epin', epinSchema);

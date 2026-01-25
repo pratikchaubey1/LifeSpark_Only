@@ -19,7 +19,7 @@ async function getUsersAtLevel(currentLevelUserIds, targetLevel, currentLevel = 
     // Get all users who were invited by current level users
     const nextLevelUsers = await User.find({
         _id: { $in: currentLevelUserIds }
-    }).select('directInviteIds');
+    }).select('directInviteIds').lean();
 
     // Collect all direct invite IDs from current level
     const nextLevelUserIds = [];

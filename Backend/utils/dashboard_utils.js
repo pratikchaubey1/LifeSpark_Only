@@ -15,7 +15,7 @@ async function getAllDownlineIds(directIds, maxLevel = 10) {
 
         const nextLevelUsers = await User.find({
             _id: { $in: currentLevelIds }
-        }).select('directInviteIds');
+        }).select('directInviteIds').lean();
 
         const nextLevelIds = [];
         nextLevelUsers.forEach(u => {
@@ -69,7 +69,7 @@ async function getTeamStats(user) {
 
         const levelUsers = await User.find({
             _id: { $in: currentLevelIds }
-        }).select('isActivated activatedAt createdAt directInviteIds');
+        }).select('isActivated activatedAt createdAt directInviteIds').lean();
 
         const rate = LEVEL_INCOME_RATES[level] || 0;
         const nextLevelIds = [];
@@ -102,11 +102,11 @@ async function getTeamStats(user) {
     // Fetch full team details for stats (total/active/today)
     const teamUsers = await User.find({
         _id: { $in: allDownlineIds }
-    }).select('isActivated activatedAt createdAt');
+    }).select('isActivated activatedAt createdAt').lean();
 
     const directUsers = await User.find({
         _id: { $in: directIds }
-    }).select('isActivated activatedAt createdAt');
+    }).select('isActivated activatedAt createdAt').lean();
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
