@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import config from "../../config/config";
 import AdminAutopool from "../admin/AdminAutopool";
 import AdminAutopoolTree from "../admin/AdminAutopoolTree";
+import DataTable from "../common/DataTable";
 
 /**
  * Final AdminPage.jsx (single-file)
@@ -10,9 +11,12 @@ import AdminAutopoolTree from "../admin/AdminAutopoolTree";
  * - Sidebar navigation
  * - Pages: Dashboard, Members (fetches only when clicked), E-Pin, Income
  * - Income page shows member-wise income + total income & total balance
- * - No external icon packages (inline SVG icons included)
- *
- * Replace your existing AdminPage.jsx with this file.
+  - **Income Overview**: Replace manual mapping and add pagination to the member-wise table. [DONE]
+  - **Rewards**: Refactored to use `DataTable`. [DONE]
+  - **Withdrawals**: Refactored to use `DataTable` with inline payment editor. [DONE]
+  - **KYC**: Refactored to use `DataTable` with inline verification editor. [DONE]
+  - **Bank Details**: Refactored to use `DataTable`. [DONE]
+  - **Members**: Refactored to use `DataTable`. [DONE]
  */
 
 /* -------------------- Simple inline SVG icons (no external deps) -------------------- */
@@ -169,6 +173,8 @@ export default function AdminPage() {
   const [epins, setEpins] = useState([]);
   const [kycs, setKycs] = useState([]);
   const [withdrawals, setWithdrawals] = useState([]);
+  const [epinHistory, setEpinHistory] = useState([]);
+  const [epinStats, setEpinStats] = useState({ totalGenerated: 0, totalUsed: 0, totalTransferred: 0, inPool: 0 });
 
   // ui
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -232,10 +238,13 @@ export default function AdminPage() {
   const [paymentEdits, setPaymentEdits] = useState({}); // { [userId]: { upiId, upiNo, bankDetails: {...} } }
   const [savingPaymentUserId, setSavingPaymentUserId] = useState(null);
 
-  // withdrawals: filter & pagination
   const [withdrawalFilter, setWithdrawalFilter] = useState("all"); // all, pending, approved, rejected
   const [withdrawalPage, setWithdrawalPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
+  const [memberPage, setMemberPage] = useState(1);
+  const MEMBERS_PER_PAGE = 15;
+  const [kycPage, setKycPage] = useState(1);
+  const [bankPage, setBankPage] = useState(1);
 
   // KYC: search and edit
   const [kycSearch, setKycSearch] = useState("");
@@ -377,6 +386,10 @@ export default function AdminPage() {
       if (currentPage === "settings") {
         fetchSiteSettings(adminToken);
       }
+      if (currentPage === "epin") {
+        fetchEpinStats(adminToken);
+        fetchEpinHistory(adminToken);
+      }
     }
     // handle browser back/forward
     const onPop = () => {
@@ -498,6 +511,32 @@ export default function AdminPage() {
     } catch (err) {
       // non-blocking
     }
+  }
+
+  async function fetchEpinHistory(token) {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/epins/history`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setEpinHistory(data.history || []);
+      }
+    } catch (err) { }
+  }
+
+  async function fetchEpinStats(token) {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/epins/stats`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setEpinStats(data);
+      }
+    } catch (err) { }
   }
 
   async function createMember() {
@@ -1042,6 +1081,8 @@ export default function AdminPage() {
 
   function openPage(page) {
     setCurrentPage(page);
+    setMemberPage(1);
+    setWithdrawalPage(1);
     try {
       window.history.pushState({}, "", `/admin/${page}`);
     } catch (e) { }
@@ -1157,7 +1198,7 @@ export default function AdminPage() {
 
   /* Main admin UI */
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-800 flex relative overflow-hidden">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex relative">
 
       {/* Mobile Sidebar Overlay */}
       {sidebarOpen && (
@@ -1244,7 +1285,7 @@ export default function AdminPage() {
       </aside>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
+      <div className="flex-1 flex flex-col min-w-0 max-w-full">
         {/* Header - Mobile Menu Button */}
         <div className="flex items-center justify-between p-4 border-b bg-white md:hidden shrink-0">
           <div className="flex items-center gap-3">
@@ -1256,7 +1297,7 @@ export default function AdminPage() {
           {/* Maybe add small avatar or notification icon here */}
         </div>
 
-        <div className={`flex-1 p-4 md:p-8 scroll-smooth ${currentPage === 'members' ? 'flex flex-col overflow-hidden' : 'overflow-auto'}`}>
+        <div className={`flex-1 p-4 md:p-8 scroll-smooth`}>
           {/* Desktop Header Title (Hidden on Mobile as we have the top bar) */}
           <div className="hidden md:flex items-center justify-between mb-8">
             <h1 className="text-2xl font-bold text-slate-800">Admin Dashboard</h1>
@@ -1264,7 +1305,7 @@ export default function AdminPage() {
           </div>
 
 
-          <div className={`bg-white border rounded-lg p-4 ${currentPage === 'members' ? 'flex flex-col h-full overflow-hidden' : ''}`}>
+          <div className={`bg-white border rounded-lg p-4`}>
             {/* Dashboard page */}
             {currentPage === "dashboard" && (
               <div>
@@ -1280,7 +1321,7 @@ export default function AdminPage() {
 
             {/* Members page - visible only when clicked */}
             {currentPage === "members" && (
-              <div className="flex flex-col h-full overflow-hidden">
+              <div className="flex flex-col">
                 <div className="flex items-center justify-between mb-3 shrink-0">
                   <h2 className="text-lg font-semibold">Members</h2>
                   <div className="flex items-center gap-4">
@@ -1288,9 +1329,17 @@ export default function AdminPage() {
                       type="text"
                       placeholder="Search name, ID or code..."
                       value={memberSearch}
-                      onChange={(e) => setMemberSearch(e.target.value)}
+                      onChange={(e) => { setMemberSearch(e.target.value); setMemberPage(1); }}
                       className="border rounded px-3 py-1.5 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                     />
+                    <button
+                      onClick={() => fetchUsers(adminToken)}
+                      disabled={loadingUsers}
+                      className="bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition active:scale-90"
+                      title="Refresh Members"
+                    >
+                      <IconRefresh className={loadingUsers ? "animate-spin text-blue-600" : "text-slate-500"} />
+                    </button>
                     <div className="text-xs text-slate-500">Active: <span className="font-mono">{users.filter(u => u.isActivated).length}</span> — Inactive: <span className="font-mono">{users.filter(u => !u.isActivated).length}</span></div>
                   </div>
                 </div>
@@ -1363,159 +1412,123 @@ export default function AdminPage() {
                 {loadingUsers ? (
                   <div className="text-sm text-slate-500">Loading members...</div>
                 ) : (
-                  <div className="flex-1 overflow-auto border rounded min-h-0">
-                    <table className="min-w-[1200px] w-full text-sm">
-                      <thead className="bg-slate-50 sticky top-0">
-                        <tr>
-                          <th className="p-3 text-left">Name</th>
-                          <th className="p-3 text-left">User ID</th>
-                          <th className="p-3 text-left">Email</th>
-                          <th className="p-3 text-left">Invite Code</th>
-                          <th className="p-3 text-left">Invite People</th>
-                          <th className="p-3 text-left">Role</th>
-                          <th className="p-3 text-left">E-Pin</th>
-                          <th className="p-3 text-left">Status</th>
-                          <th className="p-3 text-right">Balance</th>
-                          <th className="p-3 text-right">Income</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(() => {
-                          const term = memberSearch.trim().toLowerCase();
-                          const visibleUsers = users.filter(u => {
-                            if (!term) return true;
-                            return (
-                              u.name?.toLowerCase().includes(term) ||
-                              u.id?.toLowerCase().includes(term) ||
-                              u.email?.toLowerCase().includes(term) ||
-                              u.inviteCode?.toLowerCase().includes(term)
-                            );
-                          });
+                  <div className="flex-1 overflow-x-auto border rounded min-h-0">
+                    <DataTable
+                      headers={[
+                        { label: "Name" },
+                        { label: "User ID" },
+                        { label: "Email" },
+                        { label: "Invite Code" },
+                        { label: "Invite People" },
+                        { label: "Pins (L/U)" },
+                        { label: "Role" },
+                        { label: "E-Pin" },
+                        { label: "Status" },
+                        { label: "Balance", className: "text-right" },
+                        { label: "Income", className: "text-right" }
+                      ]}
+                      data={users.filter(u => {
+                        const term = memberSearch.trim().toLowerCase();
+                        if (!term) return true;
+                        return (
+                          u.name?.toLowerCase().includes(term) ||
+                          u.id?.toLowerCase().includes(term) ||
+                          u.email?.toLowerCase().includes(term) ||
+                          u.inviteCode?.toLowerCase().includes(term)
+                        );
+                      })}
+                      itemsPerPage={15}
+                      emptyMessage="No members found matching your search."
+                      externalPage={memberPage}
+                      onPageChange={setMemberPage}
+                      renderRow={(u) => {
+                        const inviteCount = u.directInviteCount ?? (Array.isArray(u.invitees) ? u.invitees.length : 0);
+                        const isExpanded = expandedInviteUserId === u.id;
 
-                          return visibleUsers.map((u) => {
-                            const inviteCount = u.directInviteCount ?? (Array.isArray(u.invitees) ? u.invitees.length : 0);
-                            const isExpanded = expandedInviteUserId === u.id;
-
-                            return (
-                              <React.Fragment key={u.id}>
-                                <tr className="border-t hover:bg-slate-50">
-                                  <td className="p-3">{u.name}</td>
-                                  <td className="p-3 font-mono text-xs">{u.id}</td>
-                                  <td className="p-3">{u.email}</td>
-                                  <td className="p-3">
-                                    <button
-                                      type="button"
-                                      onClick={() => copyToClipboard(u.inviteCode)}
-                                      className="font-mono text-blue-600 hover:underline"
-                                      title="Copy invite code"
-                                    >
-                                      {u.inviteCode}
-                                    </button>
-                                  </td>
-                                  <td className="p-3">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs text-slate-600">{inviteCount}</span>
-                                      <button
-                                        type="button"
-                                        onClick={() => setExpandedInviteUserId((prev) => (prev === u.id ? null : u.id))}
-                                        className="border px-2 py-1 rounded text-xs hover:bg-white"
-                                      >
-                                        {isExpanded ? "Hide" : "View"}
-                                      </button>
-                                    </div>
-                                  </td>
-                                  <td className="p-3">
-                                    <select
-                                      value={u.role || "member"}
-                                      onChange={(e) => updateUserRole(u.id, e.target.value)}
-                                      className="border rounded px-2 py-1 text-xs"
-                                    >
-                                      <option value="member">member</option>
-                                      <option value="franchise">franchise</option>
-                                    </select>
-                                  </td>
-                                  <td className="p-3 font-mono">{u.activationPin || "-"}</td>
-                                  <td className="p-3">
-                                    {u.isActivated ? (
-                                      <span className="text-green-600 font-semibold">Active</span>
-                                    ) : (
-                                      <span className="text-slate-500">Inactive</span>
-                                    )}
-                                  </td>
-                                  <td className="p-3 text-right">{u.balance ?? 0}</td>
-                                  <td className="p-3 text-right font-semibold text-green-600">{u.totalIncome ?? 0}</td>
-                                </tr>
-
-                                {isExpanded && (
-                                  <tr className="border-t bg-slate-50/60">
-                                    <td colSpan={10} className="p-3">
-                                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                                        <div className="bg-white border rounded p-3">
-                                          <div className="text-sm font-semibold mb-1">Invite People</div>
-                                          <div className="text-xs text-slate-600">
-                                            Share this invite code with new members (they will enter it in Sponsor Invite Code during registration).
-                                          </div>
-                                          <div className="mt-2 flex items-center gap-2">
-                                            <div className="font-mono text-sm px-2 py-1 border rounded bg-slate-50">
-                                              {u.inviteCode}
-                                            </div>
-                                            <button
-                                              type="button"
-                                              onClick={() => copyToClipboard(u.inviteCode)}
-                                              className="border px-3 py-1.5 rounded text-xs hover:bg-slate-50"
-                                            >
-                                              Copy
-                                            </button>
-                                          </div>
-                                        </div>
-
-                                        <div className="bg-white border rounded p-3">
-                                          <div className="text-sm font-semibold mb-2">Direct Invitees</div>
-                                          <div className="overflow-x-auto">
-                                            <table className="min-w-full text-xs">
-                                              <thead className="bg-slate-50 sticky top-0">
-                                                <tr>
-                                                  <th className="p-2 text-left">Name</th>
-                                                  <th className="p-2 text-left">User ID</th>
-                                                  <th className="p-2 text-left">Invite Code</th>
-                                                </tr>
-                                              </thead>
-                                              <tbody>
-                                                {(u.invitees || []).map((m) => (
-                                                  <tr key={m.id} className="border-t">
-                                                    <td className="p-2">{m.name}</td>
-                                                    <td className="p-2 font-mono">{m.id}</td>
-                                                    <td className="p-2 font-mono text-blue-700">{m.inviteCode}</td>
-                                                  </tr>
-                                                ))}
-                                                {(u.invitees || []).length === 0 && (
-                                                  <tr>
-                                                    <td colSpan={3} className="p-3 text-center text-slate-500">
-                                                      No invitees yet.
-                                                    </td>
-                                                  </tr>
-                                                )}
-                                              </tbody>
-                                            </table>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </td>
-                                  </tr>
+                        return (
+                          <React.Fragment key={u.id}>
+                            <tr className="border-t hover:bg-slate-50">
+                              <td className="p-3">{u.name}</td>
+                              <td className="p-3 font-mono text-xs">{u.id}</td>
+                              <td className="p-3">{u.email}</td>
+                              <td className="p-3">
+                                <button
+                                  type="button"
+                                  onClick={() => copyToClipboard(u.inviteCode)}
+                                  className="font-mono text-blue-600 hover:underline"
+                                  title="Copy invite code"
+                                >
+                                  {u.inviteCode}
+                                </button>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs text-slate-600">{inviteCount}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setExpandedInviteUserId((prev) => (prev === u.id ? null : u.id))}
+                                    className="border px-2 py-1 rounded text-xs hover:bg-white"
+                                  >
+                                    {isExpanded ? "Hide" : "View"}
+                                  </button>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex flex-col text-[10px] font-bold">
+                                  <span className="text-emerald-600">L: {u.leftWithMe ?? 0}</span>
+                                  <span className="text-amber-600">U: {u.usedByMe ?? 0}</span>
+                                </div>
+                              </td>
+                              <td className="p-3">
+                                <select
+                                  value={u.role || "member"}
+                                  onChange={(e) => updateUserRole(u.id, e.target.value)}
+                                  className="border rounded px-2 py-1 text-xs"
+                                >
+                                  <option value="member">member</option>
+                                  <option value="franchise">franchise</option>
+                                </select>
+                              </td>
+                              <td className="p-3 font-mono">{u.activationPin || "-"}</td>
+                              <td className="p-3">
+                                {u.isActivated ? (
+                                  <span className="text-green-600 font-semibold">Active</span>
+                                ) : (
+                                  <span className="text-slate-500">Inactive</span>
                                 )}
-                              </React.Fragment>
-                            );
-                          })
-                        })()}
-                        {users.length === 0 && (
-                          <tr>
-                            <td colSpan={10} className="p-6 text-center text-slate-500">
-                              No members found.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
+                              </td>
+                              <td className="p-3 text-right font-mono">₹{u.balance ?? 0}</td>
+                              <td className="p-3 text-right font-semibold text-green-600 font-mono">₹{u.totalIncome ?? 0}</td>
+                            </tr>
+
+                            {isExpanded && (
+                              <tr className="border-t bg-slate-50/60">
+                                <td colSpan={10} className="p-4">
+                                  <div className="max-w-2xl bg-white border rounded shadow p-3">
+                                    <div className="font-semibold text-sm mb-2">People Invited by {u.name}</div>
+                                    {Array.isArray(u.invitees) && u.invitees.length > 0 ? (
+                                      <div className="space-y-1">
+                                        {u.invitees.map((inv, idx) => (
+                                          <div key={idx} className="flex items-center justify-between text-xs py-1 border-b last:border-0">
+                                            <div>
+                                              <span className="font-medium">{inv.name}</span>
+                                              <span className="ml-2 text-slate-500">({inv.email})</span>
+                                            </div>
+                                            <div className="font-mono text-[10px] text-slate-400">{inv.id}</div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className="text-xs text-slate-500">No invitees found.</div>
+                                    )}
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </React.Fragment>
+                        );
+                      }}
+                    />
                   </div>
                 )}
               </div>
@@ -1532,61 +1545,50 @@ export default function AdminPage() {
                 <div className="flex gap-2 mb-4">
                   <button
                     onClick={() => fetchUsers(adminToken)}
-                    className="border px-4 py-2 rounded"
+                    disabled={loadingUsers}
+                    className="flex items-center gap-2 border px-4 py-2 rounded-lg bg-white hover:bg-slate-50 transition active:scale-95 shadow-sm"
                   >
-                    Refresh
+                    <IconRefresh className={loadingUsers ? "animate-spin text-blue-600" : "text-slate-500"} />
+                    <span className="text-sm font-medium text-slate-700">Refresh Bank Lists</span>
                   </button>
                 </div>
 
                 {loadingUsers ? (
                   <div className="text-sm text-slate-500">Loading members...</div>
                 ) : (
-                  <div className="overflow-auto max-h-[60vh] border rounded">
-                    <table className="min-w-[1200px] w-full text-sm">
-                      <thead className="bg-slate-50 sticky top-0">
-                        <tr>
-                          <th className="p-3 text-left">User</th>
-                          <th className="p-3 text-left">UPI</th>
-                          <th className="p-3 text-left">Account Holder</th>
-                          <th className="p-3 text-left">Bank</th>
-                          <th className="p-3 text-left">Account No</th>
-                          <th className="p-3 text-left">IFSC</th>
-                          <th className="p-3 text-left">Branch</th>
+                  <DataTable
+                    headers={[
+                      { label: "User" },
+                      { label: "UPI" },
+                      { label: "Account Holder" },
+                      { label: "Bank" },
+                      { label: "Account No" },
+                      { label: "IFSC" },
+                      { label: "Branch" }
+                    ]}
+                    data={users}
+                    renderRow={(u) => {
+                      const b = u.bankDetails || {};
+                      return (
+                        <tr key={u.id} className="border-t hover:bg-slate-50">
+                          <td className="p-3">
+                            <div className="font-medium">{u.name}</div>
+                            <div className="text-xs text-slate-500">{u.email}</div>
+                            <div className="text-[11px] text-slate-500 font-mono">{u.id}</div>
+                          </td>
+                          <td className="p-3">
+                            <div className="font-mono text-xs">{u.upiId || "-"}</div>
+                            <div className="text-xs text-slate-500">{u.upiNo || ""}</div>
+                          </td>
+                          <td className="p-3 text-xs">{b.accountHolder || "-"}</td>
+                          <td className="p-3 text-xs">{b.bankName || "-"}</td>
+                          <td className="p-3 font-mono text-xs">{b.accountNo || "-"}</td>
+                          <td className="p-3 font-mono text-xs">{b.ifsc || "-"}</td>
+                          <td className="p-3 text-xs">{b.branchName || "-"}</td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {users.map((u) => {
-                          const b = u.bankDetails || {};
-                          return (
-                            <tr key={u.id} className="border-t hover:bg-slate-50">
-                              <td className="p-3">
-                                <div className="font-medium">{u.name}</div>
-                                <div className="text-xs text-slate-500">{u.email}</div>
-                                <div className="text-[11px] text-slate-500 font-mono">{u.id}</div>
-                              </td>
-                              <td className="p-3">
-                                <div className="font-mono text-xs">{u.upiId || "-"}</div>
-                                <div className="text-xs text-slate-500">{u.upiNo || ""}</div>
-                              </td>
-                              <td className="p-3 text-xs">{b.accountHolder || "-"}</td>
-                              <td className="p-3 text-xs">{b.bankName || "-"}</td>
-                              <td className="p-3 font-mono text-xs">{b.accountNo || "-"}</td>
-                              <td className="p-3 font-mono text-xs">{b.ifsc || "-"}</td>
-                              <td className="p-3 text-xs">{b.branchName || "-"}</td>
-                            </tr>
-                          );
-                        })}
-
-                        {users.length === 0 && (
-                          <tr>
-                            <td colSpan={7} className="p-6 text-center text-slate-500">
-                              No members found.
-                            </td>
-                          </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+                      );
+                    }}
+                  />
                 )}
               </div>
             )}
@@ -1600,215 +1602,205 @@ export default function AdminPage() {
                 </div>
 
                 <div className="flex gap-2 mb-4">
-                  <button onClick={() => fetchKycs(adminToken)} className="border px-4 py-2 rounded">Refresh</button>
+                  <button
+                    onClick={() => fetchKycs(adminToken)}
+                    disabled={loadingKycs}
+                    className="flex items-center gap-2 border px-4 py-2 rounded-lg bg-white hover:bg-slate-50 transition active:scale-95 shadow-sm"
+                  >
+                    <IconRefresh className={loadingKycs ? "animate-spin text-blue-600" : "text-slate-500"} />
+                    <span className="text-sm font-medium text-slate-700">Refresh KYC Records</span>
+                  </button>
                 </div>
 
                 {loadingKycs ? (
                   <div className="text-sm text-slate-500">Loading KYC records...</div>
                 ) : (
-                  <div className="overflow-auto max-h-[70vh] border rounded">
-                    <div className="p-3 bg-slate-50 border-b flex items-center gap-2 min-w-[1200px]">
-                      <input
-                        value={kycSearch}
-                        onChange={(e) => setKycSearch(e.target.value)}
-                        placeholder="Search by Invite Code or PAN..."
-                        className="border rounded px-3 py-1.5 text-sm w-full max-w-sm"
-                      />
-                      {kycSearch && (
-                        <button onClick={() => setKycSearch("")} className="text-xs text-blue-600 hover:underline">Clear</button>
-                      )}
-                    </div>
-                    <table className="min-w-[1200px] w-full text-sm">
-                      <thead className="bg-slate-50 sticky top-0">
-                        <tr>
-                          <th className="p-3 text-left">User</th>
-                          <th className="p-3 text-left">Invite Code</th>
-                          <th className="p-3 text-left">Email</th>
-                          <th className="p-3 text-left">PAN / Aadhaar</th>
-                          <th className="p-3 text-left">Status</th>
-                          <th className="p-3 text-left">Updated</th>
-                          <th className="p-3 text-left">Documents</th>
-                          <th className="p-3 text-right">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {kycs.filter(k => {
-                          const search = kycSearch.toLowerCase().trim();
-                          if (!search) return true;
-                          const ic = (k.user?.inviteCode || "").toLowerCase();
-                          const pan = (k.panNo || "").toLowerCase();
-                          const name = (k.user?.name || "").toLowerCase();
-                          return ic.includes(search) || pan.includes(search) || name.includes(search);
-                        }).map((k) => {
-                          const kycId = k.id || k._id;
-                          const isExpanded = expandedKycId === kycId;
-                          const edit = kycEdits[kycId];
+                  <DataTable
+                    headers={[
+                      { label: "User" },
+                      { label: "Invite Code" },
+                      { label: "Email" },
+                      { label: "PAN / Aadhaar" },
+                      { label: "Status" },
+                      { label: "Updated" },
+                      { label: "Documents" },
+                      { label: "Action", className: "text-right" }
+                    ]}
+                    data={kycs.filter(k => {
+                      const search = kycSearch.toLowerCase().trim();
+                      if (!search) return true;
+                      const ic = (k.user?.inviteCode || "").toLowerCase();
+                      const pan = (k.panNo || "").toLowerCase();
+                      const name = (k.user?.name || "").toLowerCase();
+                      return ic.includes(search) || pan.includes(search) || name.includes(search);
+                    })}
+                    itemsPerPage={15}
+                    emptyMessage="No KYC records found matching your search."
+                    externalPage={kycPage}
+                    onPageChange={setKycPage}
+                    searchComponent={
+                      <div className="flex items-center gap-2">
+                        <input
+                          value={kycSearch}
+                          onChange={(e) => { setKycSearch(e.target.value); setKycPage(1); }}
+                          placeholder="Search by Invite Code or PAN..."
+                          className="border rounded-lg px-3 py-2 text-sm w-full max-w-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                        />
+                        {kycSearch && (
+                          <button onClick={() => { setKycSearch(""); setKycPage(1); }} className="text-xs text-blue-600 hover:underline font-medium">Clear</button>
+                        )}
+                      </div>
+                    }
+                    renderRow={(k) => {
+                      const kycId = k.id || k._id;
+                      const isExpanded = expandedKycId === kycId;
+                      const edit = kycEdits[kycId];
 
-                          return (
-                            <React.Fragment key={kycId}>
-                              <tr className="border-t hover:bg-slate-50">
-                                <td className="p-3">
-                                  <div className="font-medium">{k.user?.name || k.userId}</div>
-                                  <div className="text-[10px] text-slate-500 font-mono">{k.userId}</div>
-                                </td>
-                                <td className="p-3 font-mono text-blue-700">{k.user?.inviteCode || "-"}</td>
-                                <td className="p-3 text-slate-500">{k.user?.email || "-"}</td>
-                                <td className="p-3">
-                                  <div className="text-xs">
-                                    <div><span className="text-slate-400">PAN:</span> {k.panNo || "-"}</div>
-                                    <div><span className="text-slate-400">UID:</span> {k.aadhaarNo || "-"}</div>
-                                  </div>
-                                </td>
-                                <td className="p-3 text-xs">
-                                  {k.status === 'approved' ? (
-                                    <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded-full font-medium">Approved</span>
-                                  ) : k.status === 'rejected' ? (
-                                    <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">Rejected</span>
-                                  ) : (
-                                    <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium">Pending</span>
-                                  )}
-                                </td>
-                                <td className="p-3 text-slate-500">{k.updatedAt ? String(k.updatedAt).slice(0, 19).replace("T", " ") : "-"}</td>
-                                <td className="p-3">
-                                  <div className="flex flex-col gap-1">
-                                    {k.documents &&
-                                      Object.entries(k.documents)
-                                        .filter(([, v]) => v && (typeof v === 'string' ? v : v.filePath))
-                                        .map(([key, v]) => (
-                                          <a
-                                            key={key}
-                                            href={`${API_BASE}${typeof v === 'string' ? v : v.filePath}`}
-                                            target="_blank"
-                                            rel="noreferrer"
-                                            className="text-blue-700 underline text-[11px]"
-                                          >
-                                            {key}
-                                          </a>
-                                        ))}
-                                    {!k.documents && k.filePath && (
+                      return (
+                        <React.Fragment key={kycId}>
+                          <tr className="hover:bg-slate-50/50 transition-colors">
+                            <td className="p-4 border-t">
+                              <div className="font-semibold text-slate-700">{k.user?.name || k.userId}</div>
+                              <div className="text-[10px] text-slate-400 font-mono mt-0.5">{k.userId}</div>
+                            </td>
+                            <td className="p-4 border-t">
+                              <span className="font-mono text-blue-600 bg-blue-50/30 px-2 py-0.5 rounded-md">
+                                {k.user?.inviteCode || "-"}
+                              </span>
+                            </td>
+                            <td className="p-4 border-t text-slate-500">{k.user?.email || "-"}</td>
+                            <td className="p-4 border-t">
+                              <div className="text-xs space-y-1 text-slate-600">
+                                <div className="flex items-center gap-2"><span className="text-slate-400 font-medium">PAN:</span> <span className="font-mono">{k.panNo || "-"}</span></div>
+                                <div className="flex items-center gap-2"><span className="text-slate-400 font-medium">UID:</span> <span className="font-mono">{k.aadhaarNo || "-"}</span></div>
+                              </div>
+                            </td>
+                            <td className="p-4 border-t">
+                              {k.status === 'approved' ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                                  Approved
+                                </span>
+                              ) : k.status === 'rejected' ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                  Rejected
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                  Pending
+                                </span>
+                              )}
+                            </td>
+                            <td className="p-4 border-t text-slate-400 text-xs">{k.updatedAt ? String(k.updatedAt).slice(0, 10) : "-"}</td>
+                            <td className="p-4 border-t">
+                              <div className="flex flex-wrap gap-2">
+                                {k.documents &&
+                                  Object.entries(k.documents)
+                                    .filter(([, v]) => v && (typeof v === 'string' ? v : v.filePath))
+                                    .map(([key, v]) => (
                                       <a
-                                        href={`${API_BASE}${k.filePath}`}
+                                        key={key}
+                                        href={`${config.apiUrl}${typeof v === 'string' ? v : v.filePath}`}
                                         target="_blank"
                                         rel="noreferrer"
-                                        className="text-blue-700 underline text-[11px]"
+                                        className="inline-flex items-center px-2 py-1 rounded bg-slate-100 text-blue-600 hover:bg-blue-50 text-[10px] font-bold uppercase transition-colors"
                                       >
-                                        document
+                                        {key}
                                       </a>
-                                    )}
-                                  </div>
-                                </td>
-                                <td className="p-3 text-right">
-                                  <button
-                                    onClick={() => openKycEditor(k)}
-                                    className="text-xs bg-slate-100 hover:bg-slate-200 border rounded px-3 py-1.5 transition-colors"
-                                  >
-                                    {isExpanded ? "Close" : "Edit"}
-                                  </button>
-                                </td>
-                              </tr>
-
-                              {isExpanded && edit && (
-                                <tr className="border-t bg-slate-50/50">
-                                  <td colSpan={8} className="p-4">
-                                    <div className="bg-white border rounded shadow-sm p-4 max-w-4xl">
-                                      <div className="flex items-center justify-between mb-4">
-                                        <h3 className="font-semibold text-sm">Update KYC Information</h3>
-                                        <div className="flex gap-2">
-                                          <button
-                                            onClick={() => setExpandedKycId(null)}
-                                            className="text-xs border px-3 py-1.5 rounded"
-                                          >
-                                            Cancel
-                                          </button>
-                                          <button
-                                            onClick={() => saveKycDetails(kycId)}
-                                            disabled={savingKycId === kycId}
-                                            className="text-xs bg-blue-600 text-white px-4 py-1.5 rounded disabled:opacity-60"
-                                          >
-                                            {savingKycId === kycId ? "Saving..." : "Save Details"}
-                                          </button>
-                                        </div>
-                                      </div>
-
-                                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                        <div>
-                                          <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">PAN Number</label>
-                                          <input
-                                            value={edit.panNo}
-                                            onChange={(e) => updateKycEdit(kycId, "panNo", e.target.value.toUpperCase())}
-                                            className="w-full border rounded px-3 py-2 text-sm"
-                                            placeholder="ABCDE1234F"
-                                          />
-                                        </div>
-                                        <div>
-                                          <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Aadhaar Number</label>
-                                          <input
-                                            value={edit.aadhaarNo}
-                                            onChange={(e) => updateKycEdit(kycId, "aadhaarNo", e.target.value)}
-                                            className="w-full border rounded px-3 py-2 text-sm"
-                                            placeholder="12-digit number"
-                                          />
-                                        </div>
-                                        <div>
-                                          <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Status</label>
-                                          <select
-                                            value={edit.status}
-                                            onChange={(e) => updateKycEdit(kycId, "status", e.target.value)}
-                                            className="w-full border rounded px-3 py-2 text-sm"
-                                          >
-                                            <option value="pending">Pending</option>
-                                            <option value="approved">Approved</option>
-                                            <option value="rejected">Rejected</option>
-                                          </select>
-                                        </div>
-                                        <div className="md:col-span-2">
-                                          <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Address (as per Aadhaar)</label>
-                                          <input
-                                            value={edit.aadhaarAddress}
-                                            onChange={(e) => updateKycEdit(kycId, "aadhaarAddress", e.target.value)}
-                                            className="w-full border rounded px-3 py-2 text-sm"
-                                          />
-                                        </div>
-                                        <div>
-                                          <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Issued State</label>
-                                          <input
-                                            value={edit.issuedState}
-                                            onChange={(e) => updateKycEdit(kycId, "issuedState", e.target.value)}
-                                            className="w-full border rounded px-3 py-2 text-sm"
-                                          />
-                                        </div>
-                                        <div className="md:col-span-3">
-                                          <label className="block text-[10px] text-slate-500 uppercase font-bold mb-1">Remarks / Rejection Reason</label>
-                                          <textarea
-                                            value={edit.remarks}
-                                            onChange={(e) => updateKycEdit(kycId, "remarks", e.target.value)}
-                                            className="w-full border rounded px-3 py-2 text-sm h-16"
-                                            placeholder="Notes for the user..."
-                                          />
-                                        </div>
-                                      </div>
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-                            </React.Fragment>
-                          );
-                        })}
-                        {kycs.length === 0 && (
-                          <tr>
-                            <td colSpan={5} className="p-6 text-center text-slate-500">
-                              No KYC records found.
+                                    ))}
+                              </div>
+                            </td>
+                            <td className="p-4 border-t text-right">
+                              <button
+                                onClick={() => openKycEditor(k)}
+                                className="inline-flex items-center px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-all shadow-sm"
+                              >
+                                {isExpanded ? "Close" : "Review"}
+                              </button>
                             </td>
                           </tr>
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
+
+                          {isExpanded && edit && (
+                            <tr className="bg-slate-50/50">
+                              <td colSpan={8} className="p-6">
+                                <div className="bg-white border border-slate-200 rounded-xl shadow-lg p-6 max-w-4xl mx-auto text-left">
+                                  <div className="flex items-center justify-between mb-6">
+                                    <h3 className="font-bold text-slate-800">KYC Verification Details</h3>
+                                    <button
+                                      onClick={() => setExpandedKycId(null)}
+                                      className="p-1 text-slate-400 hover:text-slate-600 transition-colors"
+                                    >
+                                      <IconClose />
+                                    </button>
+                                  </div>
+
+                                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    <div className="space-y-4">
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Verification Status</label>
+                                        <select
+                                          value={edit.status}
+                                          onChange={(e) => updateKycEdit(kycId, "status", e.target.value)}
+                                          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                        >
+                                          <option value="pending">Mark as Pending</option>
+                                          <option value="approved">Approve KYC</option>
+                                          <option value="rejected">Reject KYC</option>
+                                        </select>
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">PAN Number</label>
+                                        <input
+                                          value={edit.panNo}
+                                          onChange={(e) => updateKycEdit(kycId, "panNo", e.target.value.toUpperCase())}
+                                          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                                          placeholder="ABCDE1234F"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="space-y-4">
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Aadhaar Number</label>
+                                        <input
+                                          value={edit.aadhaarNo}
+                                          onChange={(e) => updateKycEdit(kycId, "aadhaarNo", e.target.value)}
+                                          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none font-mono"
+                                          placeholder="0000 0000 0000"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Admin Remarks</label>
+                                        <input
+                                          value={edit.rejectReason || edit.remarks || ""}
+                                          onChange={(e) => updateKycEdit(kycId, "remarks", e.target.value)}
+                                          placeholder="Internal notes or rejection reason..."
+                                          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                        />
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-end pb-1">
+                                      <button
+                                        onClick={() => saveKycDetails(kycId)}
+                                        disabled={savingKycId === kycId}
+                                        className="w-full bg-blue-600 text-white rounded-lg px-6 py-2.5 text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition-all shadow-md shadow-blue-200 flex items-center justify-center gap-2"
+                                      >
+                                        {savingKycId === kycId ? "Processing..." : "Update Verification"}
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    }}
+                  />
                 )}
-              </div>
+              </div >
             )}
 
-            {/* Member Management page */}
             {currentPage === "member-mgmt" && (
               <div className="p-6 max-w-6xl mx-auto">
                 <div className="flex items-center justify-between mb-4">
@@ -1989,10 +1981,18 @@ export default function AdminPage() {
                               <option value="franchise">Franchise</option>
                             </select>
                           </div>
-                          <div className="col-span-2">
-                            <label className="block text-xs font-medium text-slate-500 mb-1">E-Pins Left</label>
-                            <div className="w-full border rounded-lg px-3 py-2 text-sm bg-slate-50 font-bold text-blue-600">
-                              {mgmtUser.epinCount ?? 0}
+                          <div className="col-span-2 grid grid-cols-2 gap-4">
+                            <div>
+                              <label className="block text-xs font-medium text-slate-500 mb-1">Pins Left</label>
+                              <div className="w-full border rounded-lg px-3 py-2 text-sm bg-emerald-50 font-bold text-emerald-600">
+                                {mgmtUser.leftWithMe ?? 0}
+                              </div>
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-slate-500 mb-1">Pins Used</label>
+                              <div className="w-full border rounded-lg px-3 py-2 text-sm bg-amber-50 font-bold text-amber-600">
+                                {mgmtUser.usedByMe ?? 0}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -2097,380 +2097,305 @@ export default function AdminPage() {
               </div>
             )}
 
-            {/* Withdrawals page */}
             {currentPage === "withdrawals" && (
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-lg font-semibold">Withdrawal Requests</h2>
-                  <div className="flex gap-2">
-                    <select
-                      value={withdrawalFilter}
-                      onChange={(e) => { setWithdrawalFilter(e.target.value); setWithdrawalPage(1); }}
-                      className="border rounded px-2 py-1 text-sm bg-white"
-                    >
-                      <option value="all">All Status</option>
-                      <option value="pending">Pending</option>
-                      <option value="approved">Approved</option>
-                      <option value="rejected">Rejected</option>
-                    </select>
-                    <button onClick={() => fetchWithdrawals(adminToken)} className="border px-3 py-1 rounded text-sm bg-white hover:bg-slate-50">Refresh</button>
-                  </div>
-                </div>
-
-                {loadingWithdrawals ? (
-                  <div className="text-sm text-slate-500">Loading withdrawals...</div>
-                ) : (
-                  <div className="overflow-x-auto border rounded bg-white">
-                    <table className="min-w-[1200px] w-full text-sm">
-                      <thead className="bg-slate-50 sticky top-0 z-10">
-                        <tr>
-                          <th className="p-3 text-left">ID</th>
-                          <th className="p-3 text-left">User</th>
-                          <th className="p-3 text-left">UPI</th>
-                          <th className="p-3 text-left">Bank</th>
-                          <th className="p-3 text-right">Amount</th>
-                          <th className="p-3 text-left">Status</th>
-                          <th className="p-3 text-left">Requested</th>
-                          <th className="p-3 text-right">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {(() => {
-                          // Client-side Sorting & Filtering
-                          let filtered = [...withdrawals];
-
-                          // 1. Sort by Date (Latest First)
-                          filtered.sort((a, b) => {
-                            const da = new Date(a.createdAt || 0).getTime();
-                            const db = new Date(b.createdAt || 0).getTime();
-                            return db - da; // Descending
-                          });
-
-                          // 2. Filter
-                          if (withdrawalFilter !== "all") {
-                            filtered = filtered.filter(w => w.status === withdrawalFilter);
-                          }
-
-                          // 3. Pagination & Consts
-                          const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-                          const startIndex = (withdrawalPage - 1) * ITEMS_PER_PAGE;
-                          const currentItems = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-
-                          if (currentItems.length === 0) {
-                            return (
-                              <tr>
-                                <td colSpan={8} className="p-8 text-center text-slate-500">
-                                  No requests found.
-                                </td>
-                              </tr>
-                            );
-                          }
-
-                          return (
-                            <>
-                              {currentItems.map((w) => {
-                                const bank = w.user?.bankDetails;
-                                const bankLine = bank?.accountNo
-                                  ? `${bank.bankName || ""} • ${bank.accountNo}`
-                                  : "-";
-                                const upiLine = w.upiId || w.user?.upiId || "-";
-                                const upiNoLine = w.upiNo || w.user?.upiNo || "";
-                                const userId = w.user?.id || w.userId;
-                                const isPaymentOpen = !!userId && expandedPaymentUserId === userId;
-                                const edit = userId ? paymentEdits[userId] : null;
-
-                                return (
-                                  <React.Fragment key={w._id || w.id || w.withdrawalId}>
-                                    <tr className="border-t hover:bg-slate-50 text-slate-700">
-                                      <td className="p-3 font-mono text-[10px] text-slate-500">{w.withdrawalId || "-"}</td>
-                                      <td className="p-3">
-                                        <div className="font-medium">{w.user?.name || "-"}</div>
-                                        <div className="text-xs text-slate-500">{w.user?.email || ""}</div>
-                                        {w.user?.balance !== undefined ? (
-                                          <div className="text-[11px] text-slate-500">
-                                            Balance: <span className="font-mono">₹{w.user.balance}</span>
-                                          </div>
-                                        ) : null}
-                                      </td>
-                                      <td className="p-3">
-                                        <div className="font-mono">{upiLine}</div>
-                                        <div className="text-xs text-slate-500">{upiNoLine}</div>
-                                      </td>
-                                      <td className="p-3">
-                                        <div className="space-y-0.5 text-xs">
-                                          <div>
-                                            <span className="text-slate-500">Holder:</span>{" "}
-                                            {bank?.accountHolder || "-"}
-                                          </div>
-                                          <div>
-                                            <span className="text-slate-500">Bank:</span>{" "}
-                                            {bank?.bankName || "-"}
-                                          </div>
-                                          <div className="font-mono text-[11px]">
-                                            <span className="text-slate-500 font-sans">A/c:</span>{" "}
-                                            {bank?.accountNo || "-"}
-                                          </div>
-                                          <div className="font-mono text-[11px]">
-                                            <span className="text-slate-500 font-sans">IFSC:</span>{" "}
-                                            {bank?.ifsc || "-"}
-                                          </div>
-                                          <div>
-                                            <span className="text-slate-500">Branch:</span>{" "}
-                                            {bank?.branchName || "-"}
-                                          </div>
-                                        </div>
-
-                                        {w.user?.id ? (
-                                          <button
-                                            type="button"
-                                            onClick={() => openPaymentEditor(w.user)}
-                                            className="mt-2 inline-flex items-center gap-2 text-xs border px-2 py-1 rounded hover:bg-white"
-                                          >
-                                            {isPaymentOpen ? "Close" : "Edit"} Bank/UPI
-                                          </button>
-                                        ) : null}
-                                      </td>
-                                      <td className="p-3 text-right">
-                                        <div className="font-semibold">{w.amount}</div>
-                                        {w.isFirstAfterThreshold && w.upgradeIncome > 0 && (
-                                          <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 border border-amber-200 text-amber-800 text-[10px] font-bold">
-                                            ↑ L{w.upgradeLevel}: ₹{Number(w.upgradeIncome).toLocaleString()} Upgrade
-                                          </div>
-                                        )}
-                                      </td>
-                                      <td className="p-3">
-                                        {w.status === "pending" ? (
-                                          <span className="text-amber-700 font-semibold">pending</span>
-                                        ) : w.status === "approved" ? (
-                                          <span className="text-emerald-700 font-semibold">approved</span>
-                                        ) : (
-                                          <span className="text-red-700 font-semibold">rejected</span>
-                                        )}
-                                      </td>
-                                      <td className="p-3 text-xs text-slate-500">
-                                        {w.createdAt ? new Date(w.createdAt).toLocaleDateString() : "-"}
-                                      </td>
-                                      <td className="p-3 text-right">
-                                        {w.status === "pending" && (
-                                          <div className="flex flex-col gap-2 items-end">
-                                            <button
-                                              onClick={() => approveWithdrawal(w._id || w.id)}
-                                              disabled={!!approvingWithdrawalId}
-                                              className="bg-green-600 text-white px-3 py-1 rounded text-xs hover:bg-green-700 w-24"
-                                            >
-                                              Approve
-                                            </button>
-                                            <button
-                                              onClick={() => rejectWithdrawal(w._id || w.id)}
-                                              disabled={!!approvingWithdrawalId}
-                                              className="bg-red-600 text-white px-3 py-1 rounded text-xs hover:bg-red-700 w-24"
-                                            >
-                                              Reject
-                                            </button>
-                                          </div>
-                                        )}
-                                        {w.status !== "pending" && (
-                                          <div className="text-xs text-slate-400 italic">
-                                            {w.status}
-                                          </div>
-                                        )}
-                                      </td>
-                                    </tr>
-
-                                    {isPaymentOpen && edit && (
-                                      <tr className="border-t bg-slate-50/60">
-                                        <td colSpan={8} className="p-4">
-                                          <div className="max-w-3xl mx-auto bg-white border rounded shadow p-4">
-                                            <div className="font-semibold text-sm mb-3">Edit Payment Details for {w.user?.name}</div>
-                                            <div className="grid grid-cols-2 gap-4 text-xs">
-                                              <div>
-                                                <label className="block text-slate-500 mb-1">UPI ID</label>
-                                                <input
-                                                  value={edit.upiId || ""}
-                                                  onChange={(e) => updatePaymentEdit(userId, "upiId", e.target.value)}
-                                                  className="border w-full p-2 rounded"
-                                                />
-                                              </div>
-                                              <div>
-                                                <label className="block text-slate-500 mb-1">UPI Mobile</label>
-                                                <input
-                                                  value={edit.upiNo || ""}
-                                                  onChange={(e) => updatePaymentEdit(userId, "upiNo", e.target.value)}
-                                                  className="border w-full p-2 rounded"
-                                                />
-                                              </div>
-                                            </div>
-                                            <div className="mt-3 pt-3 border-t grid grid-cols-2 md:grid-cols-3 gap-4 text-xs">
-                                              <div>
-                                                <label className="block text-slate-500 mb-1">Holder Name</label>
-                                                <input
-                                                  value={edit.bankDetails?.accountHolder || ""}
-                                                  onChange={(e) => updatePaymentEdit(userId, "bankDetails.accountHolder", e.target.value)}
-                                                  className="border w-full p-2 rounded"
-                                                />
-                                              </div>
-                                              <div>
-                                                <label className="block text-slate-500 mb-1">Bank Name</label>
-                                                <input
-                                                  value={edit.bankDetails?.bankName || ""}
-                                                  onChange={(e) => updatePaymentEdit(userId, "bankDetails.bankName", e.target.value)}
-                                                  className="border w-full p-2 rounded"
-                                                />
-                                              </div>
-                                              <div>
-                                                <label className="block text-slate-500 mb-1">Account No</label>
-                                                <input
-                                                  value={edit.bankDetails?.accountNo || ""}
-                                                  onChange={(e) => updatePaymentEdit(userId, "bankDetails.accountNo", e.target.value)}
-                                                  className="border w-full p-2 rounded"
-                                                />
-                                              </div>
-                                              <div>
-                                                <label className="block text-slate-500 mb-1">IFSC</label>
-                                                <input
-                                                  value={edit.bankDetails?.ifsc || ""}
-                                                  onChange={(e) => updatePaymentEdit(userId, "bankDetails.ifsc", e.target.value)}
-                                                  className="border w-full p-2 rounded"
-                                                />
-                                              </div>
-                                              <div>
-                                                <label className="block text-slate-500 mb-1">Branch</label>
-                                                <input
-                                                  value={edit.bankDetails?.branchName || ""}
-                                                  onChange={(e) => updatePaymentEdit(userId, "bankDetails.branchName", e.target.value)}
-                                                  className="border w-full p-2 rounded"
-                                                />
-                                              </div>
-                                            </div>
-                                            <div className="mt-4 flex justify-end gap-2">
-                                              <button
-                                                onClick={() => savePaymentDetails(userId)}
-                                                disabled={savingPaymentUserId === userId}
-                                                className="bg-blue-600 text-white px-3 py-1.5 rounded text-xs disabled:opacity-50"
-                                              >
-                                                {savingPaymentUserId === userId ? "Saving..." : "Save Details"}
-                                              </button>
-                                            </div>
-                                          </div>
-                                        </td>
-                                      </tr>
-                                    )}
-                                  </React.Fragment>
-                                );
-                              })}
-
-                              {/* Pagination Controls Row */}
-                              {totalPages > 1 && (
-                                <tr>
-                                  <td colSpan={8} className="p-4 bg-slate-50 border-t">
-                                    <div className="flex items-center justify-between">
-                                      <div className="text-xs text-slate-500">
-                                        Showing {startIndex + 1}-{Math.min(startIndex + ITEMS_PER_PAGE, filtered.length)} of {filtered.length}
-                                      </div>
-                                      <div className="flex items-center gap-2">
-                                        <button
-                                          onClick={() => setWithdrawalPage(p => Math.max(1, p - 1))}
-                                          disabled={withdrawalPage === 1}
-                                          className="px-3 py-1 border rounded text-xs bg-white hover:bg-slate-50 disabled:opacity-50"
-                                        >
-                                          Previous
-                                        </button>
-                                        <span className="text-xs font-semibold px-2">Page {withdrawalPage} of {totalPages}</span>
-                                        <button
-                                          onClick={() => setWithdrawalPage(p => Math.min(totalPages, p + 1))}
-                                          disabled={withdrawalPage === totalPages}
-                                          className="px-3 py-1 border rounded text-xs bg-white hover:bg-slate-50 disabled:opacity-50"
-                                        >
-                                          Next
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </td>
-                                </tr>
-                              )}
-                            </>
-                          );
-                        })()}
-                      </tbody>
-                    </table >
-                  </div >
-                )
-                }
-              </div >
-            )}
-
-            {/* Rewards page */}
-            {
-              currentPage === "rewards" && (
-                <div>
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-xl font-bold text-slate-800">Reward Completions</h2>
+              <DataTable
+                headers={[
+                  { label: "ID" },
+                  { label: "User" },
+                  { label: "UPI" },
+                  { label: "Bank" },
+                  { label: "Amount", className: "text-right" },
+                  { label: "Status" },
+                  { label: "Requested" },
+                  { label: "Action", className: "text-right" }
+                ]}
+                data={(() => {
+                  let filtered = [...withdrawals];
+                  filtered.sort((a, b) => {
+                    const da = new Date(a.createdAt || 0).getTime();
+                    const db = new Date(b.createdAt || 0).getTime();
+                    return db - da;
+                  });
+                  if (withdrawalFilter !== "all") {
+                    filtered = filtered.filter(w => w.status === withdrawalFilter);
+                  }
+                  return filtered;
+                })()}
+                itemsPerPage={10}
+                emptyMessage="No withdrawal requests found."
+                externalPage={withdrawalPage}
+                onPageChange={setWithdrawalPage}
+                searchComponent={
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-medium text-slate-500">Filter Status:</span>
+                      <select
+                        value={withdrawalFilter}
+                        onChange={(e) => { setWithdrawalFilter(e.target.value); setWithdrawalPage(1); }}
+                        className="border rounded-lg px-3 py-1.5 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                      >
+                        <option value="all">All Status</option>
+                        <option value="pending">Pending Only</option>
+                        <option value="approved">Approved Only</option>
+                        <option value="rejected">Rejected Only</option>
+                      </select>
+                    </div>
                     <button
-                      onClick={() => fetchPendingRewards(adminToken)}
-                      className="bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition active:scale-90"
+                      onClick={() => fetchWithdrawals(adminToken)}
+                      disabled={loadingWithdrawals}
+                      className="inline-flex items-center gap-2 px-3 py-1.5 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 transition-all active:scale-95 shadow-sm"
                     >
-                      <IconRefresh className={loadingRewards ? "animate-spin" : ""} />
+                      <IconRefresh className={loadingWithdrawals ? "animate-spin text-blue-600" : "text-slate-500"} />
+                      Refresh Data
                     </button>
                   </div>
+                }
+                renderRow={(w) => {
+                  const bank = w.user?.bankDetails;
+                  const upiLine = w.upiId || w.user?.upiId || "-";
+                  const upiNoLine = w.upiNo || w.user?.upiNo || "";
+                  const userId = w.user?.id || w.userId;
+                  const isPaymentOpen = !!userId && expandedPaymentUserId === userId;
+                  const edit = userId ? paymentEdits[userId] : null;
 
-                  {loadingRewards ? (
-                    <div className="p-10 text-center text-slate-500">
-                      <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
-                      Loading pending rewards...
-                    </div>
-                  ) : (
-                    <div className="bg-white border rounded-2xl shadow-sm overflow-hidden">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-slate-50 border-b">
-                            <th className="p-4 text-left font-semibold">User</th>
-                            <th className="p-4 text-left font-semibold">Invite Code</th>
-                            <th className="p-4 text-left font-semibold">Level Reached</th>
-                            <th className="p-4 text-left font-semibold">Completed On</th>
-                            <th className="p-4 text-right font-semibold">Actions</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {pendingRewards.map((r, idx) => (
-                            <tr key={`${r.userId}-${r.level}`} className="border-b hover:bg-slate-50 transition">
-                              <td className="p-4">
-                                <div className="font-semibold text-slate-800">{r.name}</div>
-                                <div className="text-xs text-slate-500">{r.email}</div>
-                              </td>
-                              <td className="p-4 font-mono text-xs">{r.inviteCode}</td>
-                              <td className="p-4">
-                                <span className="inline-flex items-center px-2 py-0.5 rounded bg-yellow-100 text-yellow-800 text-xs font-bold">
-                                  LEVEL {r.level}
-                                </span>
-                              </td>
-                              <td className="p-4 text-slate-600 text-xs">
-                                {r.completedAt ? new Date(r.completedAt).toLocaleString() : "-"}
-                              </td>
-                              <td className="p-4 text-right">
-                                <button
-                                  onClick={() => processReward(r.userId, r.level)}
-                                  disabled={processingRewardId === `${r.userId}-${r.level}`}
-                                  className="bg-blue-600 text-white px-4 py-1.5 rounded-lg text-xs font-semibold shadow-md hover:bg-blue-700 transition disabled:opacity-50"
-                                >
-                                  {processingRewardId === `${r.userId}-${r.level}` ? "Wait..." : "Mark as Given"}
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
-                          {pendingRewards.length === 0 && (
-                            <tr>
-                              <td colSpan={5} className="p-10 text-center text-slate-500 font-medium">
-                                No pending rewards found. All rewards are up to date!
-                              </td>
-                            </tr>
+                  return (
+                    <React.Fragment key={w._id || w.id || w.withdrawalId}>
+                      <tr className="hover:bg-slate-50/50 transition-colors">
+                        <td className="p-4 font-mono text-[10px] text-slate-400">{w.withdrawalId || "-"}</td>
+                        <td className="p-4">
+                          <div className="font-semibold text-slate-700">{w.user?.name || "-"}</div>
+                          <div className="text-xs text-slate-500">{w.user?.email || ""}</div>
+                          {w.user?.balance !== undefined && (
+                            <div className="text-[10px] text-slate-400 mt-1">
+                              Bal: <span className="font-mono font-bold text-slate-600">₹{w.user.balance}</span>
+                            </div>
                           )}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
+                        </td>
+                        <td className="p-4">
+                          <div className="font-mono text-xs text-blue-600">{upiLine}</div>
+                          <div className="text-xs text-slate-400">{upiNoLine}</div>
+                        </td>
+                        <td className="p-4">
+                          <div className="space-y-1 text-[11px] text-slate-600">
+                            <div className="flex justify-between gap-4"><span className="text-slate-400">Holder:</span> <span className="font-medium text-slate-700">{bank?.accountHolder || "-"}</span></div>
+                            <div className="flex justify-between gap-4"><span className="text-slate-400">Bank:</span> <span className="font-medium">{bank?.bankName || "-"}</span></div>
+                            <div className="flex justify-between gap-4"><span className="text-slate-400">A/c:</span> <span className="font-mono text-slate-700">{bank?.accountNo || "-"}</span></div>
+                            <div className="flex justify-between gap-4"><span className="text-slate-400">IFSC:</span> <span className="font-mono">{bank?.ifsc || "-"}</span></div>
+                          </div>
+                          {w.user?.id && (
+                            <button
+                              type="button"
+                              onClick={() => openPaymentEditor(w.user)}
+                              className="mt-2 text-[10px] font-bold text-blue-600 hover:text-blue-800 uppercase tracking-wider"
+                            >
+                              {isPaymentOpen ? "Close Editor" : "Edit Details"}
+                            </button>
+                          )}
+                        </td>
+                        <td className="p-4 text-right">
+                          <div className="text-base font-bold text-slate-800 font-mono">₹{w.amount}</div>
+                          {w.isFirstAfterThreshold && w.upgradeIncome > 0 && (
+                            <div className="mt-1 inline-flex items-center px-1.5 py-0.5 rounded bg-amber-50 border border-amber-100 text-amber-600 text-[9px] font-bold uppercase tracking-tight">
+                              Upgrade: ₹{w.upgradeIncome}
+                            </div>
+                          )}
+                        </td>
+                        <td className="p-4">
+                          {w.status === "pending" ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-700">Pending</span>
+                          ) : w.status === "approved" ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-green-100 text-green-700">Approved</span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700">Rejected</span>
+                          )}
+                        </td>
+                        <td className="p-4 text-xs text-slate-400">
+                          {w.createdAt ? new Date(w.createdAt).toLocaleDateString() : "-"}
+                        </td>
+                        <td className="p-4 text-right">
+                          {w.status === "pending" ? (
+                            <div className="flex flex-col gap-2 items-end">
+                              <button
+                                onClick={() => approveWithdrawal(w._id || w.id)}
+                                disabled={!!approvingWithdrawalId}
+                                className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-green-700 transition shadow-sm w-20"
+                              >
+                                Approve
+                              </button>
+                              <button
+                                onClick={() => rejectWithdrawal(w._id || w.id)}
+                                disabled={!!approvingWithdrawalId}
+                                className="bg-red-50 text-red-600 border border-red-100 px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-red-100 transition w-20"
+                              >
+                                Reject
+                              </button>
+                            </div>
+                          ) : (
+                            <span className="text-[10px] font-bold uppercase text-slate-400 italic">
+                              {w.status}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+
+                      {isPaymentOpen && edit && (
+                        <tr className="bg-slate-50/50">
+                          <td colSpan={8} className="p-6">
+                            <div className="max-w-3xl mx-auto bg-white border border-slate-100 rounded-xl shadow-lg p-6 text-left">
+                              <div className="flex items-center justify-between mb-4">
+                                <h4 className="font-bold text-slate-800">Edit Payment Details: {w.user?.name}</h4>
+                                <button onClick={() => setExpandedPaymentUserId(null)} className="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div>
+                                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">UPI ID</label>
+                                  <input
+                                    value={edit.upiId || ""}
+                                    onChange={(e) => updatePaymentEdit(userId, "upiId", e.target.value)}
+                                    className="w-full border rounded-lg p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">UPI Mobile</label>
+                                  <input
+                                    value={edit.upiNo || ""}
+                                    onChange={(e) => updatePaymentEdit(userId, "upiNo", e.target.value)}
+                                    className="w-full border rounded-lg p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                                  />
+                                </div>
+                                <div className="col-span-2 border-t pt-4 mt-2 grid grid-cols-2 md:grid-cols-3 gap-4">
+                                  <div className="md:col-span-2">
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Account Holder</label>
+                                    <input
+                                      value={edit.bankDetails?.accountHolder || ""}
+                                      onChange={(e) => updatePaymentEdit(userId, "bankDetails.accountHolder", e.target.value)}
+                                      className="w-full border rounded-lg p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Bank Name</label>
+                                    <input
+                                      value={edit.bankDetails?.bankName || ""}
+                                      onChange={(e) => updatePaymentEdit(userId, "bankDetails.bankName", e.target.value)}
+                                      className="w-full border rounded-lg p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Account No</label>
+                                    <input
+                                      value={edit.bankDetails?.accountNo || ""}
+                                      onChange={(e) => updatePaymentEdit(userId, "bankDetails.accountNo", e.target.value)}
+                                      className="w-full border rounded-lg p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">IFSC</label>
+                                    <input
+                                      value={edit.bankDetails?.ifsc || ""}
+                                      onChange={(e) => updatePaymentEdit(userId, "bankDetails.ifsc", e.target.value)}
+                                      className="w-full border rounded-lg p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Branch</label>
+                                    <input
+                                      value={edit.bankDetails?.branchName || ""}
+                                      onChange={(e) => updatePaymentEdit(userId, "bankDetails.branchName", e.target.value)}
+                                      className="w-full border rounded-lg p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                              <div className="mt-6 flex justify-end">
+                                <button
+                                  onClick={() => savePaymentDetails(userId)}
+                                  disabled={savingPaymentUserId === userId}
+                                  className="bg-blue-600 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all disabled:opacity-50"
+                                >
+                                  {savingPaymentUserId === userId ? "Saving Details..." : "Save Payment Details"}
+                                </button>
+                              </div>
+                            </div>
+                          </td>
+                        </tr>
+                      )}
+                    </React.Fragment>
+                  );
+                }}
+              />
+            )}
+
+            {currentPage === "rewards" && (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-slate-800">Reward Completions</h2>
+                  <button
+                    onClick={() => fetchPendingRewards(adminToken)}
+                    className="bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition active:scale-90"
+                  >
+                    <IconRefresh className={loadingRewards ? "animate-spin" : ""} />
+                  </button>
                 </div>
-              )
-            }
+
+                {loadingRewards ? (
+                  <div className="p-10 text-center text-slate-500">
+                    <div className="animate-spin h-8 w-8 border-4 border-blue-600 border-t-transparent rounded-full mx-auto mb-4"></div>
+                    Loading pending rewards...
+                  </div>
+                ) : (
+                  <DataTable
+                    headers={[
+                      { label: "User" },
+                      { label: "Invite Code" },
+                      { label: "Level Reached" },
+                      { label: "Completed On" },
+                      { label: "Actions", className: "text-right" }
+                    ]}
+                    data={pendingRewards}
+                    itemsPerPage={10}
+                    emptyMessage="No pending rewards found. All rewards are up to date!"
+                    searchComponent={
+                      <div className="flex items-center justify-between gap-4">
+                        <div className="text-xs text-slate-500">Track and manage user level achievement rewards</div>
+                        <button
+                          onClick={() => fetchPendingRewards(adminToken)}
+                          className="p-2 text-slate-500 hover:text-blue-600 bg-white border border-slate-200 rounded-lg transition-all shadow-sm hover:shadow"
+                          title="Refresh Rewards"
+                        >
+                          <IconRefresh className={loadingRewards ? "animate-spin" : ""} />
+                        </button>
+                      </div>
+                    }
+                    renderRow={(r) => (
+                      <tr key={`${r.userId}-${r.level}`} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="p-4 border-t">
+                          <div className="font-bold text-slate-800">{r.name}</div>
+                          <div className="text-[10px] text-slate-400 font-medium">{r.email}</div>
+                        </td>
+                        <td className="p-4 border-t font-mono text-xs text-blue-600">{r.inviteCode}</td>
+                        <td className="p-4 border-t">
+                          <span className="inline-flex items-center px-3 py-1 rounded-full bg-yellow-100 text-yellow-800 text-[10px] font-bold uppercase tracking-wider border border-yellow-200 shadow-sm">
+                            LEVEL {r.level} Achieved
+                          </span>
+                        </td>
+                        <td className="p-4 border-t text-slate-500 text-xs font-medium">
+                          {r.completedAt ? new Date(r.completedAt).toLocaleString() : "-"}
+                        </td>
+                        <td className="p-4 border-t text-right">
+                          <button
+                            onClick={() => processReward(r.userId, r.level)}
+                            disabled={processingRewardId === `${r.userId}-${r.level}`}
+                            className="bg-blue-600 text-white px-5 py-2 rounded-xl text-xs font-bold shadow-md shadow-blue-200 hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
+                          >
+                            {processingRewardId === `${r.userId}-${r.level}` ? "Verifying..." : "Mark as Given"}
+                          </button>
+                        </td>
+                      </tr>
+                    )}
+                  />
+                )}
+              </div>
+            )}
 
 
             {/* Marriage Fund Page */}
@@ -2627,57 +2552,158 @@ export default function AdminPage() {
             {
               currentPage === "epin" && (
                 <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-lg font-semibold">E-Pin Management</h2>
-                    <div className="text-xs text-slate-500">Pool pins available: {epins.length}</div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-slate-800">E-Pin Management</h2>
+                    <button
+                      onClick={() => { fetchEpins(adminToken); fetchEpinStats(adminToken); fetchEpinHistory(adminToken); }}
+                      className="bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition active:scale-90"
+                      title="Refresh All E-Pin Data"
+                    >
+                      <IconRefresh className={(creatingEpin || transferringEpins) ? "animate-spin" : ""} />
+                    </button>
                   </div>
 
-                  <div className="flex gap-2 mb-4">
-                    <button onClick={createEpin} className="bg-blue-600 text-white px-4 py-2 rounded">{creatingEpin ? "Creating..." : "Generate E-Pin"}</button>
-                    <button onClick={() => fetchEpins(adminToken)} className="border px-4 py-2 rounded">Refresh</button>
+                  {/* E-Pin Stats Cards */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+                    <div className="bg-white border p-4 rounded-xl shadow-sm">
+                      <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Total Generated</div>
+                      <div className="text-2xl font-bold text-slate-800">{epinStats.totalGenerated}</div>
+                    </div>
+                    <div className="bg-white border p-4 rounded-xl shadow-sm border-l-4 border-l-blue-500">
+                      <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Total Transferred</div>
+                      <div className="text-2xl font-bold text-blue-600">{epinStats.totalTransferred}</div>
+                    </div>
+                    <div className="bg-white border p-4 rounded-xl shadow-sm border-l-4 border-l-emerald-500">
+                      <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Pins in Pool</div>
+                      <div className="text-2xl font-bold text-emerald-600">{epinStats.inPool}</div>
+                    </div>
+                    <div className="bg-white border p-4 rounded-xl shadow-sm border-l-4 border-l-amber-500">
+                      <div className="text-[10px] uppercase font-bold text-slate-400 tracking-wider mb-1">Global Used</div>
+                      <div className="text-2xl font-bold text-amber-600">{epinStats.totalUsed}</div>
+                    </div>
                   </div>
 
-                  <div className="border rounded p-3 mb-4 bg-slate-50">
-                    <div className="text-sm font-semibold mb-2">Transfer E-Pins to Member (max 10)</div>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                      <input
-                        value={epinTransfer.toUserId}
-                        onChange={(e) => setEpinTransfer((s) => ({ ...s, toUserId: e.target.value }))}
-                        className="border rounded px-3 py-2 text-sm"
-                        placeholder="User ID or Invite Code"
-                      />
-                      <input
-                        value={epinTransfer.count}
-                        onChange={(e) => setEpinTransfer((s) => ({ ...s, count: e.target.value }))}
-                        className="border rounded px-3 py-2 text-sm"
-                        placeholder="Count (1-10)"
-                      />
-                      <button
-                        onClick={transferEpinsFromPool}
-                        disabled={transferringEpins}
-                        className="bg-emerald-600 text-white px-4 py-2 rounded text-sm disabled:opacity-60"
-                      >
-                        {transferringEpins ? "Transferring..." : "Transfer"}
-                      </button>
-                    </div>
-                    <div className="mt-2 text-xs text-slate-600">
-                      💡 Tip: You can use the member's <span className="font-semibold">Invite Code</span> (e.g., LS123456), <span className="font-semibold">User ID</span>, or <span className="font-semibold">Email</span> to transfer e-pins.
-                    </div>
+                  <div className="flex gap-2 mb-6">
+                    <button onClick={createEpin} disabled={creatingEpin} className="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition active:scale-95 disabled:opacity-50">
+                      {creatingEpin ? "Generating..." : "Generate +1 E-Pin"}
+                    </button>
+                  </div>
 
-                    {lastEpinTransfer && (
-                      <div className="mt-3 text-sm">
-                        <div className="font-semibold">Transferred {lastEpinTransfer.count} pins to {lastEpinTransfer.toUserName}</div>
-                        <div className="mt-1 flex flex-wrap gap-2">
-                          {lastEpinTransfer.codes.map((c) => (
-                            <span key={c} className="px-2 py-1 rounded border bg-white font-mono text-xs">{c}</span>
-                          ))}
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    {/* Transfer Section */}
+                    <div className="lg:col-span-1 border rounded-2xl p-5 bg-slate-50 border-slate-200 h-fit">
+                      <h3 className="text-sm font-bold uppercase tracking-wider text-slate-500 mb-4 flex items-center gap-2">
+                        <IconKey /> Transfer E-Pins
+                      </h3>
+                      <div className="space-y-4">
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Target User</label>
+                          <input
+                            value={epinTransfer.toUserId}
+                            onChange={(e) => setEpinTransfer((s) => ({ ...s, toUserId: e.target.value }))}
+                            className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                            placeholder="User ID, Invite Code or Email"
+                          />
                         </div>
+                        <div>
+                          <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Quantity (Max 10)</label>
+                          <input
+                            type="number"
+                            value={epinTransfer.count}
+                            onChange={(e) => setEpinTransfer((s) => ({ ...s, count: e.target.value }))}
+                            className="w-full border border-slate-200 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+                            placeholder="Count (1-10)"
+                            min="1"
+                            max="10"
+                          />
+                        </div>
+                        <button
+                          onClick={async () => { await transferEpinsFromPool(); fetchEpinStats(adminToken); fetchEpinHistory(adminToken); }}
+                          disabled={transferringEpins || !epinTransfer.toUserId}
+                          className="w-full bg-slate-900 text-white py-3 rounded-xl text-sm font-bold hover:bg-slate-800 transition shadow-lg disabled:opacity-50 active:scale-[0.98]"
+                        >
+                          {transferringEpins ? "Processing..." : "Transfer Now"}
+                        </button>
+                        <p className="text-[10px] text-slate-400 italic">Pins will be moved from admin pool to target member.</p>
                       </div>
-                    )}
+
+                      {lastEpinTransfer && (
+                        <div className="mt-6 p-4 bg-emerald-50 border border-emerald-100 rounded-xl animate-fadeIn">
+                          <div className="font-bold text-emerald-800 text-xs flex items-center gap-1">
+                            <IconCheckCircle /> Success!
+                          </div>
+                          <div className="text-[11px] text-emerald-700 mt-1">
+                            Transferred {lastEpinTransfer.count} pins to <span className="font-bold">{lastEpinTransfer.toUserName}</span>
+                          </div>
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {lastEpinTransfer.codes.map((c) => (
+                              <span key={c} className="px-1.5 py-0.5 rounded bg-white border border-emerald-200 font-mono text-[9px] text-emerald-600">{c}</span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Transfer History */}
+                    <div className="lg:col-span-2 border rounded-2xl bg-white shadow-sm overflow-hidden flex flex-col">
+                      <div className="p-4 border-b bg-slate-50/50 flex items-center justify-between">
+                        <h3 className="text-sm font-bold text-slate-700">Recent Transfer History</h3>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{epinHistory.length} Transfers</div>
+                      </div>
+                      <div className="flex-1 overflow-auto">
+                        <DataTable
+                          headers={[
+                            { label: "Date" },
+                            { label: "Receiver" },
+                            { label: "Count", className: "text-center" },
+                            { label: "Codes" }
+                          ]}
+                          data={epinHistory}
+                          itemsPerPage={8}
+                          emptyMessage="No transfer history found."
+                          renderRow={(row) => (
+                            <tr key={row._id || row.transferId} className="hover:bg-slate-50 transition-colors">
+                              <td className="p-3 text-[11px] text-slate-500 whitespace-nowrap">
+                                {new Date(row.transferredAt).toLocaleString()}
+                              </td>
+                              <td className="p-3">
+                                <div className="text-xs font-bold text-slate-800">{row.toUserName}</div>
+                                <div className="text-[10px] text-slate-400 font-mono">{row.toUserId}</div>
+                              </td>
+                              <td className="p-3 text-center">
+                                <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-bold">
+                                  {row.count}
+                                </span>
+                              </td>
+                              <td className="p-3">
+                                <div className="flex flex-wrap gap-1 max-w-[200px]">
+                                  {row.codes.slice(0, 2).map((c, i) => (
+                                    <span key={i} className="px-1.5 py-0.5 bg-slate-50 border rounded text-[9px] font-mono text-slate-500">{c}</span>
+                                  ))}
+                                  {row.codes.length > 2 && <span className="text-[9px] text-slate-400 font-bold self-center">+{row.codes.length - 2} more</span>}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                    {epins.length === 0 ? <div className="text-slate-500 p-3">No available pool pins.</div> : epins.map((e, i) => (<div key={i} className="p-2 border rounded font-mono text-sm truncate">{e}</div>))}
+                  {/* Available Pool Display (Simplified) */}
+                  <div className="mt-8">
+                    <h3 className="text-sm font-bold text-slate-700 mb-4">Available E-Pin Codes in Admin Pool</h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                      {epins.length === 0 ? (
+                        <div className="col-span-full p-8 text-center border-2 border-dashed rounded-2xl text-slate-400">
+                          No available pool pins. Use "Generate" to add more.
+                        </div>
+                      ) : epins.map((e, i) => (
+                        <div key={i} className="p-2 border rounded-lg bg-white font-mono text-[11px] text-center text-slate-600 truncate border-slate-100 shadow-sm hover:shadow transition-shadow">
+                          {e}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
               )
@@ -2688,7 +2714,17 @@ export default function AdminPage() {
               currentPage === "income" && (
                 <div>
                   <div className="flex items-center justify-between mb-3">
-                    <h2 className="text-lg font-semibold">Income Overview</h2>
+                    <div className="flex items-center gap-4">
+                      <h2 className="text-lg font-semibold">Income Overview</h2>
+                      <button
+                        onClick={() => fetchUsers(adminToken)}
+                        disabled={loadingUsers}
+                        className="bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition active:scale-90"
+                        title="Refresh Income Data"
+                      >
+                        <IconRefresh className={loadingUsers ? "animate-spin text-blue-600" : "text-slate-500"} />
+                      </button>
+                    </div>
                     <div className="text-xs text-slate-500">Member-wise and totals</div>
                   </div>
 
@@ -2706,29 +2742,25 @@ export default function AdminPage() {
                   <div className="bg-white border rounded p-4">
                     <h3 className="text-lg font-semibold mb-3">Member-wise Income</h3>
 
-                    <div className="overflow-auto max-h-[60vh] border rounded">
-                      <table className="min-w-[1000px] w-full text-sm">
-                        <thead className="bg-slate-50 sticky top-0">
-                          <tr>
-                            <th className="p-3 text-left">Name</th>
-                            <th className="p-3 text-left">Email</th>
-                            <th className="p-3 text-right">Income</th>
-                            <th className="p-3 text-right">Balance</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {users.map((u) => (
-                            <tr key={u.id} className="border-t hover:bg-slate-50">
-                              <td className="p-3">{u.name}</td>
-                              <td className="p-3">{u.email}</td>
-                              <td className="p-3 text-right font-semibold text-green-600">{u.totalIncome ?? 0}</td>
-                              <td className="p-3 text-right">{u.balance ?? 0}</td>
-                            </tr>
-                          ))}
-                          {users.length === 0 && <tr><td colSpan={4} className="p-6 text-center text-slate-500">No members found.</td></tr>}
-                        </tbody>
-                      </table>
-                    </div>
+                    <DataTable
+                      headers={[
+                        { label: "Name" },
+                        { label: "Email" },
+                        { label: "Income", className: "text-right" },
+                        { label: "Balance", className: "text-right" }
+                      ]}
+                      data={users}
+                      itemsPerPage={15}
+                      emptyMessage="No members found."
+                      renderRow={(u) => (
+                        <tr key={u.id} className="hover:bg-slate-50/50 transition-colors">
+                          <td className="p-4 font-semibold text-slate-700">{u.name}</td>
+                          <td className="p-4 text-slate-500">{u.email}</td>
+                          <td className="p-4 text-right font-bold text-green-600 font-mono">₹{u.totalIncome ?? 0}</td>
+                          <td className="p-4 text-right font-medium text-slate-700 font-mono">₹{u.balance ?? 0}</td>
+                        </tr>
+                      )}
+                    />
                   </div>
                 </div>
               )
@@ -2736,6 +2768,7 @@ export default function AdminPage() {
 
             {/* User Activation page */}
             {currentPage === "activateUsers" && renderActivationPage()}
+
 
             {/* Site Settings page */}
             {
@@ -2857,8 +2890,7 @@ export default function AdminPage() {
                     </div>
                   )}
                 </div>
-              )
-            }
+              )}
 
             {/* Autopool Page */}
             {currentPage === "autopool" && <AdminAutopool />}
@@ -2866,11 +2898,9 @@ export default function AdminPage() {
             {/* Autopool Tree Page */}
             {currentPage === "autopool-tree" && <AdminAutopoolTree />}
 
-          </div >
-
-          <div className="mt-4 text-sm text-slate-500">Tip: Invite code can be shared and used unlimited times.</div>
-        </div >
-      </div >
-    </div >
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

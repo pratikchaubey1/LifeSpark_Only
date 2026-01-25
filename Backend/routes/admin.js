@@ -196,6 +196,9 @@ router.get('/users', adminAuth, async (req, res) => {
     const result = await Promise.all(users.map(async (user) => {
       const userInvitees = await User.find({ sponsorId: user.inviteCode }).select('_id name email phone balance inviteCode');
 
+      const leftWithMe = await Epin.countDocuments({ ownerUserId: user._id.toString(), used: false });
+      const usedByMe = await Epin.countDocuments({ ownerUserId: user._id.toString(), used: true });
+
       return {
         id: user._id.toString(),
         name: user.name,
@@ -219,6 +222,8 @@ router.get('/users', adminAuth, async (req, res) => {
         upiNo: user.upiNo || '',
         bankDetails: user.bankDetails || null,
         directInviteCount: userInvitees.length,
+        leftWithMe,
+        usedByMe,
         invitees: userInvitees.map((inv) => ({
           id: inv._id.toString(),
           name: inv.name,
@@ -251,15 +256,21 @@ router.get('/users/search/:query', adminAuth, async (req, res) => {
 
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Count unused E-Pins owned by this user
-    const epinCount = await Epin.countDocuments({
+    // Count E-Pins owned by this user
+    const leftWithMe = await Epin.countDocuments({
       ownerUserId: user._id.toString(),
       used: false
     });
+    const usedByMe = await Epin.countDocuments({
+      ownerUserId: user._id.toString(),
+      used: true
+    });
 
-    // Return full user object with epin count
+    // Return full user object with epin stats
     const userObj = user.toObject();
-    userObj.epinCount = epinCount;
+    userObj.leftWithMe = leftWithMe;
+    userObj.usedByMe = usedByMe;
+    userObj.epinCount = leftWithMe; // for backward compatibility if any
 
     res.json({ user: userObj });
   } catch (err) {
@@ -738,6 +749,46 @@ router.get('/epins', adminAuth, async (req, res) => {
     res.json({ epins: codes, available: codes.length });
   } catch (err) {
     console.error('Get epins error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get E-Pin Transfer History
+router.get('/epins/history', adminAuth, async (req, res) => {
+  try {
+    const history = await EpinTransfer.find().sort({ transferredAt: -1 });
+    res.json({ history });
+  } catch (err) {
+    console.error('Get epin history error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get E-Pin Aggregate Stats
+router.get('/epins/stats', adminAuth, async (req, res) => {
+  try {
+    const totalGenerated = await Epin.countDocuments();
+    const totalUsed = await Epin.countDocuments({ used: true });
+
+    // Sum up all successful transfers from the history for absolute accuracy
+    const transferredAggregation = await EpinTransfer.aggregate([
+      { $group: { _id: null, total: { $sum: "$count" } } }
+    ]);
+    const totalTransferred = transferredAggregation.length > 0 ? transferredAggregation[0].total : 0;
+
+    // Total in admin pool (only those not assigned to anyone)
+    const inPool = await Epin.countDocuments({
+      ownerUserId: null
+    });
+
+    res.json({
+      totalGenerated,
+      totalUsed,
+      totalTransferred,
+      inPool
+    });
+  } catch (err) {
+    console.error('Get epin stats error', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
