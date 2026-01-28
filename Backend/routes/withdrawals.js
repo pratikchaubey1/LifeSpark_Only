@@ -149,6 +149,10 @@ router.post('/', auth, async (req, res) => {
     // Also store latest UPI info on the user profile for convenience
     user.upiId = upiId;
     user.upiNo = upiNo;
+
+    // CRITICAL: Deduct balance immediately
+    user.balance = balance - amount;
+
     await user.save();
 
     // Build response with upgrade income message if applicable
@@ -225,6 +229,10 @@ router.post('/marriage-fund', auth, async (req, res) => {
     // Only update UPI details
     user.upiId = upiId;
     user.upiNo = upiNo;
+
+    // CRITICAL: Deduct marriage fund immediately
+    user.marriageFund = marriageFund - amount;
+
     await user.save();
 
     return res.status(201).json({ withdrawal, message: 'Marriage fund withdrawal request submitted for admin approval.' });
@@ -295,6 +303,10 @@ router.post('/accident-fund', auth, async (req, res) => {
     // Only update UPI details
     user.upiId = upiId;
     user.upiNo = upiNo;
+
+    // CRITICAL: Deduct accident fund immediately
+    user.accidentFund = accidentFund - amount;
+
     await user.save();
 
     return res.status(201).json({ withdrawal, message: 'Accident fund withdrawal request submitted for admin approval.' });

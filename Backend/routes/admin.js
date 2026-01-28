@@ -654,29 +654,8 @@ router.post('/withdrawals/:id/approve', adminAuth, async (req, res) => {
     const amount = Number(withdrawal.amount) || 0;
     if (amount <= 0) return res.status(400).json({ message: 'Invalid withdrawal amount' });
 
-    // Deduct from the correct source based on withdrawal type
-    if (withdrawal.source === 'marriageFund') {
-      const marriageFundBalance = Number(user.marriageFund) || 0;
-      if (amount > marriageFundBalance) {
-        return res.status(400).json({ message: 'User has insufficient marriage fund balance.' });
-      }
-      user.marriageFund = marriageFundBalance - amount;
-    } else if (withdrawal.source === 'accidentFund') {
-      const accidentFundBalance = Number(user.accidentFund) || 0;
-      if (amount > accidentFundBalance) {
-        return res.status(400).json({ message: 'User has insufficient accident fund balance.' });
-      }
-      user.accidentFund = accidentFundBalance - amount;
-    } else {
-      // Regular balance withdrawal
-      const balance = Number(user.balance) || 0;
-      if (amount > balance) {
-        return res.status(400).json({ message: 'User has insufficient balance to approve this withdrawal.' });
-      }
-      user.balance = balance - amount;
-    }
-
-    // Track total withdrawal amount
+    // CRITICAL: Amount is now deducted at request time in routes/withdrawals.js
+    // We only need to track total withdrawal amount here upon approval
     user.withdrawal = (Number(user.withdrawal) || 0) + amount;
     await user.save();
 
@@ -710,6 +689,21 @@ router.post('/withdrawals/:id/reject', adminAuth, async (req, res) => {
     if (withdrawal.status !== 'pending') {
       return res.status(400).json({ message: `Cannot reject withdrawal in status: ${withdrawal.status}` });
     }
+
+    const user = await User.findById(withdrawal.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const amount = Number(withdrawal.amount) || 0;
+
+    // REFUND logic: Return the money since it was deducted at request time
+    if (withdrawal.source === 'marriageFund') {
+      user.marriageFund = (Number(user.marriageFund) || 0) + amount;
+    } else if (withdrawal.source === 'accidentFund') {
+      user.accidentFund = (Number(user.accidentFund) || 0) + amount;
+    } else {
+      user.balance = (Number(user.balance) || 0) + amount;
+    }
+    await user.save();
 
     withdrawal.status = 'rejected';
     withdrawal.reviewedAt = new Date();
