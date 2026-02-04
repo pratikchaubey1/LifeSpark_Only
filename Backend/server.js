@@ -88,23 +88,24 @@ cron.schedule("0 0 * * *", async () => {
         (new Date() - activationDate) / (1000 * 60 * 60 * 24)
       );
 
-      // Skip if more than 30 days since activation
-      if (daysSince >= 30) continue;
-
-      // Skip if already credited today
+      // Skip if already processed today
       if (user.lastDailyCredit === todayStr) continue;
 
       const DAILY_BONUS = 50;
 
-      user.balance = (user.balance || 0) + DAILY_BONUS;
-      user.dailyBonusIncome = (user.dailyBonusIncome || 0) + DAILY_BONUS;
-      user.totalIncome = (user.totalIncome || 0) + DAILY_BONUS;
-      user.lastDailyCredit = todayStr;
+      // Only give ₹50 daily bonus if within 30 days of activation
+      if (daysSince < 30) {
+        user.balance = (user.balance || 0) + DAILY_BONUS;
+        user.dailyBonusIncome = (user.dailyBonusIncome || 0) + DAILY_BONUS;
+        user.totalIncome = (user.totalIncome || 0) + DAILY_BONUS;
+      }
 
-      // Also distribute Level Income daily to sponsors (10 levels)
+      // Always distribute Level Income daily to sponsors (10 levels)
+      // regardless of 30-day period - upline should always earn from this user
       const { distributeDailyLevelIncome } = require('./utils/income');
       await distributeDailyLevelIncome(user);
 
+      user.lastDailyCredit = todayStr;
       await user.save();
     }
 
