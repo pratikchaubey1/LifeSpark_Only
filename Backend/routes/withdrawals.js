@@ -81,6 +81,11 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ message: 'Valid withdrawal amount is required.' });
     }
 
+    // Minimum withdrawal amount is ₹300
+    if (amount < 300) {
+      return res.status(400).json({ message: 'Minimum withdrawal amount is ₹300.' });
+    }
+
     // "ask for upi" (required)
     if (!upiId) {
       return res.status(400).json({ message: 'UPI ID is required.' });
