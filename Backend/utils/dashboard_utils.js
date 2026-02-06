@@ -75,12 +75,9 @@ async function getTeamStats(user) {
         const nextLevelIds = [];
 
         for (const u of levelUsers) {
-            // If user is active and within 30 days, they contribute to the sponsor's daily rate
-            if (u.isActivated && u.activatedAt) {
-                const daysSince = Math.floor((today - u.activatedAt) / (1000 * 60 * 60 * 24));
-                if (daysSince < 30) {
-                    totalDailyLevelRate += rate;
-                }
+            // If user is active, they contribute to the sponsor's daily rate
+            if (u.isActivated) {
+                totalDailyLevelRate += rate;
             }
 
             // Track all downline for stats
