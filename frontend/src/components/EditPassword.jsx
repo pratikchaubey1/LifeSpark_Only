@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { FiLock, FiX, FiCheckCircle } from "react-icons/fi";
+import toast from "react-hot-toast";
 
 const ChangePassword = ({ setActiveSection }) => {
   const [passwords, setPasswords] = useState({
@@ -16,17 +17,17 @@ const ChangePassword = ({ setActiveSection }) => {
 
   const handleSubmit = () => {
     if (passwords.newPassword !== passwords.confirmPassword) {
-      alert("❌ Passwords do not match!");
+      toast.error("Passwords do not match!");
       return;
     }
 
     if (passwords.newPassword.length < 6) {
-      alert("❌ Password must be at least 6 characters!");
+      toast.error("Password must be at least 6 characters!");
       return;
     }
 
     console.log("Updated Password:", passwords.newPassword);
-    alert("✔ Password updated successfully!");
+    toast.success("Password updated successfully!");
   };
 
   return (

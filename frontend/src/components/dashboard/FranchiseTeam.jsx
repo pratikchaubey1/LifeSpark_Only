@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FiUsers, FiCheckCircle, FiXCircle, FiPlay, FiSearch } from "react-icons/fi";
 import config from "../../config/config";
+import toast from "react-hot-toast";
 
 const API_BASE = config.apiUrl;
 
@@ -46,11 +47,11 @@ export default function FranchiseTeam({ onMenuOpen }) {
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || "Activation failed");
 
-            alert(data.message);
+            toast.success(data.message);
             // Refresh team data
             await fetchTeam();
         } catch (err) {
-            alert(err.message);
+            toast.error(err.message);
         } finally {
             setActionLoading(null);
         }
@@ -142,8 +143,8 @@ export default function FranchiseTeam({ onMenuOpen }) {
                                             <tr key={u.id} className="hover:bg-slate-50 transition-colors">
                                                 <td className="px-6 py-4">
                                                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${u.level <= 3 ? "bg-amber-100 text-amber-700" :
-                                                            u.level <= 6 ? "bg-blue-100 text-blue-700" :
-                                                                "bg-slate-100 text-slate-700"
+                                                        u.level <= 6 ? "bg-blue-100 text-blue-700" :
+                                                            "bg-slate-100 text-slate-700"
                                                         }`}>
                                                         L{u.level}
                                                     </span>

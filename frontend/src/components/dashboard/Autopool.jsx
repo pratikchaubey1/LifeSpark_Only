@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import axios from "axios";
 import config from "../../config/config";
+import toast from "react-hot-toast";
 
 export default function Autopool({ sidebarOpen, onMenuOpen }) {
     const [loading, setLoading] = useState(true);
@@ -62,10 +63,10 @@ export default function Autopool({ sidebarOpen, onMenuOpen }) {
             await axios.post(`${config.apiUrl}/autopool/request`, {}, {
                 headers: { Authorization: `Bearer ${token}` }
             });
-            alert("Request submitted successfully!");
+            toast.success("Request submitted successfully!");
             fetchStatus();
         } catch (err) {
-            alert(err.response?.data?.message || "Request failed");
+            toast.error(err.response?.data?.message || "Request failed");
         } finally {
             setRequesting(false);
         }

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { FiEye, FiEyeOff, FiMail, FiLock } from "react-icons/fi";
+import toast from "react-hot-toast";
 
 export default function OfficialLoginPage({
   onSubmit,
@@ -139,7 +140,7 @@ export default function OfficialLoginPage({
                   <button
                     type="button"
                     className="text-[11px] text-indigo-300 hover:text-indigo-200 hover:underline"
-                    onClick={() => alert("Forgot password (mock)")}
+                    onClick={() => toast("Forgot password ")}
                   >
                     Forgot password?
                   </button>
@@ -197,7 +198,7 @@ export default function OfficialLoginPage({
                 <button
                   type="button"
                   className="text-indigo-300 hover:text-indigo-200 hover:underline"
-                  onClick={() => alert("Need help (mock)")}
+                  onClick={() => toast("Need help")}
                 >
                   Need help?
                 </button>

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import toast from "react-hot-toast";
 
 import config from "../../config/config";
 import AdminAutopool from "../admin/AdminAutopool";
@@ -489,7 +490,7 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to update user");
-      alert("User updated successfully!");
+      toast.success("User updated successfully!");
     } catch (err) {
       setError(err.message);
     } finally {
@@ -889,7 +890,7 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Failed to update settings");
-      alert("Settings updated successfully!");
+      toast.success("Settings updated successfully!");
     } catch (err) {
       setError(err.message || "Failed to update settings");
     } finally {

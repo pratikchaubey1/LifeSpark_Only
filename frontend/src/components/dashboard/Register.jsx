@@ -17,6 +17,7 @@ import {
   FiMapPin,
   FiCreditCard,
 } from "react-icons/fi";
+import toast from "react-hot-toast";
 
 export default function OfficialRegisterPage({ onSubmit, onGoToLogin, onGoHome }) {
   const { sponsorId: urlSponsorId } = useParams();
@@ -116,7 +117,7 @@ export default function OfficialRegisterPage({ onSubmit, onGoToLogin, onGoHome }
       } else {
         // mock API call
         await new Promise((r) => setTimeout(r, 900));
-        alert("Registered successfully (mock).");
+        toast.success("Registered successfully (mock).");
       }
     } catch (err) {
       setErrors({ form: err.message || "Registration failed." });

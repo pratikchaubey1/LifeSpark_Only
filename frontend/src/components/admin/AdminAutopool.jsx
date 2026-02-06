@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import config from "../../config/config";
+import toast from "react-hot-toast";
 
 export default function AdminAutopool() {
     const [loading, setLoading] = useState(true);
@@ -41,10 +42,10 @@ export default function AdminAutopool() {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            alert(`Approved! Placed under: ${res.data.parent || 'ROOT'}`);
+            toast.success(`Approved! Placed under: ${res.data.parent || 'ROOT'}`);
             fetchData(); // Refresh both lists
         } catch (err) {
-            alert(err.response?.data?.message || "Approval failed");
+            toast.error(err.response?.data?.message || "Approval failed");
         } finally {
             setProcessing(null);
         }
@@ -60,10 +61,10 @@ export default function AdminAutopool() {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
-            alert("Request rejected.");
+            toast.success("Request rejected.");
             fetchData(); // Refresh both lists
         } catch (err) {
-            alert(err.response?.data?.message || "Rejection failed");
+            toast.error(err.response?.data?.message || "Rejection failed");
         } finally {
             setProcessing(null);
         }

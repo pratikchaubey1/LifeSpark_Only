@@ -37,6 +37,8 @@ const NAV_ITEMS = [
   { label: "Contact", id: "footer" },
 ];
 
+import { Toaster } from 'react-hot-toast';
+
 export default function App() {
   const [activeSection, setActiveSection] = useState("home");
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -113,137 +115,167 @@ export default function App() {
   }, []);
 
   return (
-    <Routes>
-      {/* HOME PAGE */}
-      <Route
-        path="/"
-        element={
-          <div className="min-h-screen bg-slate-50">
-            <Header
-              activeSection={activeSection}
-              mobileOpen={mobileOpen}
-              setMobileOpen={setMobileOpen}
-              NAV_ITEMS={NAV_ITEMS}
-              onLoginClick={() => navigate("/login")}
-              onRegisterClick={() => navigate("/register")}
-              onLogoutClick={handleLogout}
-              isAuthenticated={isAuthenticated}
+    <>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: 'rgba(15, 23, 42, 0.9)',
+            color: '#fff',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: '12px',
+            padding: '12px 24px',
+            fontSize: '14px',
+            fontWeight: '500',
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+          },
+          success: {
+            iconTheme: {
+              primary: '#10b981',
+              secondary: '#fff',
+            },
+          },
+          error: {
+            iconTheme: {
+              primary: '#ef4444',
+              secondary: '#fff',
+            },
+          },
+        }}
+      />
+      <Routes>
+        {/* HOME PAGE */}
+        <Route
+          path="/"
+          element={
+            <div className="min-h-screen bg-slate-50">
+              <Header
+                activeSection={activeSection}
+                mobileOpen={mobileOpen}
+                setMobileOpen={setMobileOpen}
+                NAV_ITEMS={NAV_ITEMS}
+                onLoginClick={() => navigate("/login")}
+                onRegisterClick={() => navigate("/register")}
+                onLogoutClick={handleLogout}
+                isAuthenticated={isAuthenticated}
+              />
+
+              <HeroSection />
+              <AboutSection />
+              <MissionVisionSection />
+              <ServicesSection />
+              <ProjectsSection />
+              <ProductSection />
+              <TeamSection />
+              <TestimonialsSection />
+              <FAQSection />
+              <FooterSection />
+            </div>
+          }
+        />
+
+        {/* LOGIN */}
+        <Route
+          path="/login"
+          element={
+            <OfficialLoginPage
+              onSubmit={handleLoginSubmit}
+              onGoToRegister={() => navigate("/register")}
+              onGoHome={() => navigate("/")}
             />
+          }
+        />
 
-            <HeroSection />
-            <AboutSection />
-            <MissionVisionSection />
-            <ServicesSection />
-            <ProjectsSection />
-            <ProductSection />
-            <TeamSection />
-            <TestimonialsSection />
-            <FAQSection />
-            <FooterSection />
-          </div>
-        }
-      />
-
-      {/* LOGIN */}
-      <Route
-        path="/login"
-        element={
-          <OfficialLoginPage
-            onSubmit={handleLoginSubmit}
-            onGoToRegister={() => navigate("/register")}
-            onGoHome={() => navigate("/")}
-          />
-        }
-      />
-
-      {/* REGISTER */}
-      <Route
-        path="/register"
-        element={
-          <OfficialRegisterPage
-            onSubmit={handleRegisterSubmit}
-            onGoToLogin={() => navigate("/login")}
-            onGoHome={() => navigate("/")}
-          />
-        }
-      />
-      <Route
-        path="/register/:sponsorId"
-        element={
-          <OfficialRegisterPage
-            onSubmit={handleRegisterSubmit}
-            onGoToLogin={() => navigate("/login")}
-            onGoHome={() => navigate("/")}
-          />
-        }
-      />
-
-      {/* WELCOME */}
-      <Route
-        path="/welcome"
-        element={
-          welcomeData ? (
-            <WelcomePage
-              userName={welcomeData.name}
-              email={welcomeData.email}
-              password={welcomeData.password}
-              inviteCode={welcomeData.inviteCode}
-              onContinue={() => navigate("/dashboard")}
-              onViewWelcomeLetter={() => navigate("/welcome-letter")}
-              onCreateIdCard={() => navigate("/create-id-card")}
+        {/* REGISTER */}
+        <Route
+          path="/register"
+          element={
+            <OfficialRegisterPage
+              onSubmit={handleRegisterSubmit}
+              onGoToLogin={() => navigate("/login")}
+              onGoHome={() => navigate("/")}
             />
-          ) : null
-        }
-      />
-
-      {/* WELCOME LETTER */}
-      <Route
-        path="/welcome-letter"
-        element={
-          welcomeData ? (
-            <WelcomeLetter
-              userName={welcomeData.name}
-              email={welcomeData.email}
-              inviteCode={welcomeData.inviteCode}
-              onBack={() => navigate("/welcome")}
-              onContinue={() => navigate("/dashboard")}
+          }
+        />
+        <Route
+          path="/register/:sponsorId"
+          element={
+            <OfficialRegisterPage
+              onSubmit={handleRegisterSubmit}
+              onGoToLogin={() => navigate("/login")}
+              onGoHome={() => navigate("/")}
             />
-          ) : null
-        }
-      />
+          }
+        />
 
-      {/* CREATE ID CARD */}
-      <Route
-        path="/create-id-card"
-        element={
-          welcomeData ? (
-            <CreateIdCard
-              userName={welcomeData.name}
-              email={welcomeData.email}
-              inviteCode={welcomeData.inviteCode}
-              onBack={() => navigate("/welcome")}
-              onContinue={() => navigate("/dashboard")}
-            />
-          ) : null
-        }
-      />
+        {/* WELCOME */}
+        <Route
+          path="/welcome"
+          element={
+            welcomeData ? (
+              <WelcomePage
+                userName={welcomeData.name}
+                email={welcomeData.email}
+                password={welcomeData.password}
+                inviteCode={welcomeData.inviteCode}
+                onContinue={() => navigate("/dashboard")}
+                onViewWelcomeLetter={() => navigate("/welcome-letter")}
+                onCreateIdCard={() => navigate("/create-id-card")}
+              />
+            ) : null
+          }
+        />
 
-      {/* DASHBOARD */}
-      <Route
-        path="/dashboard/*"
-        element={
-          isAuthenticated ? (
-            <MemberLayout onLogout={handleLogout} />
-          ) : (
-            <OfficialLoginPage onSubmit={handleLoginSubmit} />
-          )
-        }
-      />
+        {/* WELCOME LETTER */}
+        <Route
+          path="/welcome-letter"
+          element={
+            welcomeData ? (
+              <WelcomeLetter
+                userName={welcomeData.name}
+                email={welcomeData.email}
+                inviteCode={welcomeData.inviteCode}
+                onBack={() => navigate("/welcome")}
+                onContinue={() => navigate("/dashboard")}
+              />
+            ) : null
+          }
+        />
 
-      <Route
-        path="/admin/*"
-        element={<AdminPage />}
-      />
-    </Routes>
+        {/* CREATE ID CARD */}
+        <Route
+          path="/create-id-card"
+          element={
+            welcomeData ? (
+              <CreateIdCard
+                userName={welcomeData.name}
+                email={welcomeData.email}
+                inviteCode={welcomeData.inviteCode}
+                onBack={() => navigate("/welcome")}
+                onContinue={() => navigate("/dashboard")}
+              />
+            ) : null
+          }
+        />
+
+        {/* DASHBOARD */}
+        <Route
+          path="/dashboard/*"
+          element={
+            isAuthenticated ? (
+              <MemberLayout onLogout={handleLogout} />
+            ) : (
+              <OfficialLoginPage onSubmit={handleLoginSubmit} />
+            )
+          }
+        />
+
+        <Route
+          path="/admin/*"
+          element={<AdminPage />}
+        />
+      </Routes>
+    </>
   );
 }

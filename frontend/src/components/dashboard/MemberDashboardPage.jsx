@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import config from "../../config/config";
+import toast from "react-hot-toast";
 
 /* ---------- COLOR CONFIG ---------- */
 const topStatConfig = [
@@ -257,7 +258,7 @@ function DashBoardPage() {
                   onClick={() => {
                     const link = `${window.location.origin}/register/${user?.inviteCode}`;
                     navigator.clipboard.writeText(link);
-                    alert("Referral Link Copied!");
+                    toast.success("Referral Link Copied!");
                   }}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 rounded-r-lg text-sm"
                 >

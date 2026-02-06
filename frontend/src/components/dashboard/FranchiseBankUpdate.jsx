@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FiUsers, FiSearch, FiEdit, FiSave, FiX, FiCheckCircle, FiXCircle } from "react-icons/fi";
 import config from "../../config/config";
-
+import toast from "react-hot-toast";
 const API_BASE = config.apiUrl;
 
 export default function FranchiseBankUpdate({ onMenuOpen }) {
@@ -106,12 +106,12 @@ export default function FranchiseBankUpdate({ onMenuOpen }) {
             const data = await res.json();
             if (!res.ok) throw new Error(data.message || "Update failed");
 
-            alert(data.message);
+            toast.success(data.message);
             setIsModalOpen(false);
             setEditingUser(null);
             fetchTeam(); // Refresh to see changes (if we display them)
         } catch (err) {
-            alert(err.message);
+            toast.error(err.message);
         } finally {
             setSaving(false);
         }
