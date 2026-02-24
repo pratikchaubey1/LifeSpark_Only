@@ -82,6 +82,9 @@ cron.schedule("0 0 * * *", async () => {
     // Find all activated users
     const users = await User.find({ isActivated: true, activatedAt: { $ne: null } });
 
+    // Collect users eligible for daily level income distribution
+    const usersForLevelIncome = [];
+
     for (const user of users) {
       const activationDate = new Date(user.activatedAt);
       const daysSince = Math.floor(
@@ -100,13 +103,17 @@ cron.schedule("0 0 * * *", async () => {
         user.totalIncome = (user.totalIncome || 0) + DAILY_BONUS;
       }
 
-      // Always distribute Level Income daily to sponsors (10 levels)
-      // regardless of 30-day period - upline should always earn from this user
-      const { distributeDailyLevelIncome } = require('./utils/income');
-      await distributeDailyLevelIncome(user);
+      // Collect this user for capped level income distribution
+      usersForLevelIncome.push(user);
 
       user.lastDailyCredit = todayStr;
       await user.save();
+    }
+
+    // Distribute daily level income with per-level caps (done ONCE for all users)
+    if (usersForLevelIncome.length > 0) {
+      const { distributeDailyLevelIncomeWithCaps } = require('./utils/income');
+      await distributeDailyLevelIncomeWithCaps(usersForLevelIncome);
     }
 
     console.log("✔ Daily bonus added to all activated users");

@@ -1511,9 +1511,13 @@ export default function AdminPage() {
                                       <div className="space-y-1">
                                         {u.invitees.map((inv, idx) => (
                                           <div key={idx} className="flex items-center justify-between text-xs py-1 border-b last:border-0">
-                                            <div>
-                                              <span className="font-medium">{inv.name}</span>
-                                              <span className="ml-2 text-slate-500">({inv.email})</span>
+                                            <div className="flex items-center gap-2">
+                                              <span
+                                                className={`inline-block w-2 h-2 rounded-full shrink-0 ${inv.isActivated ? 'bg-green-500' : 'bg-red-500'}`}
+                                                title={inv.isActivated ? 'Active' : 'Inactive'}
+                                              ></span>
+                                              <span className={`font-medium ${inv.isActivated ? 'text-green-700' : 'text-red-600'}`}>{inv.name}</span>
+                                              <span className="ml-1 text-slate-500">({inv.email})</span>
                                             </div>
                                             <div className="font-mono text-[10px] text-slate-400">{inv.id}</div>
                                           </div>

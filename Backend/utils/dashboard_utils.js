@@ -47,6 +47,19 @@ const LEVEL_INCOME_RATES = {
     10: 0.5
 };
 
+const LEVEL_INCOME_CAPS = {
+    1: 500,
+    2: 1000,
+    3: 1500,
+    4: 2000,
+    5: 2500,
+    6: 3000,
+    7: 3500,
+    8: 4000,
+    9: 4500,
+    10: 5000
+};
+
 /**
  * Calculate comprehensive team statistics and daily level income rate for a user.
  * @param {Object} user - Mongoose user object.
@@ -59,6 +72,7 @@ async function getTeamStats(user) {
     // We'll perform a level-by-level search to track depth
     let totalDailyLevelRate = 0;
     let allDownlineIds = [];
+    const levelUncapped = {}; // Track uncapped income per level
     let currentLevelIds = [...directIds];
     let processedIds = new Set(currentLevelIds);
 
@@ -77,7 +91,7 @@ async function getTeamStats(user) {
         for (const u of levelUsers) {
             // If user is active, they contribute to the sponsor's daily rate
             if (u.isActivated) {
-                totalDailyLevelRate += rate;
+                levelUncapped[level] = (levelUncapped[level] || 0) + rate;
             }
 
             // Track all downline for stats
@@ -94,6 +108,12 @@ async function getTeamStats(user) {
             }
         }
         currentLevelIds = nextLevelIds;
+    }
+
+    // Apply per-level caps to compute total daily level rate
+    for (const [level, uncapped] of Object.entries(levelUncapped)) {
+        const cap = LEVEL_INCOME_CAPS[Number(level)] || Infinity;
+        totalDailyLevelRate += Math.min(uncapped, cap);
     }
 
     // Fetch full team details for stats (total/active/today)

@@ -199,7 +199,7 @@ router.get('/users', adminAuth, async (req, res) => {
           let: { inviteCode: '$inviteCode' },
           pipeline: [
             { $match: { $expr: { $eq: ['$sponsorId', '$$inviteCode'] } } },
-            { $project: { _id: 1, name: 1, email: 1, phone: 1, balance: 1, inviteCode: 1 } }
+            { $project: { _id: 1, name: 1, email: 1, phone: 1, balance: 1, inviteCode: 1, isActivated: 1 } }
           ],
           as: 'invitees'
         }
@@ -265,7 +265,8 @@ router.get('/users', adminAuth, async (req, res) => {
                 email: '$$inv.email',
                 phone: { $ifNull: ['$$inv.phone', ''] },
                 balance: { $ifNull: ['$$inv.balance', 0] },
-                inviteCode: '$$inv.inviteCode'
+                inviteCode: '$$inv.inviteCode',
+                isActivated: { $ifNull: ['$$inv.isActivated', false] }
               }
             }
           }

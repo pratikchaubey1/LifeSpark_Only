@@ -2,6 +2,7 @@ const express = require('express');
 const auth = require('../middleware/auth');
 const User = require('../models/User');
 const { getUsersAtLevel } = require('../utils/team');
+const { LEVEL_INCOME_CAPS } = require('../utils/income');
 
 const router = express.Router();
 
@@ -76,7 +77,9 @@ router.get('/', auth, async (req, res) => {
 
                 const userCount = activeInWindowUsers.length;
                 const incomePerUser = LEVEL_INCOME_RATES[levelNum];
-                const totalIncome = userCount * incomePerUser;
+                const uncappedIncome = userCount * incomePerUser;
+                const cap = LEVEL_INCOME_CAPS[levelNum] || Infinity;
+                const totalIncome = Math.min(uncappedIncome, cap);
 
                 return {
                     level: levelNum,
