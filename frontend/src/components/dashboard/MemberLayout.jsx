@@ -36,7 +36,6 @@ import FranchiseBankUpdate from "./FranchiseBankUpdate";
 
 
 import IncomeReport from "./IncomeReport";
-import UpgradeIncome from "./UpgradeIncome";
 
 export default function MemberLayout({ onLogout }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -202,10 +201,6 @@ export default function MemberLayout({ onLogout }) {
           <Route
             path="income-report"
             element={<IncomeReport onMenuOpen={() => setSidebarOpen(true)} />}
-          />
-          <Route
-            path="upgrade-income"
-            element={<UpgradeIncome onMenuOpen={() => setSidebarOpen(true)} />}
           />
           <Route
             path="withdraw"

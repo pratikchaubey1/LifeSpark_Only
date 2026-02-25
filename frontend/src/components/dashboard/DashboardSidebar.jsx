@@ -41,7 +41,6 @@ const DASHBOARD_ITEMS = [
     label: "Income Report ",
     children: [
       { label: "Auto Pool", path: "/dashboard/direct-team" },
-      { label: "Upgrade Income", path: "/dashboard/upgrade-income" },
       {
         label: "Rank Reward Business",
         path: "/dashboard/level-team",

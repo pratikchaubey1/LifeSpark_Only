@@ -595,7 +595,7 @@ router.get('/withdrawals', adminAuth, async (req, res) => {
           let: { usrId: '$userId' },
           pipeline: [
             { $match: { $expr: { $eq: [{ $toString: '$_id' }, '$$usrId'] } } },
-            { $project: { _id: 1, name: 1, email: 1, phone: 1, role: 1, balance: 1, upiId: 1, upiNo: 1, bankDetails: 1 } }
+            { $project: { _id: 1, name: 1, email: 1, phone: 1, role: 1, balance: 1, upiId: 1, upiNo: 1, bankDetails: 1, inviteCode: 1 } }
           ],
           as: 'userInfo'
         }
@@ -615,7 +615,8 @@ router.get('/withdrawals', adminAuth, async (req, res) => {
                 balance: { $ifNull: [{ $arrayElemAt: ['$userInfo.balance', 0] }, 0] },
                 upiId: { $ifNull: [{ $arrayElemAt: ['$userInfo.upiId', 0] }, ''] },
                 upiNo: { $ifNull: [{ $arrayElemAt: ['$userInfo.upiNo', 0] }, ''] },
-                bankDetails: { $ifNull: [{ $arrayElemAt: ['$userInfo.bankDetails', 0] }, null] }
+                bankDetails: { $ifNull: [{ $arrayElemAt: ['$userInfo.bankDetails', 0] }, null] },
+                inviteCode: { $ifNull: [{ $arrayElemAt: ['$userInfo.inviteCode', 0] }, ''] }
               },
               else: null
             }
@@ -657,7 +658,11 @@ router.post('/withdrawals/:id/approve', adminAuth, async (req, res) => {
 
     // CRITICAL: Amount is now deducted at request time in routes/withdrawals.js
     // We only need to track total withdrawal amount here upon approval
-    user.withdrawal = (Number(user.withdrawal) || 0) + amount;
+    if (withdrawal.type === 'upgrade') {
+      user.upgradeLevel = (Number(user.upgradeLevel) || 0) + 1;
+    } else {
+      user.withdrawal = (Number(user.withdrawal) || 0) + amount;
+    }
     await user.save();
 
     withdrawal.status = 'approved';

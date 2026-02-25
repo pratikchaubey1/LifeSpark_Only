@@ -10,52 +10,6 @@ function normalize(v) {
   return String(v).trim();
 }
 
-/**
- * Upgrade Income Chart:
- * Level 1: Total Withdrawal >= 10,000 → Upgrade Income 1,000
- * Level 2: Total Withdrawal >= 20,000 → Upgrade Income 2,000
- * Level 3: Total Withdrawal >= 30,000 → Upgrade Income 3,000
- * Level 4: Total Withdrawal >= 40,000 → Upgrade Income 4,000
- * Level 5: Total Withdrawal >= 50,000 → Upgrade Income 5,000
- * Level 6: Total Withdrawal >= 60,000 → Upgrade Income 6,000
- * Level 7: Total Withdrawal >= 70,000 → Upgrade Income 7,000
- * Level 8: Total Withdrawal >= 80,000 → Upgrade Income 8,000
- * Level 9: Total Withdrawal >= 90,000 → Upgrade Income 9,000
- * Level 10: Total Withdrawal >= 100,000 → Upgrade Income 10,000
- */
-const UPGRADE_LEVELS = [
-  { level: 1, threshold: 10000, upgradeAmount: 1000 },
-  { level: 2, threshold: 30000, upgradeAmount: 2000 },
-  { level: 3, threshold: 40000, upgradeAmount: 3000 },
-  { level: 4, threshold: 50000, upgradeAmount: 4000 },
-  { level: 5, threshold: 60000, upgradeAmount: 5000 },
-  { level: 6, threshold: 70000, upgradeAmount: 6000 },
-  { level: 7, threshold: 80000, upgradeAmount: 7000 },
-  { level: 8, threshold: 90000, upgradeAmount: 8000 },
-  { level: 9, threshold: 100000, upgradeAmount: 9000 },
-  { level: 10, threshold: 110000, upgradeAmount: 10000 },
-];
-
-/**
- * Calculate upgrade income when total withdrawal crosses thresholds
- * This now correctly finds the NEXT unclaimed level, not just the first threshold crossed.
- * 
- * @param {number} newTotalWithdrawn - User's total withdrawn amount INCLUDING the new withdrawal
- * @param {Set<number>} claimedLevels - Set of level numbers already awarded
- * @returns {Object|null} - { level, upgradeAmount, threshold } or null if no threshold crossed
- */
-function calculateUpgradeIncome(newTotalWithdrawn, claimedLevels) {
-  // Find the first level where:
-  // 1. The new total crosses or exceeds the threshold
-  // 2. The level hasn't been claimed yet
-  for (const levelInfo of UPGRADE_LEVELS) {
-    if (newTotalWithdrawn >= levelInfo.threshold && !claimedLevels.has(levelInfo.level)) {
-      return levelInfo;
-    }
-  }
-  return null;
-}
-
 // List withdrawal requests for current user
 router.get('/', auth, async (req, res) => {
   try {
@@ -76,6 +30,7 @@ router.post('/', auth, async (req, res) => {
     const amount = Number(req.body?.amount);
     const upiId = normalize(req.body?.upiId);
     const upiNo = normalize(req.body?.upiNo);
+    const method = req.body?.method === 'cash' ? 'cash' : 'upi';
 
     if (!Number.isFinite(amount) || amount <= 0) {
       return res.status(400).json({ message: 'Valid withdrawal amount is required.' });
@@ -86,14 +41,14 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ message: 'Minimum withdrawal amount is ₹300.' });
     }
 
-    // "ask for upi" (required)
-    if (!upiId) {
-      return res.status(400).json({ message: 'UPI ID is required.' });
-    }
-
-    // optional, but requested
-    if (!upiNo) {
-      return res.status(400).json({ message: 'UPI Number is required.' });
+    // If method is upi, upiId and upiNo are required
+    if (method === 'upi') {
+      if (!upiId) {
+        return res.status(400).json({ message: 'UPI ID is required for UPI withdrawal.' });
+      }
+      if (!upiNo) {
+        return res.status(400).json({ message: 'UPI Number is required for UPI withdrawal.' });
+      }
     }
 
     const user = await User.findById(req.user._id);
@@ -113,62 +68,105 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ message: 'Insufficient balance.' });
     }
 
-    // Get ALL withdrawals (pending + approved) to calculate true cumulative total
-    // and to see which upgrade levels have been claimed
-    const allWithdrawals = await Withdrawal.find({
-      userId: req.user._id.toString()
-    });
+    // CAP CHECK: (upgradeLevel + 1) * 10000
+    const currentLimit = ((user.upgradeLevel || 0) + 1) * 10000;
+    const totalWithdrawn = Number(user.withdrawal) || 0;
 
-    // Calculate the TRUE cumulative total of all withdrawals (pending + approved)
-    const cumulativeTotal = allWithdrawals.reduce((sum, w) => sum + (Number(w.amount) || 0), 0);
-    const newTotalWithdrawn = cumulativeTotal + amount;
-
-    // Build a set of already-claimed upgrade levels (from both pending and approved)
-    const claimedLevels = new Set(
-      allWithdrawals
-        .filter(w => w.upgradeLevel > 0)
-        .map(w => w.upgradeLevel)
-    );
-
-    // Calculate upgrade income - find the next unclaimed level that is crossed
-    const upgradeInfo = calculateUpgradeIncome(newTotalWithdrawn, claimedLevels);
+    if (totalWithdrawn + amount > currentLimit) {
+      return res.status(403).json({
+        message: `Withdrawal limit reached for your current level (₹${currentLimit.toLocaleString()}). Please request an upgrade of ₹1,000 to continue.`
+      });
+    }
 
     const withdrawal = new Withdrawal({
       withdrawalId: `WD-${Date.now()}`,
       userId: req.user._id.toString(),
       amount,
-      upiId,
-      upiNo,
+      upiId: method === 'upi' ? upiId : '',
+      upiNo: method === 'upi' ? upiNo : 'CASH',
       status: 'pending',
       requestedAt: new Date(),
       approvedAt: null,
       approvedBy: null,
-      // Upgrade income fields
-      upgradeIncome: upgradeInfo ? upgradeInfo.upgradeAmount : 0,
-      upgradeLevel: upgradeInfo ? upgradeInfo.level : 0,
-      isFirstAfterThreshold: upgradeInfo ? true : false,
+      type: 'withdrawal',
+      method
     });
 
     await withdrawal.save();
 
-    // Also store latest UPI info on the user profile for convenience
-    user.upiId = upiId;
-    user.upiNo = upiNo;
+    // Only update user UPI info if method is upi
+    if (method === 'upi') {
+      user.upiId = upiId;
+      user.upiNo = upiNo;
+    }
 
     // CRITICAL: Deduct balance immediately
     user.balance = balance - amount;
 
     await user.save();
 
-    // Build response with upgrade income message if applicable
-    const response = { withdrawal };
-    if (upgradeInfo) {
-      response.upgradeIncomeMessage = `₹${upgradeInfo.upgradeAmount.toLocaleString()} is for Upgrade Income (Level ${upgradeInfo.level} - after crossing ₹${upgradeInfo.threshold.toLocaleString()} threshold)`;
-    }
-
-    return res.status(201).json(response);
+    return res.status(201).json({ withdrawal });
   } catch (err) {
     console.error('Create withdrawal error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Create upgrade request
+router.post('/upgrade', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const method = req.body?.method === 'cash' ? 'cash' : 'upi';
+
+    // Deduct fixed ₹1,000 for upgrade if method is upi
+    const upgradeAmount = 1000;
+    const balance = Number(user.balance) || 0;
+
+    if (method === 'upi' && balance < upgradeAmount) {
+      return res.status(400).json({ message: 'Insufficient balance for ₹1,000 upgrade.' });
+    }
+
+    // Check for existing pending upgrade request
+    const existingUpgrade = await Withdrawal.findOne({
+      userId: req.user._id.toString(),
+      type: 'upgrade',
+      status: 'pending'
+    });
+
+    if (existingUpgrade) {
+      return res.status(400).json({ message: 'You already have a pending upgrade request.' });
+    }
+
+    const upgradeRequest = new Withdrawal({
+      withdrawalId: `UP-${Date.now()}`,
+      userId: req.user._id.toString(),
+      amount: upgradeAmount,
+      upiId: method === 'upi' ? (user.upiId || 'N/A') : '',
+      upiNo: method === 'upi' ? (user.upiNo || 'N/A') : 'CASH',
+      status: 'pending',
+      requestedAt: new Date(),
+      type: 'upgrade',
+      method
+    });
+
+    await upgradeRequest.save();
+
+    // Deduct balance ONLY if method is upi
+    if (method === 'upi') {
+      user.balance = balance - upgradeAmount;
+      await user.save();
+    }
+
+    return res.status(201).json({
+      message: method === 'cash'
+        ? 'Upgrade request submitted successfully. Please pay ₹1,000 manually to admin.'
+        : 'Upgrade request submitted successfully. Admin will approve it shortly.',
+      withdrawal: upgradeRequest
+    });
+  } catch (err) {
+    console.error('Upgrade request error', err);
     res.status(500).json({ message: 'Server error' });
   }
 });

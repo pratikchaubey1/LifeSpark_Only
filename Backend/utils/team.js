@@ -1,38 +1,44 @@
 const User = require('../models/User');
 
 /**
- * Recursively get all users at a specific level in the downline
- * @param {Array} currentLevelUserIds - User IDs at the current level
- * @param {Number} targetLevel - The level we want to reach (1-10)
- * @param {Number} currentLevel - Current level in recursion
- * @returns {Array} User IDs at the target level
+ * Recursively fetch all users in the downline level-by-level up to 10 levels.
+ * This is more efficient than fetching one level at a time.
+ * @param {Array} rootUserIds - The IDs of users at Level 1.
+ * @returns {Promise<Object>} - Map of level (1-10) -> Array of User IDs.
  */
-async function getUsersAtLevel(currentLevelUserIds, targetLevel, currentLevel = 1) {
-    if (currentLevel === targetLevel) {
-        return currentLevelUserIds;
+async function getDownlineByLevels(rootUserIds) {
+    const levelMap = { 1: rootUserIds };
+    let currentLevelIds = rootUserIds;
+    let processedIds = new Set(rootUserIds);
+
+    for (let level = 1; level < 10; level++) {
+        if (currentLevelIds.length === 0) break;
+
+        // Get invite codes for current level to find next level
+        const currentUsers = await User.find({ _id: { $in: currentLevelIds } }).select('inviteCode').lean();
+        const inviteCodes = currentUsers.map(u => u.inviteCode).filter(Boolean);
+
+        if (inviteCodes.length === 0) break;
+
+        // Find next level users (Case-insensitive to be safe)
+        const nextLevelUsers = await User.find({
+            sponsorId: { $in: inviteCodes }
+        }).select('_id').lean();
+
+        const nextLevelIds = nextLevelUsers
+            .map(u => u._id.toString())
+            .filter(id => !processedIds.has(id)); // Prevent cycles
+
+        if (nextLevelIds.length === 0) break;
+
+        levelMap[level + 1] = nextLevelIds;
+        nextLevelIds.forEach(id => processedIds.add(id));
+        currentLevelIds = nextLevelIds;
     }
 
-    if (currentLevel > 10 || currentLevelUserIds.length === 0) {
-        return [];
-    }
-
-    // Get all users who were invited by current level users
-    const nextLevelUsers = await User.find({
-        _id: { $in: currentLevelUserIds }
-    }).select('directInviteIds').lean();
-
-    // Collect all direct invite IDs from current level
-    const nextLevelUserIds = [];
-    nextLevelUsers.forEach(user => {
-        if (Array.isArray(user.directInviteIds)) {
-            nextLevelUserIds.push(...user.directInviteIds);
-        }
-    });
-
-    // Recursively get users at the target level
-    return getUsersAtLevel(nextLevelUserIds, targetLevel, currentLevel + 1);
+    return levelMap;
 }
 
 module.exports = {
-    getUsersAtLevel
+    getDownlineByLevels
 };

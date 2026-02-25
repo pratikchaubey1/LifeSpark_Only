@@ -4,17 +4,15 @@ const User = require('../models/User');
 
 const router = express.Router();
 
-// Direct team members (users invited by current user)
+// Direct team members (using sponsorId as Source of Truth)
 router.get('/direct', auth, async (req, res) => {
   try {
-    const me = await User.findById(req.user._id);
+    const me = await User.findById(req.user._id).select('inviteCode');
     if (!me) return res.status(404).json({ message: 'User not found' });
 
-    const ids = Array.isArray(me.directInviteIds) ? me.directInviteIds : [];
-
-    // Find all users whose IDs are in the directInviteIds array
+    // Find all users who have this user's inviteCode as sponsorId
     const directMembers = await User.find({
-      _id: { $in: ids }
+      sponsorId: me.inviteCode
     }).select('_id name inviteCode isActivated role createdAt').lean();
 
     const members = directMembers.map((u) => ({
@@ -33,32 +31,22 @@ router.get('/direct', auth, async (req, res) => {
   }
 });
 
-// Import utility (needs to be at top, but adding here for context or moving to top)
-const { getUsersAtLevel } = require('../utils/team');
-
-// Get all users level-wise (1-10) with counts
+// Get all users level-wise (1-10) with counts (using optimized traversal)
 router.get('/levels', auth, async (req, res) => {
   try {
-    const currentUser = await User.findById(req.user._id).select('directInviteIds');
+    const currentUser = await User.findById(req.user._id).select('inviteCode');
     if (!currentUser) return res.status(404).json({ message: 'User not found' });
 
-    const directIds = Array.isArray(currentUser.directInviteIds) ? currentUser.directInviteIds : [];
-    const levels = [];
+    // Level 1: Users who were invited directly (Source of Truth: sponsorId)
+    const directMembers = await User.find({ sponsorId: currentUser.inviteCode }).select('_id').lean();
+    const directIds = directMembers.map(m => m._id.toString());
 
-    // Pre-fetch user IDs for each level
-    const levelUserIdsMap = {};
+    // Optimized multi-level traversal
+    const { getDownlineByLevels } = require('../utils/team');
+    const levelUserIdsMap = await getDownlineByLevels(directIds);
 
-    for (let level = 1; level <= 10; level++) {
-      if (level === 1) {
-        levelUserIdsMap[level] = directIds;
-      } else {
-        levelUserIdsMap[level] = await getUsersAtLevel(directIds, level);
-      }
-    }
-
-    // Process each level
-    const levelPromises = Object.entries(levelUserIdsMap).map(async ([level, userIds]) => {
-      const levelNum = Number(level);
+    const levelPromises = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(async (levelNum) => {
+      const userIds = levelUserIdsMap[levelNum] || [];
 
       if (!userIds.length) {
         return {
@@ -97,10 +85,6 @@ router.get('/levels', auth, async (req, res) => {
     });
 
     const levelResults = await Promise.all(levelPromises);
-
-    // Sort by level just in case
-    levelResults.sort((a, b) => a.level - b.level);
-
     return res.json({ levels: levelResults });
 
   } catch (err) {

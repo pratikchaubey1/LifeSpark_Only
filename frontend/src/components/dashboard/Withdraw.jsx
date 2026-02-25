@@ -11,7 +11,8 @@ import {
   FiClock,
   FiCheckCircle,
   FiXCircle,
-  FiAlertCircle
+  FiAlertCircle,
+  FiTrendingUp
 } from "react-icons/fi";
 
 const API_BASE = config.apiUrl;
@@ -27,6 +28,9 @@ export default function Withdraw({ onMenuOpen }) {
   const [upiNo, setUpiNo] = useState("");
   const [amount, setAmount] = useState("");
   const [directCount, setDirectCount] = useState(0);
+  const [totalWithdrawn, setTotalWithdrawn] = useState(0);
+  const [upgradeLevel, setUpgradeLevel] = useState(0);
+  const [upgradeMethod, setUpgradeMethod] = useState("upi"); // upi, cash
 
   const [withdrawals, setWithdrawals] = useState([]);
 
@@ -61,6 +65,8 @@ export default function Withdraw({ onMenuOpen }) {
         setUpiNo(profileData.user?.upiNo || "");
         const invites = profileData.user?.directInviteIds || [];
         setDirectCount(invites.length);
+        setTotalWithdrawn(Number(profileData.user?.withdrawal) || 0);
+        setUpgradeLevel(Number(profileData.user?.upgradeLevel) || 0);
       }
 
       if (listRes.ok) {
@@ -101,13 +107,13 @@ export default function Withdraw({ onMenuOpen }) {
       setMsgType("error");
       return setMsg("UPI ID required.");
     }
-    if (directCount < 2) {
-      setMsgType("error");
-      return setMsg(`Need 2 direct referrals. Current: ${directCount}`);
-    }
     if (!upiNo.trim()) {
       setMsgType("error");
       return setMsg("UPI Number required.");
+    }
+    if (directCount < 2) {
+      setMsgType("error");
+      return setMsg(`Need 2 direct referrals. Current: ${directCount}`);
     }
 
     try {
@@ -118,7 +124,7 @@ export default function Withdraw({ onMenuOpen }) {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ amount: amt, upiId, upiNo }),
+        body: JSON.stringify({ amount: amt, upiId, upiNo, method: "upi" }),
       });
 
       const data = await res.json();
@@ -127,13 +133,7 @@ export default function Withdraw({ onMenuOpen }) {
         return setMsg(data.message || "Failed.");
       }
 
-      // Check if there's an upgrade income message
-      let successMessage = "Withdrawal request submitted successfully.";
-      if (data.upgradeIncomeMessage) {
-        successMessage += ` Note: ${data.upgradeIncomeMessage}`;
-      }
-
-      setMsg(successMessage);
+      setMsg("Withdrawal request submitted successfully.");
       setMsgType("success");
       setWithdrawals((prev) => [data.withdrawal, ...prev]);
       setAmount("");
@@ -145,6 +145,50 @@ export default function Withdraw({ onMenuOpen }) {
       setSubmitting(false);
     }
   };
+
+  const handleUpgradeRequest = async () => {
+    setMsg("");
+    const token = localStorage.getItem("token");
+    if (!token) return setMsg("Please login again.");
+
+    if (upgradeMethod === "upi" && balance < 1000) {
+      setMsgType("error");
+      return setMsg("Insufficient balance for ₹1,000 upgrade.");
+    }
+
+    try {
+      setSubmitting(true);
+      const res = await fetch(`${API_BASE}/withdrawals/upgrade`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ method: upgradeMethod })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        setMsgType("error");
+        return setMsg(data.message || "Failed to submit upgrade request.");
+      }
+
+      setMsg(data.message || "Upgrade request submitted successfully.");
+      setMsgType("success");
+      setWithdrawals((prev) => [data.withdrawal, ...prev]);
+      if (upgradeMethod === "upi") {
+        setBalance(prev => prev - 1000);
+      }
+    } catch {
+      setMsg("Failed to submit upgrade request.");
+      setMsgType("error");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const currentLimit = (upgradeLevel + 1) * 10000;
+  const isCapped = totalWithdrawn >= currentLimit;
 
   if (loading) {
     return (
@@ -195,9 +239,25 @@ export default function Withdraw({ onMenuOpen }) {
               <div className="absolute top-0 right-0 p-8 opacity-10">
                 <FiDollarSign size={120} />
               </div>
-              <div className="relative z-10">
-                <div className="text-blue-100 text-sm font-medium uppercase tracking-wider">Available Balance</div>
-                <div className="text-4xl md:text-5xl font-bold mt-2">₹{balance.toLocaleString()}</div>
+              <div className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-4">
+                <div>
+                  <div className="text-blue-100 text-sm font-medium uppercase tracking-wider">Available Balance</div>
+                  <div className="text-4xl md:text-5xl font-bold mt-2">₹{balance.toLocaleString()}</div>
+                </div>
+                <div className="bg-white/10 backdrop-blur-md rounded-2xl p-4 border border-white/20">
+                  <div className="text-blue-100 text-[10px] font-bold uppercase tracking-widest mb-1">Withdrawal Limit (L{upgradeLevel})</div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-xl font-bold">₹{totalWithdrawn.toLocaleString()}</span>
+                    <span className="text-blue-200 text-xs font-medium">/ ₹{currentLimit.toLocaleString()}</span>
+                  </div>
+                  {/* Progress Bar */}
+                  <div className="w-full h-1.5 bg-white/20 rounded-full mt-2 overflow-hidden">
+                    <div
+                      className="h-full bg-white transition-all duration-500"
+                      style={{ width: `${Math.min((totalWithdrawn / currentLimit) * 100, 100)}%` }}
+                    ></div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -215,59 +275,114 @@ export default function Withdraw({ onMenuOpen }) {
             {/* WITHDRAW FORM */}
             <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 space-y-5">
               <h3 className="font-bold text-slate-900 flex items-center gap-2 mb-2">
-                Payout Details
+                {isCapped ? "Upgrade Required" : "Payout Details"}
               </h3>
 
-              {directCount < 2 ? (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 text-amber-800">
-                  <FiAlertCircle className="mt-0.5 shrink-0" />
-                  <div className="text-sm">
-                    <div className="font-semibold mb-1">Requirement Check</div>
-                    <p>You need at least <span className="font-bold">2 direct referrals</span> to request a withdrawal.</p>
-                    <p className="mt-1 opacity-80">Current Progress: <span className="font-mono font-bold">{directCount}/2</span></p>
+              {isCapped ? (
+                <div className="space-y-4">
+                  <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 flex gap-3 text-rose-800">
+                    <FiAlertCircle className="mt-0.5 shrink-0" />
+                    <div className="text-sm">
+                      <div className="font-semibold mb-1">Limit Reached</div>
+                      <p>You have reached your withdrawal limit of <span className="font-bold">₹{currentLimit.toLocaleString()}</span>.</p>
+                      <p className="mt-2 text-rose-600 font-medium">To continue withdrawing, you must request an upgrade of <span className="font-bold">₹1,000</span>.</p>
+                    </div>
                   </div>
+
+                  <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
+                    <button
+                      onClick={() => setUpgradeMethod("upi")}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${upgradeMethod === "upi" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-white/50"}`}
+                    >
+                      Use Wallet (₹1,000)
+                    </button>
+                    <button
+                      onClick={() => setUpgradeMethod("cash")}
+                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${upgradeMethod === "cash" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-white/50"}`}
+                    >
+                      Cash / Manual
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={handleUpgradeRequest}
+                    disabled={submitting || (upgradeMethod === "upi" && balance < 1000)}
+                    className="w-full py-4 rounded-2xl text-white font-bold bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-blue-100"
+                  >
+                    {submitting ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <>
+                        <FiTrendingUp />
+                        {upgradeMethod === "cash" ? "Request Manual Upgrade" : "Request Wallet Upgrade (₹1,000)"}
+                      </>
+                    )}
+                  </button>
+                  {upgradeMethod === "upi" && balance < 1000 && !submitting && (
+                    <p className="text-[10px] text-center text-rose-500 font-bold uppercase tracking-widest">
+                      Insufficient balance for wallet upgrade
+                    </p>
+                  )}
+                  {upgradeMethod === "cash" && (
+                    <p className="text-[10px] text-center text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
+                      You will need to pay ₹1,000 manually to the admin <br /> after submitting this request.
+                    </p>
+                  )}
                 </div>
-              ) : null}
+              ) : (
+                <>
+                  {directCount < 2 ? (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 text-amber-800">
+                      <FiAlertCircle className="mt-0.5 shrink-0" />
+                      <div className="text-sm">
+                        <div className="font-semibold mb-1">Requirement Check</div>
+                        <p>You need at least <span className="font-bold">2 direct referrals</span> to request a withdrawal.</p>
+                        <p className="mt-1 opacity-80">Current Progress: <span className="font-mono font-bold">{directCount}/2</span></p>
+                      </div>
+                    </div>
+                  ) : null}
 
-              <InputGroup
-                icon={<FiCreditCard />}
-                label="UPI ID"
-                placeholder="example@upi"
-                value={upiId}
-                onChange={setUpiId}
-              />
+                  <InputGroup
+                    icon={<FiCreditCard />}
+                    label="UPI ID"
+                    placeholder="example@upi"
+                    value={upiId}
+                    onChange={setUpiId}
+                  />
 
-              <InputGroup
-                icon={<FiSmartphone />}
-                label="UPI Mobile Number"
-                placeholder="10-digit number"
-                value={upiNo}
-                onChange={setUpiNo}
-              />
+                  <InputGroup
+                    icon={<FiSmartphone />}
+                    label="UPI Mobile Number"
+                    placeholder="10-digit number"
+                    value={upiNo}
+                    onChange={setUpiNo}
+                  />
 
-              <InputGroup
-                icon={<FiDollarSign />}
-                label="Amount to Withdraw"
-                placeholder="Enter amount"
-                value={amount}
-                onChange={setAmount}
-                type="number"
-              />
+                  <InputGroup
+                    icon={<FiDollarSign />}
+                    label="Amount to Withdraw"
+                    placeholder="Enter amount"
+                    value={amount}
+                    onChange={setAmount}
+                    type="number"
+                  />
 
-              <button
-                onClick={handleSubmit}
-                disabled={submitting || directCount < 2}
-                className="w-full py-4 rounded-2xl text-white font-bold bg-slate-900 hover:bg-slate-800 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2 shadow-lg shadow-slate-200"
-              >
-                {submitting ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                ) : (
-                  <>
-                    <FiSend />
-                    Submit Payout Request
-                  </>
-                )}
-              </button>
+                  <button
+                    onClick={handleSubmit}
+                    disabled={submitting || directCount < 2}
+                    className="w-full py-4 rounded-2xl text-white font-bold bg-slate-900 hover:bg-slate-800 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2 shadow-lg shadow-slate-200"
+                  >
+                    {submitting ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    ) : (
+                      <>
+                        <FiSend />
+                        Submit Payout Request
+                      </>
+                    )}
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -301,13 +416,14 @@ export default function Withdraw({ onMenuOpen }) {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <div className="text-base font-bold text-slate-900">₹{Number(w.amount).toLocaleString()}</div>
-                          {/* Upgrade Income Indicator */}
-                          {w.isFirstAfterThreshold && w.upgradeIncome > 0 && (
-                            <div className="mt-1 inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 text-[10px] font-semibold">
-                              ↑ ₹{Number(w.upgradeIncome).toLocaleString()} Upgrade Income (L{w.upgradeLevel})
-                            </div>
-                          )}
+                          <div className="flex items-center gap-2">
+                            <div className="text-base font-bold text-slate-900">₹{Number(w.amount).toLocaleString()}</div>
+                            {w.type === 'upgrade' && (
+                              <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-600 text-[9px] font-bold uppercase tracking-wider border border-blue-200 flex items-center gap-1">
+                                <FiTrendingUp size={10} /> Upgrade {w.method === 'cash' ? '(Cash)' : '(Wallet)'}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-6 py-4">
                           <StatusBadge status={w.status} />

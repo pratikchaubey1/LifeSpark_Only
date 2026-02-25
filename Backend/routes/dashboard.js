@@ -138,9 +138,9 @@ router.get('/direct-team', auth, async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Fetch details of all users in directInviteIds
+    // Fetch details of all users who have this user's inviteCode as sponsorId
     const team = await User.find({
-      _id: { $in: user.directInviteIds || [] }
+      sponsorId: user.inviteCode
     }).select('name email phone isActivated createdAt role inviteCode');
 
     const mappedTeam = team.map(u => ({

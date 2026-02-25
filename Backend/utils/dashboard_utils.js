@@ -6,32 +6,16 @@ const User = require('../models/User');
  * @param {number} maxLevel - Depth limit.
  * @returns {Promise<Array>} - Flattened array of all unique user IDs in the downline.
  */
-async function getAllDownlineIds(directIds, maxLevel = 10) {
-    let allIds = new Set(directIds);
-    let currentLevelIds = [...directIds];
+const { getDownlineByLevels } = require('./team');
 
-    for (let level = 2; level <= maxLevel; level++) {
-        if (currentLevelIds.length === 0) break;
+async function getAllDownlineIds(inviteCode, maxLevel = 10) {
+    const directMembers = await User.find({ sponsorId: inviteCode }).select('_id').lean();
+    const directIds = directMembers.map(m => m._id.toString());
 
-        const nextLevelUsers = await User.find({
-            _id: { $in: currentLevelIds }
-        }).select('directInviteIds').lean();
-
-        const nextLevelIds = [];
-        nextLevelUsers.forEach(u => {
-            if (u.directInviteIds) {
-                u.directInviteIds.forEach(id => {
-                    if (!allIds.has(id)) {
-                        allIds.add(id);
-                        nextLevelIds.push(id);
-                    }
-                });
-            }
-        });
-        currentLevelIds = nextLevelIds;
-    }
-
-    return Array.from(allIds);
+    const levelMap = await getDownlineByLevels(directIds);
+    const allIds = [];
+    Object.values(levelMap).forEach(ids => allIds.push(...ids));
+    return allIds;
 }
 
 const LEVEL_INCOME_RATES = {
@@ -66,48 +50,31 @@ const LEVEL_INCOME_CAPS = {
  * @returns {Promise<Object>} - Statistics object.
  */
 async function getTeamStats(user) {
-    const directIds = user.directInviteIds || [];
-
-    // To calculate total daily level income, we need to know the depth of each user
-    // We'll perform a level-by-level search to track depth
     let totalDailyLevelRate = 0;
-    let allDownlineIds = [];
     const levelUncapped = {}; // Track uncapped income per level
-    let currentLevelIds = [...directIds];
-    let processedIds = new Set(currentLevelIds);
 
-    const today = new Date();
+    const directMembers = await User.find({ sponsorId: user.inviteCode }).select('_id').lean();
+    const directIds = directMembers.map(m => m._id.toString());
+
+    const levelUserIdsMap = await getDownlineByLevels(directIds);
+    const allDownlineIds = [];
 
     for (let level = 1; level <= 10; level++) {
-        if (currentLevelIds.length === 0) break;
+        const userIds = levelUserIdsMap[level] || [];
+        if (userIds.length === 0) continue;
 
         const levelUsers = await User.find({
-            _id: { $in: currentLevelIds }
-        }).select('isActivated activatedAt createdAt directInviteIds').lean();
+            _id: { $in: userIds }
+        }).select('_id isActivated activatedAt').lean();
 
         const rate = LEVEL_INCOME_RATES[level] || 0;
-        const nextLevelIds = [];
 
         for (const u of levelUsers) {
-            // If user is active, they contribute to the sponsor's daily rate
             if (u.isActivated) {
                 levelUncapped[level] = (levelUncapped[level] || 0) + rate;
             }
-
-            // Track all downline for stats
             allDownlineIds.push(u._id.toString());
-
-            // Collect next level
-            if (u.directInviteIds) {
-                u.directInviteIds.forEach(id => {
-                    if (!processedIds.has(id)) {
-                        processedIds.add(id);
-                        nextLevelIds.push(id);
-                    }
-                });
-            }
         }
-        currentLevelIds = nextLevelIds;
     }
 
     // Apply per-level caps to compute total daily level rate
@@ -122,7 +89,7 @@ async function getTeamStats(user) {
     }).select('isActivated activatedAt createdAt').lean();
 
     const directUsers = await User.find({
-        _id: { $in: directIds }
+        sponsorId: user.inviteCode
     }).select('isActivated activatedAt createdAt').lean();
 
     const todayStart = new Date();

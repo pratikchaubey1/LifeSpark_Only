@@ -2107,6 +2107,7 @@ export default function AdminPage() {
                 headers={[
                   { label: "ID" },
                   { label: "User" },
+                  { label: "Invite Code" },
                   { label: "UPI" },
                   { label: "Bank" },
                   { label: "Amount", className: "text-right" },
@@ -2177,8 +2178,19 @@ export default function AdminPage() {
                           )}
                         </td>
                         <td className="p-4">
-                          <div className="font-mono text-xs text-blue-600">{upiLine}</div>
-                          <div className="text-xs text-slate-400">{upiNoLine}</div>
+                          <div className="font-mono text-xs text-blue-600">{w.user?.inviteCode || "-"}</div>
+                        </td>
+                        <td className="p-4">
+                          {w.method === 'cash' ? (
+                            <div className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 border border-slate-200 text-slate-600 text-[10px] font-bold uppercase tracking-wider">
+                              Manual / Cash
+                            </div>
+                          ) : (
+                            <>
+                              <div className="font-mono text-xs text-blue-600">{upiLine}</div>
+                              <div className="text-xs text-slate-400">{upiNoLine}</div>
+                            </>
+                          )}
                         </td>
                         <td className="p-4">
                           <div className="space-y-1 text-[11px] text-slate-600">
@@ -2199,9 +2211,9 @@ export default function AdminPage() {
                         </td>
                         <td className="p-4 text-right">
                           <div className="text-base font-bold text-slate-800 font-mono">₹{w.amount}</div>
-                          {w.isFirstAfterThreshold && w.upgradeIncome > 0 && (
-                            <div className="mt-1 inline-flex items-center px-1.5 py-0.5 rounded bg-amber-50 border border-amber-100 text-amber-600 text-[9px] font-bold uppercase tracking-tight">
-                              Upgrade: ₹{w.upgradeIncome}
+                          {w.type === 'upgrade' && (
+                            <div className={`mt-1 inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase tracking-tight ${w.method === 'cash' ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-blue-100 border-blue-200 text-blue-600'}`}>
+                              Upgrade Request {w.method === 'cash' ? '(Cash)' : '(Wallet)'}
                             </div>
                           )}
                         </td>

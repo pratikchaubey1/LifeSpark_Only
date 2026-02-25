@@ -23,73 +23,87 @@ const LEVEL_INCOME_RATES = {
 router.get('/', auth, async (req, res) => {
     try {
         const currentUser = await User.findById(req.user._id)
-            .select('directInviteIds')
+            .select('inviteCode directInviteIds')
             .lean();
 
         if (!currentUser) {
+            console.log(`❌ Level Income Error: User ${req.user._id} not found`);
             return res.status(404).json({ message: 'User not found' });
         }
 
-        const directIds = Array.isArray(currentUser.directInviteIds)
-            ? currentUser.directInviteIds
-            : [];
+        console.log(`\n🔍 Fetching Level Income for ${currentUser.name} (${currentUser.inviteCode})`);
 
+        // LEVEL 1 IDs are now found by matching sponsorId in the database (Source of Truth)
+        const directMembers = await User.find({ sponsorId: currentUser.inviteCode }).select('_id').lean();
+        const directIds = directMembers.map(m => m._id.toString());
+
+        console.log(`📡 Level 1: Found ${directIds.length} members matching sponsorId=${currentUser.inviteCode}`);
+
+        // Fetch user IDs for ALL levels in one efficient recursive pass
+        const { getDownlineByLevels } = require('../utils/team');
+        console.log(`🚀 Starting getDownlineByLevels for ${directIds.length} direct members...`);
+        const levelUserIdsMap = await getDownlineByLevels(directIds);
+        console.log(`✅ Finished getDownlineByLevels. Found IDs for ${Object.keys(levelUserIdsMap).length} levels.`);
+
+        // Initialize levels and total income outside the loop
         const levels = [];
         let totalLevelIncome = 0;
 
-        // Pre-calculate user IDs for all levels
-        const levelUserIdsMap = {};
-
-        for (let level = 1; level <= 10; level++) {
-            if (level === 1) {
-                levelUserIdsMap[level] = directIds;
-            } else {
-                levelUserIdsMap[level] = await getUsersAtLevel(directIds, level);
-            }
-        }
-
         // Fetch users for each level (parallelized)
-        const levelPromises = Object.entries(levelUserIdsMap).map(
-            async ([level, userIds]) => {
-                const levelNum = Number(level);
+        const levelPromises = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(
+            async (levelNum) => {
+                const userIds = levelUserIdsMap[levelNum] || [];
                 if (!userIds.length) {
                     return {
                         level: levelNum,
                         incomePerUser: LEVEL_INCOME_RATES[levelNum],
                         userCount: 0,
+                        activeUserCount: 0,
                         totalIncome: 0,
                         users: []
                     };
                 }
 
+                // Get ALL users at this level
+                const allUsersAtLevel = await User.find({
+                    _id: { $in: userIds }
+                })
+                    .select('_id name email inviteCode isActivated activatedAt createdAt phone')
+                    .lean();
+
                 const today = new Date();
                 const thirtyDaysAgo = new Date();
                 thirtyDaysAgo.setDate(today.getDate() - 30);
 
-                // Filter for users who are active and within their 30-day bonus window
-                const activeInWindowUsers = await User.find({
-                    _id: { $in: userIds },
-                    isActivated: true,
-                    activatedAt: { $gte: thirtyDaysAgo }
-                })
-                    .select('_id name email inviteCode isActivated activatedAt createdAt')
-                    .lean();
+                // 1. Total Activated (Green Dots) - Matches "Active" in My Team Network
+                const activatedUsers = allUsersAtLevel.filter(u => u.isActivated);
 
-                const userCount = activeInWindowUsers.length;
+                // 2. Income Eligible (Within 30-day window) - Internal logic for income calculation
+                const incomeEligibleUsers = activatedUsers.filter(u =>
+                    u.activatedAt && new Date(u.activatedAt) >= thirtyDaysAgo
+                );
+
+                const totalUserCount = allUsersAtLevel.length;
+                const activeUserCount = activatedUsers.length; // Total Green Dots
+                const incomeEligibleCount = incomeEligibleUsers.length;
+
                 const incomePerUser = LEVEL_INCOME_RATES[levelNum];
-                const uncappedIncome = userCount * incomePerUser;
+                const uncappedIncome = incomeEligibleCount * incomePerUser;
                 const cap = LEVEL_INCOME_CAPS[levelNum] || Infinity;
                 const totalIncome = Math.min(uncappedIncome, cap);
 
                 return {
                     level: levelNum,
                     incomePerUser,
-                    userCount,
+                    userCount: totalUserCount, // Total members (gray number)
+                    activeUserCount: activeUserCount, // Total ACTIVATED members (blue number)
+                    incomeEligibleCount, // Internal purely for reference or modal
                     totalIncome,
-                    users: activeInWindowUsers.map(u => ({
+                    users: allUsersAtLevel.map(u => ({
                         id: u._id.toString(),
                         name: u.name,
                         email: u.email,
+                        phone: u.phone,
                         inviteCode: u.inviteCode,
                         isActivated: !!u.isActivated,
                         createdAt: u.createdAt,
@@ -100,15 +114,25 @@ router.get('/', auth, async (req, res) => {
         );
 
         const levelResults = await Promise.all(levelPromises);
+        console.log(`📊 Processing final results for ${currentUser.name}...`);
 
         for (const levelData of levelResults) {
             totalLevelIncome += levelData.totalIncome;
             levels.push(levelData);
+            if (levelData.level <= 3) {
+                console.log(`📡 Level ${levelData.level}: ${levelData.activeUserCount} Active / ${levelData.userCount} Total (Income: ₹${levelData.totalIncome})`);
+            }
         }
+
+        console.log(`💰 Total Level Income Calculated: ₹${totalLevelIncome}`);
 
         return res.json({
             levels,
-            totalLevelIncome
+            totalLevelIncome,
+            currentUserInfo: {
+                name: currentUser.name,
+                inviteCode: currentUser.inviteCode
+            }
         });
 
     } catch (err) {
