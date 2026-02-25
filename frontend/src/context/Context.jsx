@@ -6,6 +6,7 @@ function Context({children}) {
         let store ={
         val, setVal, data, setData
     }
+    //safe adding
   return <Counter.Provider value = {store}>{children}</Counter.Provider>
 }
 
