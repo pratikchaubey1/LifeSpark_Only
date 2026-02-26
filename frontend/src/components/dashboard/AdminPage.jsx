@@ -2235,9 +2235,9 @@ export default function AdminPage() {
                               <button
                                 onClick={() => approveWithdrawal(w._id || w.id)}
                                 disabled={!!approvingWithdrawalId}
-                                className="bg-green-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold hover:bg-green-700 transition shadow-sm w-20"
+                                className={`text-white px-3 py-1.5 rounded-lg text-xs font-bold transition shadow-sm w-20 ${w.type === 'upgrade' ? 'bg-blue-600 hover:bg-blue-700' : 'bg-green-600 hover:bg-green-700'}`}
                               >
-                                Approve
+                                {w.type === 'upgrade' ? 'Upgrade' : 'Accept'}
                               </button>
                               <button
                                 onClick={() => rejectWithdrawal(w._id || w.id)}
