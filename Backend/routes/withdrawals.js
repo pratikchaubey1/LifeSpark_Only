@@ -70,7 +70,24 @@ router.post('/', auth, async (req, res) => {
 
     // CAP CHECK: (upgradeLevel + 1) * 10000
     const currentLimit = ((user.upgradeLevel || 0) + 1) * 10000;
-    const totalWithdrawn = Number(user.withdrawal) || 0;
+
+    // Compute totalWithdrawn from actual withdrawal records (approved + pending)
+    // Use $ne: 'upgrade' to exclude upgrades, and also exclude by withdrawalId prefix 'UP-'
+    // (old upgrade records may lack the type field but always start with 'UP-')
+    const withdrawnAgg = await Withdrawal.aggregate([
+      {
+        $match: {
+          userId: req.user._id.toString(),
+          type: { $ne: 'upgrade' },
+          withdrawalId: { $not: /^UP-/ },
+          status: { $in: ['approved', 'pending'] }
+        }
+      },
+      { $group: { _id: null, total: { $sum: '$amount' } } }
+    ]);
+    const totalWithdrawn = withdrawnAgg.length > 0 ? withdrawnAgg[0].total : 0;
+
+    console.log(`[CAP CHECK] userId=${req.user._id}, totalWithdrawn=${totalWithdrawn}, amount=${amount}, currentLimit=${currentLimit}, willExceed=${totalWithdrawn + amount > currentLimit}`);
 
     if (totalWithdrawn + amount > currentLimit) {
       return res.status(403).json({

@@ -65,14 +65,20 @@ export default function Withdraw({ onMenuOpen }) {
         setUpiNo(profileData.user?.upiNo || "");
         const invites = profileData.user?.directInviteIds || [];
         setDirectCount(invites.length);
-        setTotalWithdrawn(Number(profileData.user?.withdrawal) || 0);
         setUpgradeLevel(Number(profileData.user?.upgradeLevel) || 0);
       }
 
+      const wdList = Array.isArray(listData.withdrawals) ? listData.withdrawals : [];
+
       if (listRes.ok) {
-        setWithdrawals(
-          Array.isArray(listData.withdrawals) ? listData.withdrawals : []
-        );
+        setWithdrawals(wdList);
+
+        // Compute totalWithdrawn from actual withdrawal records (approved + pending, excluding upgrades)
+        // Exclude by type AND by withdrawalId prefix (old upgrades may lack type field but start with 'UP-')
+        const computedWithdrawn = wdList
+          .filter(w => w.type !== 'upgrade' && !(w.withdrawalId || '').startsWith('UP-') && (w.status === 'approved' || w.status === 'pending'))
+          .reduce((sum, w) => sum + (Number(w.amount) || 0), 0);
+        setTotalWithdrawn(computedWithdrawn);
       }
     } catch {
       setMsg("Failed to load data.");
@@ -188,7 +194,9 @@ export default function Withdraw({ onMenuOpen }) {
   };
 
   const currentLimit = (upgradeLevel + 1) * 10000;
-  const isCapped = totalWithdrawn >= currentLimit;
+  const remainingLimit = currentLimit - totalWithdrawn;
+  // Show upgrade UI if limit is fully reached OR remaining is below min withdrawal (₹300)
+  const isCapped = totalWithdrawn >= currentLimit || remainingLimit < 300;
 
   if (loading) {
     return (
@@ -284,7 +292,7 @@ export default function Withdraw({ onMenuOpen }) {
                     <FiAlertCircle className="mt-0.5 shrink-0" />
                     <div className="text-sm">
                       <div className="font-semibold mb-1">Limit Reached</div>
-                      <p>You have reached your withdrawal limit of <span className="font-bold">₹{currentLimit.toLocaleString()}</span>.</p>
+                      <p>You have {remainingLimit <= 0 ? 'reached' : 'nearly reached'} your withdrawal limit of <span className="font-bold">₹{currentLimit.toLocaleString()}</span>{remainingLimit > 0 ? ` (only ₹${remainingLimit.toLocaleString()} remaining, below ₹300 minimum)` : ''}.</p>
                       <p className="mt-2 text-rose-600 font-medium">To continue withdrawing, you must request an upgrade of <span className="font-bold">₹1,000</span>.</p>
                     </div>
                   </div>
