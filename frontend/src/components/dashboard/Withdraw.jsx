@@ -141,9 +141,9 @@ export default function Withdraw({ onMenuOpen }) {
 
       setMsg("Withdrawal request submitted successfully.");
       setMsgType("success");
-      setWithdrawals((prev) => [data.withdrawal, ...prev]);
       setAmount("");
-      setBalance(prev => prev - amt);
+      // Refresh all data from API to get fresh balance and withdrawal list
+      await loadAll();
     } catch {
       setMsg("Failed to submit request.");
       setMsgType("error");
@@ -181,10 +181,8 @@ export default function Withdraw({ onMenuOpen }) {
 
       setMsg(data.message || "Upgrade request submitted successfully.");
       setMsgType("success");
-      setWithdrawals((prev) => [data.withdrawal, ...prev]);
-      if (upgradeMethod === "upi") {
-        setBalance(prev => prev - 1000);
-      }
+      // Refresh all data from API to get fresh balance and withdrawal list
+      await loadAll();
     } catch {
       setMsg("Failed to submit upgrade request.");
       setMsgType("error");
