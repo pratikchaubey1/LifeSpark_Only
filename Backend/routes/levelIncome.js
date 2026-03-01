@@ -72,33 +72,24 @@ router.get('/', auth, async (req, res) => {
                     .lean();
 
                 const today = new Date();
-                const thirtyDaysAgo = new Date();
-                thirtyDaysAgo.setDate(today.getDate() - 30);
 
-                // 1. Total Activated (Green Dots) - Matches "Active" in My Team Network
-                const activatedUsers = allUsersAtLevel.filter(u => u.isActivated);
-
-                // 2. Income Eligible (Within 30-day window) - Internal logic for income calculation
-                const incomeEligibleUsers = activatedUsers.filter(u =>
-                    u.activatedAt && new Date(u.activatedAt) >= thirtyDaysAgo
-                );
+                // All activated users contribute to income (no 30-day window)
+                const incomeEligibleUsers = allUsersAtLevel.filter(u => u.isActivated);
 
                 const totalUserCount = allUsersAtLevel.length;
-                const activeUserCount = activatedUsers.length; // Total Green Dots
+                const activeUserCount = incomeEligibleUsers.length;
                 const incomeEligibleCount = incomeEligibleUsers.length;
 
                 const incomePerUser = LEVEL_INCOME_RATES[levelNum];
                 const uncappedIncome = incomeEligibleCount * incomePerUser;
-                const cap = LEVEL_INCOME_CAPS[levelNum] || Infinity;
-                const totalIncome = Math.min(uncappedIncome, cap);
 
                 return {
                     level: levelNum,
                     incomePerUser,
-                    userCount: totalUserCount, // Total members (gray number)
-                    activeUserCount: activeUserCount, // Total ACTIVATED members (blue number)
-                    incomeEligibleCount, // Internal purely for reference or modal
-                    totalIncome,
+                    userCount: totalUserCount,
+                    activeUserCount: activeUserCount,
+                    incomeEligibleCount,
+                    totalIncome: uncappedIncome, // Will be adjusted after total cap below
                     users: allUsersAtLevel.map(u => ({
                         id: u._id.toString(),
                         name: u.name,
@@ -116,6 +107,7 @@ router.get('/', auth, async (req, res) => {
         const levelResults = await Promise.all(levelPromises);
         console.log(`📊 Processing final results for ${currentUser.name}...`);
 
+        // Sum total income across all levels (uncapped for display)
         for (const levelData of levelResults) {
             totalLevelIncome += levelData.totalIncome;
             levels.push(levelData);
@@ -124,7 +116,7 @@ router.get('/', auth, async (req, res) => {
             }
         }
 
-        console.log(`💰 Total Level Income Calculated: ₹${totalLevelIncome}`);
+        console.log(`💰 Total Level Income: ₹${totalLevelIncome}`);
 
         return res.json({
             levels,

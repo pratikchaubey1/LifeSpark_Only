@@ -15,7 +15,7 @@ const LEVEL_INCOME_RATES = {
 
 const SPONSOR_INCOME = 50;
 
-// Maximum daily level income per level (capping)
+// Maximum daily level income caps (total income cap, unlocked progressively)
 const LEVEL_INCOME_CAPS = {
     1: 500,
     2: 1000,
@@ -27,6 +27,20 @@ const LEVEL_INCOME_CAPS = {
     8: 4000,
     9: 4500,
     10: 5000
+};
+
+// Active user count required at each level to unlock the NEXT level's cap
+const CAP_UNLOCK_THRESHOLDS = {
+    1: 10,
+    2: 50,
+    3: 150,
+    4: 300,
+    5: 600,
+    6: 1200,
+    7: 2400,
+    8: 4800,
+    9: 9600,
+    10: 20000
 };
 
 /**
@@ -125,10 +139,10 @@ async function distributeDailyLevelIncome(beneficiary) {
  */
 async function distributeDailyLevelIncomeWithCaps(activeUsers) {
     try {
-        // Map: sponsorId (string) -> { level -> uncappedTotal }
-        const sponsorLevelIncome = {};
+        // Map: sponsorId (string) -> { level -> { uncapped, activeCount } }
+        const sponsorLevelData = {};
 
-        // Phase 1: Aggregate uncapped level income per sponsor per level
+        // Phase 1: Aggregate uncapped level income AND active user count per sponsor per level
         for (const user of activeUsers) {
             if (!user.sponsorId) continue;
 
@@ -145,11 +159,14 @@ async function distributeDailyLevelIncomeWithCaps(activeUsers) {
                 const levelRate = LEVEL_INCOME_RATES[level] || 0;
 
                 if (levelRate > 0) {
-                    if (!sponsorLevelIncome[sponsorId]) {
-                        sponsorLevelIncome[sponsorId] = {};
+                    if (!sponsorLevelData[sponsorId]) {
+                        sponsorLevelData[sponsorId] = {};
                     }
-                    sponsorLevelIncome[sponsorId][level] =
-                        (sponsorLevelIncome[sponsorId][level] || 0) + levelRate;
+                    if (!sponsorLevelData[sponsorId][level]) {
+                        sponsorLevelData[sponsorId][level] = { uncapped: 0, activeCount: 0 };
+                    }
+                    sponsorLevelData[sponsorId][level].uncapped += levelRate;
+                    sponsorLevelData[sponsorId][level].activeCount += 1;
                 }
 
                 // Move up
@@ -157,16 +174,30 @@ async function distributeDailyLevelIncomeWithCaps(activeUsers) {
             }
         }
 
-        // Phase 2: Apply caps and credit each sponsor
-        for (const [sponsorId, levelMap] of Object.entries(sponsorLevelIncome)) {
-            let totalCredited = 0;
-
-            for (const [levelStr, uncapped] of Object.entries(levelMap)) {
-                const level = Number(levelStr);
-                const cap = LEVEL_INCOME_CAPS[level] || Infinity;
-                const capped = Math.min(uncapped, cap);
-                totalCredited += capped;
+        // Phase 2: Apply total cap with progressive unlock and credit each sponsor
+        for (const [sponsorId, levelMap] of Object.entries(sponsorLevelData)) {
+            // Sum uncapped income across all levels
+            let totalUncapped = 0;
+            for (const [, data] of Object.entries(levelMap)) {
+                totalUncapped += data.uncapped;
             }
+
+            // Determine effective cap: start at Level 1 cap (₹500)
+            // Unlock higher caps when each level meets its threshold
+            let effectiveCap = LEVEL_INCOME_CAPS[1] || 500;
+
+            for (let level = 1; level <= 10; level++) {
+                const data = levelMap[level];
+                const activeCount = data ? data.activeCount : 0;
+                const threshold = CAP_UNLOCK_THRESHOLDS[level] || Infinity;
+                if (activeCount >= threshold && LEVEL_INCOME_CAPS[level + 1]) {
+                    effectiveCap = LEVEL_INCOME_CAPS[level + 1];
+                } else {
+                    break;
+                }
+            }
+
+            const totalCredited = Math.min(totalUncapped, effectiveCap);
 
             if (totalCredited > 0) {
                 await User.findByIdAndUpdate(sponsorId, {
@@ -179,7 +210,7 @@ async function distributeDailyLevelIncomeWithCaps(activeUsers) {
             }
         }
 
-        console.log(`✅ Daily level income (with caps) distributed to ${Object.keys(sponsorLevelIncome).length} sponsors`);
+        console.log(`✅ Daily level income (with total cap) distributed to ${Object.keys(sponsorLevelData).length} sponsors`);
     } catch (err) {
         console.error('❌ Error distributing daily level income with caps:', err);
     }

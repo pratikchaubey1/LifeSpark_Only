@@ -50,8 +50,8 @@ const LEVEL_INCOME_CAPS = {
  * @returns {Promise<Object>} - Statistics object.
  */
 async function getTeamStats(user) {
-    let totalDailyLevelRate = 0;
     const levelUncapped = {}; // Track uncapped income per level
+    const levelActiveCounts = {}; // Track active user count per level
 
     const directMembers = await User.find({ sponsorId: user.inviteCode }).select('_id').lean();
     const directIds = directMembers.map(m => m._id.toString());
@@ -68,20 +68,20 @@ async function getTeamStats(user) {
         }).select('_id isActivated activatedAt').lean();
 
         const rate = LEVEL_INCOME_RATES[level] || 0;
+        let activeCount = 0;
 
         for (const u of levelUsers) {
             if (u.isActivated) {
                 levelUncapped[level] = (levelUncapped[level] || 0) + rate;
+                activeCount++;
             }
             allDownlineIds.push(u._id.toString());
         }
+        levelActiveCounts[level] = activeCount;
     }
 
-    // Apply per-level caps to compute total daily level rate
-    for (const [level, uncapped] of Object.entries(levelUncapped)) {
-        const cap = LEVEL_INCOME_CAPS[Number(level)] || Infinity;
-        totalDailyLevelRate += Math.min(uncapped, cap);
-    }
+    // Total daily level rate = sum of all uncapped level incomes (display only, cap applied in cron)
+    const totalDailyLevelRate = Object.values(levelUncapped).reduce((sum, v) => sum + v, 0);
 
     // Fetch full team details for stats (total/active/today)
     const teamUsers = await User.find({
