@@ -10,16 +10,16 @@ export default function UpgradeIncome({ sidebarOpen, onMenuOpen }) {
 
     // Upgrade Levels Configuration
     const UPGRADE_LEVELS = [
-        { level: 1, income: 10000, upgrade: 1000 },
-        { level: 2, income: 20000, upgrade: 2000 },
-        { level: 3, income: 30000, upgrade: 3000 },
-        { level: 4, income: 40000, upgrade: 4000 },
-        { level: 5, income: 50000, upgrade: 5000 },
-        { level: 6, income: 60000, upgrade: 6000 },
-        { level: 7, income: 70000, upgrade: 7000 },
-        { level: 8, income: 80000, upgrade: 8000 },
-        { level: 9, income: 90000, upgrade: 9000 },
-        { level: 10, income: 100000, upgrade: 10000 },
+        { level: 1, income: 10000, upgrade: 1176 },
+        { level: 2, income: 20000, upgrade: 1176 },
+        { level: 3, income: 30000, upgrade: 1176 },
+        { level: 4, income: 40000, upgrade: 1176 },
+        { level: 5, income: 50000, upgrade: 1176 },
+        { level: 6, income: 60000, upgrade: 1176 },
+        { level: 7, income: 70000, upgrade: 1176 },
+        { level: 8, income: 80000, upgrade: 1176 },
+        { level: 9, income: 90000, upgrade: 1176 },
+        { level: 10, income: 100000, upgrade: 1176 },
     ];
 
     useEffect(() => {

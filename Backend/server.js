@@ -78,12 +78,16 @@ cron.schedule("0 0 * * *", async () => {
 
   try {
     const todayStr = new Date().toISOString().slice(0, 10);
+    console.log(`📅 Today: ${todayStr}`);
 
     // Find all activated users
     const users = await User.find({ isActivated: true, activatedAt: { $ne: null } });
+    console.log(`👥 Total activated users found: ${users.length}`);
 
     // Collect users eligible for daily level income distribution
     const usersForLevelIncome = [];
+    let skippedCount = 0;
+    let bonusCount = 0;
 
     for (const user of users) {
       const activationDate = new Date(user.activatedAt);
@@ -92,7 +96,10 @@ cron.schedule("0 0 * * *", async () => {
       );
 
       // Skip if already processed today
-      if (user.lastDailyCredit === todayStr) continue;
+      if (user.lastDailyCredit === todayStr) {
+        skippedCount++;
+        continue;
+      }
 
       const DAILY_BONUS = 50;
 
@@ -101,6 +108,7 @@ cron.schedule("0 0 * * *", async () => {
         user.balance = (user.balance || 0) + DAILY_BONUS;
         user.dailyBonusIncome = (user.dailyBonusIncome || 0) + DAILY_BONUS;
         user.totalIncome = (user.totalIncome || 0) + DAILY_BONUS;
+        bonusCount++;
       }
 
       // Collect this user for capped level income distribution
@@ -110,13 +118,20 @@ cron.schedule("0 0 * * *", async () => {
       await user.save();
     }
 
+    console.log(`⏭️  Skipped (already processed): ${skippedCount}`);
+    console.log(`📋 Users for level income: ${usersForLevelIncome.length}`);
+    console.log(`🎁 Daily bonus given to: ${bonusCount} users`);
+
     // Distribute daily level income with per-level caps (done ONCE for all users)
     if (usersForLevelIncome.length > 0) {
       const { distributeDailyLevelIncomeWithCaps } = require('./utils/income');
+      console.log(`🚀 Starting level income distribution for ${usersForLevelIncome.length} users...`);
       await distributeDailyLevelIncomeWithCaps(usersForLevelIncome);
+    } else {
+      console.log(`⚠️  No users to distribute level income to!`);
     }
 
-    console.log("✔ Daily bonus added to all activated users");
+    console.log("✔ Daily bonus cron job complete");
   } catch (err) {
     console.error("❌ Daily bonus cron job error:", err);
   }

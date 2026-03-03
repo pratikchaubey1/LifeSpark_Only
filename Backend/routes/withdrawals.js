@@ -91,7 +91,7 @@ router.post('/', auth, async (req, res) => {
 
     if (totalWithdrawn + amount > currentLimit) {
       return res.status(403).json({
-        message: `Withdrawal limit reached for your current level (₹${currentLimit.toLocaleString()}). Please request an upgrade of ₹1,000 to continue.`
+        message: `Withdrawal limit reached for your current level (₹${currentLimit.toLocaleString()}). Please request an upgrade of ₹1,176 to continue.`
       });
     }
 
@@ -137,12 +137,12 @@ router.post('/upgrade', auth, async (req, res) => {
 
     const method = req.body?.method === 'cash' ? 'cash' : 'upi';
 
-    // Deduct fixed ₹1,000 for upgrade if method is upi
-    const upgradeAmount = 1000;
+    // Deduct fixed ₹1,176 for upgrade if method is upi
+    const upgradeAmount = 1176;
     const balance = Number(user.balance) || 0;
 
     if (method === 'upi' && balance < upgradeAmount) {
-      return res.status(400).json({ message: 'Insufficient balance for ₹1,000 upgrade.' });
+      return res.status(400).json({ message: 'Insufficient balance for ₹1,176 upgrade.' });
     }
 
     // Check for existing pending upgrade request
@@ -178,7 +178,7 @@ router.post('/upgrade', auth, async (req, res) => {
 
     return res.status(201).json({
       message: method === 'cash'
-        ? 'Upgrade request submitted successfully. Please pay ₹1,000 manually to admin.'
+        ? 'Upgrade request submitted successfully. Please pay ₹1,176 manually to admin.'
         : 'Upgrade request submitted successfully. Admin will approve it shortly.',
       withdrawal: upgradeRequest
     });
