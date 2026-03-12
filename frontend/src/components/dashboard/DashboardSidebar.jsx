@@ -60,6 +60,7 @@ const DASHBOARD_ITEMS = [
   // },
 
   { label: "Withdraw", path: "/dashboard/withdraw" },
+  { label: "Repurchase Wallet", path: "/dashboard/repurchase-wallet" },
   { label: "Marriage Fund", path: "/dashboard/marriage-fund" },
   { label: "Accident Fund", path: "/dashboard/accident-fund" },
 ];

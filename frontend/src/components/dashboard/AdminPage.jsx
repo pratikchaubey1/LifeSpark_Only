@@ -176,6 +176,8 @@ export default function AdminPage() {
   const [withdrawals, setWithdrawals] = useState([]);
   const [epinHistory, setEpinHistory] = useState([]);
   const [epinStats, setEpinStats] = useState({ totalGenerated: 0, totalUsed: 0, totalTransferred: 0, inPool: 0 });
+  const [incomeLogs, setIncomeLogs] = useState([]);
+  const [incomeLogsTotalPages, setIncomeLogsTotalPages] = useState(1);
 
   // ui
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -214,6 +216,12 @@ export default function AdminPage() {
     popupEnabled: false,
   });
   const [savingSettings, setSavingSettings] = useState(false);
+  const [incomeLogsLoading, setIncomeLogsLoading] = useState(false);
+  const [incomeLogsPage, setIncomeLogsPage] = useState(1);
+  const [incomeLogsFilter, setIncomeLogsFilter] = useState("all");
+  const [incomeLogsSearch, setIncomeLogsSearch] = useState("");
+  const [incomeLogsStartDate, setIncomeLogsStartDate] = useState("");
+  const [incomeLogsEndDate, setIncomeLogsEndDate] = useState("");
 
   // admin: create member
   const [creatingMember, setCreatingMember] = useState(false);
@@ -407,6 +415,13 @@ export default function AdminPage() {
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
   }, [adminToken, currentPage]);
+
+  // Separate effect for income logs to handle pagination/filtering
+  useEffect(() => {
+    if (adminToken && currentPage === "incomeLogs") {
+      fetchIncomeLogs(adminToken, incomeLogsPage, incomeLogsFilter, incomeLogsSearch, incomeLogsStartDate, incomeLogsEndDate);
+    }
+  }, [adminToken, currentPage, incomeLogsPage, incomeLogsFilter, incomeLogsSearch, incomeLogsStartDate, incomeLogsEndDate]);
 
   // ---------- API actions (adjust endpoints as needed) ----------
   async function handleAdminLogin(e) {
@@ -898,6 +913,31 @@ export default function AdminPage() {
     }
   }
 
+  async function fetchIncomeLogs(token, page = 1, type = "all", search = "", startDate = "", endDate = "") {
+    if (!token) return;
+    setIncomeLogsLoading(true);
+    try {
+      let url = `${API_BASE}/admin/income-logs?page=${page}&limit=${ITEMS_PER_PAGE}`;
+      if (type !== "all") url += `&type=${type}`;
+      if (search) url += `&search=${encodeURIComponent(search)}`;
+      if (startDate) url += `&startDate=${startDate}`;
+      if (endDate) url += `&endDate=${endDate}`;
+
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to fetch income logs");
+      setIncomeLogs(data.logs || []);
+      setIncomeLogsTotalPages(data.pagination?.totalPages || 1);
+    } catch (err) {
+      console.error("Fetch income logs error", err);
+      toast.error(err.message || "Failed to load income logs");
+    } finally {
+      setIncomeLogsLoading(false);
+    }
+  }
+
   function openPaymentEditor(user) {
     if (!user?.id) return;
     setExpandedPaymentUserId((prev) => (prev === user.id ? null : user.id));
@@ -1237,6 +1277,7 @@ export default function AdminPage() {
           <SidebarButton label="Withdrawals" active={currentPage === "withdrawals"} icon={<IconDollar />} onClick={() => { openPage("withdrawals"); setSidebarOpen(false); }} />
           <SidebarButton label="E-Pin" active={currentPage === "epin"} icon={<IconKey />} onClick={() => { openPage("epin"); setSidebarOpen(false); }} />
           <SidebarButton label="Income" active={currentPage === "income"} icon={<IconDollar />} onClick={() => { openPage("income"); setSidebarOpen(false); }} />
+          {/* <SidebarButton label="Transaction Logs" active={currentPage === "incomeLogs"} icon={<IconRefresh />} onClick={() => { openPage("incomeLogs"); setSidebarOpen(false); }} /> */}
           <SidebarButton label="Autopool Requests" active={currentPage === "autopool"} icon={<IconUsers />} onClick={() => { openPage("autopool"); setSidebarOpen(false); }} />
           <SidebarButton label="Autopool Tree" active={currentPage === "autopool-tree"} icon={<IconUsers />} onClick={() => { openPage("autopool-tree"); setSidebarOpen(false); }} />
           <SidebarButton label="Marriage Fund" active={currentPage === "marriageFund"} icon={<IconDollar />} onClick={() => { openPage("marriageFund"); setSidebarOpen(false); }} />
@@ -1425,6 +1466,7 @@ export default function AdminPage() {
                         { label: "Role" },
                         { label: "E-Pin" },
                         { label: "Status" },
+                        { label: "Logs" },
                         { label: "Balance", className: "text-right" },
                         { label: "Income", className: "text-right" }
                       ]}
@@ -1497,6 +1539,22 @@ export default function AdminPage() {
                                 ) : (
                                   <span className="text-slate-500">Inactive</span>
                                 )}
+                              </td>
+                              <td className="p-3">
+                                <button
+                                  onClick={() => {
+                                    setIncomeLogsSearch(u.inviteCode);
+                                    setIncomeLogsPage(1);
+                                    setCurrentPage("incomeLogs");
+                                    // Also clear other filters to be sure
+                                    setIncomeLogsFilter("all");
+                                    setIncomeLogsStartDate("");
+                                    setIncomeLogsEndDate("");
+                                  }}
+                                  className="text-[10px] font-bold text-blue-600 hover:text-blue-800 uppercase bg-blue-50 px-2 py-1 rounded transition-colors"
+                                >
+                                  View
+                                </button>
                               </td>
                               <td className="p-3 text-right font-mono">₹{u.balance ?? 0}</td>
                               <td className="p-3 text-right font-semibold text-green-600 font-mono">₹{u.totalIncome ?? 0}</td>
@@ -2109,8 +2167,8 @@ export default function AdminPage() {
                   { label: "User" },
                   { label: "Invite Code" },
                   { label: "UPI" },
-                  { label: "Bank" },
                   { label: "Amount", className: "text-right" },
+                  { label: "15% ↓", className: "text-right" },
                   { label: "Status" },
                   { label: "Requested" },
                   { label: "Action", className: "text-right" }
@@ -2192,23 +2250,6 @@ export default function AdminPage() {
                             </>
                           )}
                         </td>
-                        <td className="p-4">
-                          <div className="space-y-1 text-[11px] text-slate-600">
-                            <div className="flex justify-between gap-4"><span className="text-slate-400">Holder:</span> <span className="font-medium text-slate-700">{bank?.accountHolder || "-"}</span></div>
-                            <div className="flex justify-between gap-4"><span className="text-slate-400">Bank:</span> <span className="font-medium">{bank?.bankName || "-"}</span></div>
-                            <div className="flex justify-between gap-4"><span className="text-slate-400">A/c:</span> <span className="font-mono text-slate-700">{bank?.accountNo || "-"}</span></div>
-                            <div className="flex justify-between gap-4"><span className="text-slate-400">IFSC:</span> <span className="font-mono">{bank?.ifsc || "-"}</span></div>
-                          </div>
-                          {w.user?.id && (
-                            <button
-                              type="button"
-                              onClick={() => openPaymentEditor(w.user)}
-                              className="mt-2 text-[10px] font-bold text-blue-600 hover:text-blue-800 uppercase tracking-wider"
-                            >
-                              {isPaymentOpen ? "Close Editor" : "Edit Details"}
-                            </button>
-                          )}
-                        </td>
                         <td className="p-4 text-right">
                           <div className="text-base font-bold text-slate-800 font-mono">₹{w.amount}</div>
                           {w.type === 'upgrade' && (
@@ -2216,6 +2257,9 @@ export default function AdminPage() {
                               Upgrade Request {w.method === 'cash' ? '(Cash)' : '(Wallet)'}
                             </div>
                           )}
+                        </td>
+                        <td className="p-4 text-right">
+                          <div className="text-sm font-bold text-blue-600 font-mono">₹{(Number(w.amount) * 0.85).toFixed(2)}</div>
                         </td>
                         <td className="p-4">
                           {w.status === "pending" ? (
@@ -2786,6 +2830,135 @@ export default function AdminPage() {
             {/* User Activation page */}
             {currentPage === "activateUsers" && renderActivationPage()}
 
+            {/* Transaction Logs page */}
+            {currentPage === "incomeLogs" && (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-slate-800">Income Transaction Logs</h2>
+                  <button
+                    onClick={() => fetchIncomeLogs(adminToken, incomeLogsPage, incomeLogsFilter, incomeLogsSearch)}
+                    className="bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition active:scale-90"
+                    title="Refresh Logs"
+                  >
+                    <IconRefresh className={incomeLogsLoading ? "animate-spin" : ""} />
+                  </button>
+                </div>
+
+                <DataTable
+                  headers={[
+                    { label: "Date" },
+                    { label: "User" },
+                    { label: "Type" },
+                    { label: "Amount" },
+                    { label: "Description" }
+                  ]}
+                  data={incomeLogs}
+                  itemsPerPage={ITEMS_PER_PAGE}
+                  emptyMessage="No income transactions found."
+                  externalPage={incomeLogsPage}
+                  onPageChange={setIncomeLogsPage}
+                  totalPages={incomeLogsTotalPages}
+                  searchComponent={
+                    <div className="flex flex-col gap-4 w-full">
+                      <div className="flex flex-col md:flex-row items-center gap-4 w-full">
+                        <div className="relative flex-1 w-full">
+                          <input
+                            type="text"
+                            placeholder="Search by name or invite code..."
+                            value={incomeLogsSearch}
+                            onChange={(e) => { setIncomeLogsSearch(e.target.value); setIncomeLogsPage(1); }}
+                            className="w-full border rounded-lg pl-3 pr-10 py-1.5 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-medium text-slate-500">Type:</span>
+                          <select
+                            value={incomeLogsFilter}
+                            onChange={(e) => { setIncomeLogsFilter(e.target.value); setIncomeLogsPage(1); }}
+                            className="border rounded-lg px-3 py-1.5 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                          >
+                            <option value="all">All Types</option>
+                            <option value="daily_bonus">Daily Bonus</option>
+                            <option value="sponsor_income">Sponsor Income</option>
+                            <option value="level_income">Level Income (Activation)</option>
+                            <option value="daily_level_income">Daily Level Income</option>
+                            <option value="marriage_fund">Marriage Fund Credit</option>
+                            <option value="accident_fund">Accident Fund Credit</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-col md:flex-row items-center gap-4 w-full pb-2 border-b border-slate-100">
+                        <div className="flex items-center gap-2 w-full md:w-auto">
+                          <span className="text-xs font-medium text-slate-500 whitespace-nowrap">From:</span>
+                          <input
+                            type="date"
+                            value={incomeLogsStartDate}
+                            onChange={(e) => { setIncomeLogsStartDate(e.target.value); setIncomeLogsPage(1); }}
+                            className="w-full md:w-auto border rounded-lg px-3 py-1.5 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
+                        </div>
+                        <div className="flex items-center gap-2 w-full md:w-auto">
+                          <span className="text-xs font-medium text-slate-500 whitespace-nowrap">To:</span>
+                          <input
+                            type="date"
+                            value={incomeLogsEndDate}
+                            onChange={(e) => { setIncomeLogsEndDate(e.target.value); setIncomeLogsPage(1); }}
+                            className="w-full md:w-auto border rounded-lg px-3 py-1.5 text-xs bg-white focus:ring-2 focus:ring-blue-500 outline-none"
+                          />
+                        </div>
+                        {(incomeLogsStartDate || incomeLogsEndDate || incomeLogsSearch || incomeLogsFilter !== "all") && (
+                          <button
+                            onClick={() => {
+                              setIncomeLogsSearch("");
+                              setIncomeLogsFilter("all");
+                              setIncomeLogsStartDate("");
+                              setIncomeLogsEndDate("");
+                              setIncomeLogsPage(1);
+                            }}
+                            className="text-xs text-blue-600 hover:text-blue-800 font-medium"
+                          >
+                            Reset Filters
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  }
+                  renderRow={(log) => (
+                    <tr key={log._id} className="hover:bg-slate-50/50 transition-colors">
+                      <td className="p-4 text-xs text-slate-500 whitespace-nowrap">
+                        {new Date(log.createdAt).toLocaleString()}
+                      </td>
+                      <td className="p-4">
+                        <div className="font-bold text-slate-800">{log.userName || '-'}</div>
+                        <div className="font-mono text-[10px] text-blue-600 font-semibold">{log.userInviteCode}</div>
+                      </td>
+                      <td className="p-4">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${log.type === 'daily_bonus' ? 'bg-blue-100 text-blue-700' :
+                          log.type === 'sponsor_income' ? 'bg-emerald-100 text-emerald-700' :
+                            log.type === 'level_income' ? 'bg-purple-100 text-purple-700' :
+                              log.type === 'marriage_fund' ? 'bg-pink-100 text-pink-700' :
+                                log.type === 'accident_fund' ? 'bg-orange-100 text-orange-700' :
+                                  'bg-amber-100 text-amber-700'
+                          }`}>
+                          {log.type.replace(/_/g, ' ')}
+                        </span>
+                      </td>
+                      <td className="p-4 font-bold text-slate-800 font-mono">₹{log.amount}</td>
+                      <td className="p-4 text-xs text-slate-600">
+                        {log.description}
+                        {log.fromUserInviteCode && (
+                          <div className="text-[10px] text-slate-400 mt-0.5">
+                            From: {log.fromUserName} ({log.fromUserInviteCode})
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                />
+              </div>
+            )}
+
 
             {/* Site Settings page */}
             {
@@ -2885,6 +3058,38 @@ export default function AdminPage() {
                               />
                             </div>
                           )}
+                        </div>
+                      </div>
+
+                      {/* Cron Job Section */}
+                      <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
+                        <div className="flex items-center gap-3 mb-4">
+                          <div className="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                            <IconRefresh />
+                          </div>
+                          <h3 className="font-semibold text-slate-800">Daily Income Cron Job</h3>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                            <div>
+                              <span className="text-sm font-medium text-slate-700">Enable Daily Cron Job</span>
+                              <p className="text-[11px] text-slate-400 mt-0.5">Controls the midnight cron job that distributes daily bonus &amp; level income.</p>
+                            </div>
+                            <button
+                              onClick={() => setSiteSettings(s => ({ ...s, cronEnabled: s.cronEnabled === false ? true : (s.cronEnabled === undefined ? false : !s.cronEnabled) }))}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none ${siteSettings.cronEnabled !== false ? 'bg-emerald-600' : 'bg-slate-300'}`}
+                            >
+                              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${siteSettings.cronEnabled !== false ? 'translate-x-6' : 'translate-x-1'}`} />
+                            </button>
+                          </div>
+
+                          <div className={`flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium ${siteSettings.cronEnabled !== false ? 'bg-emerald-50 text-emerald-700 border border-emerald-100' : 'bg-red-50 text-red-700 border border-red-100'}`}>
+                            <span className={`w-2 h-2 rounded-full ${siteSettings.cronEnabled !== false ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`}></span>
+                            {siteSettings.cronEnabled !== false
+                              ? "Cron job is ACTIVE — daily income will be distributed at midnight."
+                              : "Cron job is PAUSED — no daily income will be distributed until turned back on."}
+                          </div>
                         </div>
                       </div>
 

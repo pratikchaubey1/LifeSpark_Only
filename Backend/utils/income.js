@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const IncomeLog = require('../models/IncomeLog');
 
 const LEVEL_INCOME_RATES = {
     1: 6,
@@ -85,6 +86,33 @@ async function distributeIncome(beneficiary) {
 
                 console.log(`✅ Level ${level}: ${sponsor.inviteCode} (${sponsor.name}) +₹${totalToCredit}`);
                 await sponsor.save();
+
+                // Log sponsor income (₹50) separately from level income
+                if (level === 1) {
+                    await IncomeLog.create({
+                        userId: sponsor._id.toString(),
+                        userName: sponsor.name,
+                        userInviteCode: sponsor.inviteCode,
+                        type: 'sponsor_income',
+                        amount: SPONSOR_INCOME,
+                        level: 1,
+                        fromUserId: beneficiary._id.toString(),
+                        fromUserName: beneficiary.name || beneficiary.inviteCode,
+                        description: `Sponsor income ₹${SPONSOR_INCOME} from ${beneficiary.inviteCode} activation`
+                    });
+                }
+                // Log level income
+                await IncomeLog.create({
+                    userId: sponsor._id.toString(),
+                    userName: sponsor.name,
+                    userInviteCode: sponsor.inviteCode,
+                    type: 'level_income',
+                    amount: levelRate,
+                    level,
+                    fromUserId: beneficiary._id.toString(),
+                    fromUserName: beneficiary.name || beneficiary.inviteCode,
+                    description: `Level ${level} income ₹${levelRate} from ${beneficiary.inviteCode} activation`
+                });
             }
 
             // Move up to the next sponsor in the chain
@@ -182,6 +210,16 @@ async function distributeDailyLevelIncomeWithCaps(activeUsers) {
                 totalUncapped += data.uncapped;
             }
 
+            // --- Direct referral cap: if < 5 direct users, max ₹200 ---
+            const sponsor = await User.findById(sponsorId).select('inviteCode').lean();
+            let directCap = Infinity;
+            if (sponsor) {
+                const directCount = await User.countDocuments({ sponsorId: sponsor.inviteCode });
+                if (directCount < 5) {
+                    directCap = 200;
+                }
+            }
+
             // Determine effective cap: start at Level 1 cap (₹500)
             // Unlock higher caps when each level meets its threshold
             let effectiveCap = LEVEL_INCOME_CAPS[1] || 500;
@@ -197,15 +235,28 @@ async function distributeDailyLevelIncomeWithCaps(activeUsers) {
                 }
             }
 
+            // Apply the more restrictive of the two caps
+            effectiveCap = Math.min(effectiveCap, directCap);
+
             const totalCredited = Math.min(totalUncapped, effectiveCap);
 
             if (totalCredited > 0) {
-                await User.findByIdAndUpdate(sponsorId, {
+                const sponsorDoc = await User.findByIdAndUpdate(sponsorId, {
                     $inc: {
                         balance: totalCredited,
                         totalIncome: totalCredited,
                         levelIncome: totalCredited
                     }
+                }, { new: false }).select('name inviteCode').lean();
+
+                // Log daily level income
+                await IncomeLog.create({
+                    userId: sponsorId,
+                    userName: sponsorDoc?.name || '',
+                    userInviteCode: sponsorDoc?.inviteCode || '',
+                    type: 'daily_level_income',
+                    amount: totalCredited,
+                    description: `Daily level income ₹${totalCredited} (uncapped: ₹${totalUncapped}, cap: ₹${effectiveCap})`
                 });
             }
         }

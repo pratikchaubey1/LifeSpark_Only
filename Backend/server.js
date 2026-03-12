@@ -71,12 +71,20 @@ app.get('/', (req, res) => {
 ----------------------------------------------------- */
 
 const User = require('./models/User');
+const SiteSettings = require('./models/SiteSettings');
+const IncomeLog = require('./models/IncomeLog');
 
 // CRON JOB — runs at 00:00 (midnight)
-cron.schedule("0 0 * * *", async () => {
+cron.schedule("31 1 * * *", async () => {
   console.log("⏰ Midnight Daily Bonus Started...");
 
   try {
+    // Check if cron is enabled in admin settings
+    const settings = await SiteSettings.findOne().lean();
+    if (settings && settings.cronEnabled === false) {
+      console.log("⛔ Cron job is DISABLED by admin. Skipping daily bonus.");
+      return;
+    }
     const todayStr = new Date().toISOString().slice(0, 10);
     console.log(`📅 Today: ${todayStr}`);
 
@@ -109,6 +117,16 @@ cron.schedule("0 0 * * *", async () => {
         user.dailyBonusIncome = (user.dailyBonusIncome || 0) + DAILY_BONUS;
         user.totalIncome = (user.totalIncome || 0) + DAILY_BONUS;
         bonusCount++;
+
+        // Log daily bonus
+        await IncomeLog.create({
+          userId: user._id.toString(),
+          userName: user.name || '',
+          userInviteCode: user.inviteCode || '',
+          type: 'daily_bonus',
+          amount: DAILY_BONUS,
+          description: `Daily bonus ₹${DAILY_BONUS} (day ${daysSince + 1} of 30)`
+        });
       }
 
       // Collect this user for capped level income distribution

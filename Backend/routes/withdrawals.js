@@ -2,6 +2,7 @@ const express = require('express');
 const auth = require('../middleware/auth');
 const User = require('../models/User');
 const Withdrawal = require('../models/Withdrawal');
+const IncomeLog = require('../models/IncomeLog');
 
 const router = express.Router();
 
@@ -54,11 +55,14 @@ router.post('/', auth, async (req, res) => {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
 
-    // Check minimum direct referrals requirement
-    const directCount = Array.isArray(user.directInviteIds) ? user.directInviteIds.length : 0;
-    if (directCount < 2) {
+    // Check minimum ACTIVE direct referrals requirement
+    const activeDirectCount = await User.countDocuments({
+      sponsorId: user.inviteCode,
+      isActivated: true
+    });
+    if (activeDirectCount < 2) {
       return res.status(403).json({
-        message: `You need at least 2 direct referrals to request a withdrawal. Current: ${directCount}`
+        message: `You need at least 2 active direct referrals to request a withdrawal. Currently active: ${activeDirectCount}`
       });
     }
 
@@ -95,10 +99,14 @@ router.post('/', auth, async (req, res) => {
       });
     }
 
+    // Split amount: 10% to Repurchase Wallet, 90% to actual Withdrawal
+    const repurchaseAmount = Number((amount * 0.1).toFixed(2));
+    const withdrawalAmount = Number((amount - repurchaseAmount).toFixed(2));
+
     const withdrawal = new Withdrawal({
       withdrawalId: `WD-${Date.now()}`,
       userId: req.user._id.toString(),
-      amount,
+      amount: withdrawalAmount,
       upiId: method === 'upi' ? upiId : '',
       upiNo: method === 'upi' ? upiNo : 'CASH',
       status: 'pending',
@@ -111,18 +119,35 @@ router.post('/', auth, async (req, res) => {
 
     await withdrawal.save();
 
+    // Credit Repurchase Wallet
+    user.repurchaseWallet = (Number(user.repurchaseWallet) || 0) + repurchaseAmount;
+
+    // Log the Repurchase Wallet credit
+    await IncomeLog.create({
+      userId: user._id.toString(),
+      userName: user.name,
+      userInviteCode: user.inviteCode,
+      type: 'repurchase_transfer',
+      amount: repurchaseAmount,
+      description: `From withdrawal request of ₹${amount}`
+    });
+
     // Only update user UPI info if method is upi
     if (method === 'upi') {
       user.upiId = upiId;
       user.upiNo = upiNo;
     }
 
-    // CRITICAL: Deduct balance immediately
+    // CRITICAL: Deduct FULL amount immediately
     user.balance = balance - amount;
 
     await user.save();
 
-    return res.status(201).json({ withdrawal });
+    return res.status(201).json({
+      withdrawal,
+      repurchaseAmount,
+      message: `Withdrawal request for ₹${withdrawalAmount} created. ₹${repurchaseAmount} (10%) added to Repurchase Wallet.`
+    });
   } catch (err) {
     console.error('Create withdrawal error', err);
     res.status(500).json({ message: 'Server error' });

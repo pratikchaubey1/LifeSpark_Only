@@ -46,7 +46,7 @@ export default function Withdraw({ onMenuOpen }) {
     try {
       setLoading(true);
 
-      const [profileRes, listRes] = await Promise.all([
+      const [profileRes, listRes, teamRes] = await Promise.all([
         fetch(`${API_BASE}/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
@@ -54,18 +54,29 @@ export default function Withdraw({ onMenuOpen }) {
         fetch(`${API_BASE}/withdrawals`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
+
+        fetch(`${API_BASE}/team/direct`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ]);
 
       const profileData = await profileRes.json();
       const listData = await listRes.json();
+      const teamData = await teamRes.json();
 
       if (profileRes.ok) {
         setBalance(Number(profileData.user?.balance) || 0);
         setUpiId(profileData.user?.upiId || "");
         setUpiNo(profileData.user?.upiNo || "");
-        const invites = profileData.user?.directInviteIds || [];
-        setDirectCount(invites.length);
         setUpgradeLevel(Number(profileData.user?.upgradeLevel) || 0);
+      }
+
+      // Count only ACTIVE direct referrals
+      if (teamRes.ok && Array.isArray(teamData.members)) {
+        const activeCount = teamData.members.filter(m => m.isActivated).length;
+        setDirectCount(activeCount);
+      } else {
+        setDirectCount(0);
       }
 
       const wdList = Array.isArray(listData.withdrawals) ? listData.withdrawals : [];
@@ -119,7 +130,7 @@ export default function Withdraw({ onMenuOpen }) {
     }
     if (directCount < 2) {
       setMsgType("error");
-      return setMsg(`Need 2 direct referrals. Current: ${directCount}`);
+      return setMsg(`Need 2 active direct referrals. Currently active: ${directCount}`);
     }
 
     try {
@@ -342,8 +353,8 @@ export default function Withdraw({ onMenuOpen }) {
                       <FiAlertCircle className="mt-0.5 shrink-0" />
                       <div className="text-sm">
                         <div className="font-semibold mb-1">Requirement Check</div>
-                        <p>You need at least <span className="font-bold">2 direct referrals</span> to request a withdrawal.</p>
-                        <p className="mt-1 opacity-80">Current Progress: <span className="font-mono font-bold">{directCount}/2</span></p>
+                        <p>You need at least <span className="font-bold">2 active direct referrals</span> to request a withdrawal.</p>
+                        <p className="mt-1 opacity-80">Active Referrals: <span className="font-mono font-bold">{directCount}/2</span></p>
                       </div>
                     </div>
                   ) : null}

@@ -23,7 +23,7 @@ router.get('/', async (req, res) => {
 // Admin: Update site settings
 router.post('/', adminAuth, async (req, res) => {
     try {
-        const { marqueeText, marqueeEnabled, popupImageUrl, popupEnabled } = req.body;
+        const { marqueeText, marqueeEnabled, popupImageUrl, popupEnabled, cronEnabled } = req.body;
 
         let settings = await SiteSettings.findOne();
         if (!settings) {
@@ -34,6 +34,7 @@ router.post('/', adminAuth, async (req, res) => {
         if (marqueeEnabled !== undefined) settings.marqueeEnabled = marqueeEnabled;
         if (popupImageUrl !== undefined) settings.popupImageUrl = popupImageUrl;
         if (popupEnabled !== undefined) settings.popupEnabled = popupEnabled;
+        if (cronEnabled !== undefined) settings.cronEnabled = cronEnabled;
 
         settings.updatedAt = Date.now();
         await settings.save();

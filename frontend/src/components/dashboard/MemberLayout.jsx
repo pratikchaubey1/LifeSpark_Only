@@ -15,6 +15,7 @@ import WelcomeLetter from "./WelcomeLetter";
 import ActivateID from "./ActivateID";
 
 import Withdraw from "./Withdraw";
+import RepurchaseWallet from "./RepurchaseWallet";
 import MarriageFund from "./MarriageFund";
 import AccidentFund from "./AccidentFund";
 
@@ -205,6 +206,10 @@ export default function MemberLayout({ onLogout }) {
           <Route
             path="withdraw"
             element={<Withdraw onMenuOpen={() => setSidebarOpen(true)} />}
+          />
+          <Route
+            path="repurchase-wallet"
+            element={<RepurchaseWallet onMenuOpen={() => setSidebarOpen(true)} />}
           />
           <Route
             path="marriage-fund"

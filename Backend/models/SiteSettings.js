@@ -17,6 +17,10 @@ const siteSettingsSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    cronEnabled: {
+        type: Boolean,
+        default: true
+    },
     updatedAt: {
         type: Date,
         default: Date.now

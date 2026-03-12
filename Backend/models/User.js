@@ -34,6 +34,7 @@ const userSchema = new mongoose.Schema({
   levelIncome: { type: Number, default: 0 },
   marriageFund: { type: Number, default: 0 },
   accidentFund: { type: Number, default: 0 },
+  repurchaseWallet: { type: Number, default: 0 },
   upgradeLevel: { type: Number, default: 0 }, // Tracks how many 10k withdrawal segments unlocked
   lastDailyCredit: { type: String, default: () => new Date().toISOString().slice(0, 10) },
 

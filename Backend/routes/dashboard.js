@@ -5,6 +5,7 @@ const Epin = require('../models/Epin');
 const router = express.Router();
 const { distributeIncome } = require('../utils/income');
 const { getTeamStats } = require('../utils/dashboard_utils');
+const IncomeLog = require('../models/IncomeLog');
 
 router.get('/', auth, async (req, res) => {
   try {
@@ -155,6 +156,24 @@ router.get('/direct-team', auth, async (req, res) => {
     res.json(mappedTeam);
   } catch (err) {
     console.error('Direct Team Fetch Error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+/* -------------------- INCOME LOGS (User Side) -------------------- */
+router.get('/income-logs', auth, async (req, res) => {
+  try {
+    const type = req.query.type;
+    const query = { userId: req.user._id.toString() };
+
+    if (type) {
+      query.type = type;
+    }
+
+    const logs = await IncomeLog.find(query).sort({ createdAt: -1 });
+    res.json({ logs });
+  } catch (err) {
+    console.error('User Income Logs error', err);
     res.status(500).json({ message: 'Server error' });
   }
 });

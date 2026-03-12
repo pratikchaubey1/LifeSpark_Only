@@ -8,6 +8,7 @@ const Kyc = require('../models/Kyc');
 const Withdrawal = require('../models/Withdrawal');
 const Project = require('../models/Project');
 const Testimonial = require('../models/Testimonial');
+const IncomeLog = require('../models/IncomeLog');
 const { getUsersAtLevel } = require('../utils/team');
 const { distributeIncome } = require('../utils/income');
 const adminAuth = require('../middleware/adminAuth');
@@ -1063,6 +1064,16 @@ router.post('/marriage-fund/add', adminAuth, async (req, res) => {
     user.marriageFund = (Number(user.marriageFund) || 0) + fundAmount;
     await user.save();
 
+    // Log marriage fund addition
+    await IncomeLog.create({
+      userId: user._id.toString(),
+      userName: user.name,
+      userInviteCode: user.inviteCode,
+      type: 'marriage_fund',
+      amount: fundAmount,
+      description: `Manual marriage fund credit ₹${fundAmount} by Admin`
+    });
+
     const userObj = user.toObject();
     delete userObj.password;
 
@@ -1107,6 +1118,16 @@ router.post('/accident-fund/add', adminAuth, async (req, res) => {
     user.accidentFund = (Number(user.accidentFund) || 0) + fundAmount;
     await user.save();
 
+    // Log accident fund addition
+    await IncomeLog.create({
+      userId: user._id.toString(),
+      userName: user.name,
+      userInviteCode: user.inviteCode,
+      type: 'accident_fund',
+      amount: fundAmount,
+      description: `Manual accident fund credit ₹${fundAmount} by Admin`
+    });
+
     const userObj = user.toObject();
     delete userObj.password;
 
@@ -1116,6 +1137,60 @@ router.post('/accident-fund/add', adminAuth, async (req, res) => {
     });
   } catch (err) {
     console.error('Add accident fund error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// GET /api/admin/income-logs — Paginated list of income transactions
+router.get('/income-logs', adminAuth, async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 50;
+    const type = req.query.type;
+    const search = req.query.search;
+    const startDate = req.query.startDate;
+    const endDate = req.query.endDate;
+
+    const query = {};
+    if (type) {
+      query.type = type;
+    }
+    if (search) {
+      const searchRegex = new RegExp(search, 'i');
+      query.$or = [
+        { userName: searchRegex },
+        { userInviteCode: searchRegex }
+      ];
+    }
+
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) query.createdAt.$gte = new Date(startDate);
+      if (endDate) {
+        // Set to end of day
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = end;
+      }
+    }
+
+    const total = await IncomeLog.countDocuments(query);
+    const logs = await IncomeLog.find(query)
+      .sort({ createdAt: -1 })
+      .skip((page - 1) * limit)
+      .limit(limit);
+
+    res.json({
+      logs,
+      pagination: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
+    });
+  } catch (err) {
+    console.error('Get income logs error', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
