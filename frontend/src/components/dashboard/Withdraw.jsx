@@ -116,6 +116,10 @@ export default function Withdraw({ onMenuOpen }) {
       setMsgType("error");
       return setMsg("Enter valid amount.");
     }
+    if (amt < 300) {
+      setMsgType("error");
+      return setMsg("Minimum withdrawal amount is ₹300.");
+    }
     if (amt > balance) {
       setMsgType("error");
       return setMsg("Insufficient balance.");
@@ -378,11 +382,14 @@ export default function Withdraw({ onMenuOpen }) {
                   <InputGroup
                     icon={<FiDollarSign />}
                     label="Amount to Withdraw"
-                    placeholder="Enter amount"
+                    placeholder="Min. ₹300"
                     value={amount}
                     onChange={setAmount}
                     type="number"
                   />
+                  <div className="text-[10px] text-slate-400 font-medium px-1 -mt-3">
+                    Minimum payout amount is ₹300
+                  </div>
 
                   <button
                     onClick={handleSubmit}

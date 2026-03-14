@@ -225,6 +225,10 @@ router.post('/marriage-fund', auth, async (req, res) => {
       return res.status(400).json({ message: 'Valid withdrawal amount is required.' });
     }
 
+    if (amount < 300) {
+      return res.status(400).json({ message: 'Minimum withdrawal amount is ₹300.' });
+    }
+
     if (!upiId) {
       return res.status(400).json({ message: 'UPI ID is required.' });
     }
@@ -297,6 +301,10 @@ router.post('/accident-fund', auth, async (req, res) => {
 
     if (!Number.isFinite(amount) || amount <= 0) {
       return res.status(400).json({ message: 'Valid withdrawal amount is required.' });
+    }
+
+    if (amount < 300) {
+      return res.status(400).json({ message: 'Minimum withdrawal amount is ₹300.' });
     }
 
     if (!upiId) {
