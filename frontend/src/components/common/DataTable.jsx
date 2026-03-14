@@ -11,6 +11,8 @@ import React, { useState, useEffect } from "react";
  * @param {string} className - Additional CSS classes for the table wrapper
  * @param {number} externalPage - Current page controlled from outside (optional)
  * @param {Function} onPageChange - Callback when page changes (optional)
+ * @param {number} totalPages - Total number of pages from server (for server-side pagination)
+ * @param {number} totalItems - Total number of items from server (for showing "X of Y entries")
  */
 const DataTable = ({
     headers = [],
@@ -21,16 +23,27 @@ const DataTable = ({
     className = "",
     externalPage,
     onPageChange,
-    searchComponent
+    searchComponent,
+    totalPages: externalTotalPages,
+    totalItems: externalTotalItems
 }) => {
     const [internalPage, setInternalPage] = useState(1);
 
     // Sync with external page if provided
     const currentPage = externalPage !== undefined ? externalPage : internalPage;
 
-    const totalPages = Math.ceil(data.length / itemsPerPage);
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    const currentItems = data.slice(startIndex, startIndex + itemsPerPage);
+    // Server-side pagination: totalPages is provided externally, data is already sliced
+    const isServerPaginated = externalTotalPages !== undefined;
+    const totalPages = isServerPaginated ? externalTotalPages : Math.ceil(data.length / itemsPerPage);
+    const startIndex = isServerPaginated ? 0 : (currentPage - 1) * itemsPerPage;
+    const currentItems = isServerPaginated ? data : data.slice(startIndex, startIndex + itemsPerPage);
+
+    // For "Showing X to Y of Z" display
+    const displayStart = isServerPaginated ? ((currentPage - 1) * itemsPerPage) + 1 : startIndex + 1;
+    const displayEnd = isServerPaginated
+        ? Math.min(currentPage * itemsPerPage, externalTotalItems || (currentPage * itemsPerPage))
+        : Math.min(startIndex + itemsPerPage, data.length);
+    const displayTotal = isServerPaginated ? (externalTotalItems || '?') : data.length;
 
     const handlePageChange = (newPage) => {
         if (onPageChange) {
@@ -82,7 +95,7 @@ const DataTable = ({
             {totalPages > 1 && (
                 <div className="p-4 bg-slate-50/80 border-t flex flex-col sm:flex-row items-center justify-between gap-4">
                     <div className="text-xs font-medium text-slate-500">
-                        Showing <span className="text-slate-900">{startIndex + 1}</span> to <span className="text-slate-900">{Math.min(startIndex + itemsPerPage, data.length)}</span> of <span className="text-slate-900">{data.length}</span> entries
+                        Showing <span className="text-slate-900">{displayStart}</span> to <span className="text-slate-900">{displayEnd}</span> of <span className="text-slate-900">{displayTotal}</span> entries
                     </div>
                     <div className="flex items-center gap-2">
                         <button

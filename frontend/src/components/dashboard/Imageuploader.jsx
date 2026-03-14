@@ -95,8 +95,8 @@ export default function KycTextForm({ onMenuOpen }) {
   const handleFileChange = (setter, previewSetter) => (e) => {
     const file = e.target.files[0];
     if (file) {
-      if (file.size > 2 * 1024 * 1024) {
-        alert("File size exceeds 2MB. Please choose a smaller image.");
+      if (file.size > 1 * 1024 * 1024) {
+        alert("File size exceeds 1MB. Please choose a smaller image.");
         e.target.value = ""; // reset
         return;
       }

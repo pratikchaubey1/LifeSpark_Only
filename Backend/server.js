@@ -76,7 +76,7 @@ const SiteSettings = require('./models/SiteSettings');
 const IncomeLog = require('./models/IncomeLog');
 
 // CRON JOB — runs at 00:00 (midnight)
-cron.schedule("54 18 * * *", async () => {
+cron.schedule("31 1 * * *", async () => {
   console.log("⏰ Midnight Daily Bonus Started...");
 
   try {

@@ -37,7 +37,7 @@ const storage = new CloudinaryStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 2 * 1024 * 1024 } // 2MB
+  limits: { fileSize: 1 * 1024 * 1024 } // 1MB
 });
 
 const uploadFields = upload.fields([
@@ -80,7 +80,7 @@ router.post('/', auth, (req, res, next) => {
   uploadFields(req, res, (err) => {
     if (err instanceof multer.MulterError) {
       if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ message: 'File too large. Max limit is 2MB per image.' });
+        return res.status(400).json({ message: 'File too large. Max limit is 1MB per image.' });
       }
       return res.status(400).json({ message: `Upload error: ${err.message}` });
     } else if (err) {

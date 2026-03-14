@@ -223,6 +223,7 @@ export default function AdminPage() {
   const [incomeLogsSearch, setIncomeLogsSearch] = useState("");
   const [incomeLogsStartDate, setIncomeLogsStartDate] = useState("");
   const [incomeLogsEndDate, setIncomeLogsEndDate] = useState("");
+  const [incomeLogsTotalItems, setIncomeLogsTotalItems] = useState(0);
 
   // admin: create member
   const [creatingMember, setCreatingMember] = useState(false);
@@ -808,6 +809,11 @@ export default function AdminPage() {
 
   async function toggleBlockUser(userId) {
     if (!adminToken || !userId) return;
+
+    const user = users.find(u => u.id === userId);
+    const action = user?.isBlocked ? "unblock" : "block";
+    if (!window.confirm(`Are you sure you want to ${action} this user?`)) return;
+
     setBlockingUserId(userId);
     setError(null);
     try {
@@ -1032,6 +1038,7 @@ export default function AdminPage() {
       if (!res.ok) throw new Error(data.message || "Failed to fetch income logs");
       setIncomeLogs(data.logs || []);
       setIncomeLogsTotalPages(data.pagination?.totalPages || 1);
+      setIncomeLogsTotalItems(data.pagination?.total || 0);
     } catch (err) {
       console.error("Fetch income logs error", err);
       toast.error(err.message || "Failed to load income logs");
@@ -1691,10 +1698,13 @@ export default function AdminPage() {
                                           <div key={idx} className="flex items-center justify-between text-xs py-1 border-b last:border-0">
                                             <div className="flex items-center gap-2">
                                               <span
-                                                className={`inline-block w-2 h-2 rounded-full shrink-0 ${inv.isActivated ? 'bg-green-500' : 'bg-red-500'}`}
-                                                title={inv.isActivated ? 'Active' : 'Inactive'}
+                                                className={`inline-block w-2 h-2 rounded-full shrink-0 ${inv.isBlocked ? 'bg-red-600' : inv.isActivated ? 'bg-green-500' : 'bg-red-500'}`}
+                                                title={inv.isBlocked ? 'Blocked' : inv.isActivated ? 'Active' : 'Inactive'}
                                               ></span>
-                                              <span className={`font-medium ${inv.isActivated ? 'text-green-700' : 'text-red-600'}`}>{inv.name}</span>
+                                              <span className={`font-medium ${inv.isBlocked ? 'text-red-600' : inv.isActivated ? 'text-green-700' : 'text-red-600'}`}>{inv.name}</span>
+                                              {inv.isBlocked && (
+                                                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider bg-red-100 text-red-700 border border-red-200">Blocked</span>
+                                              )}
                                               <span className="ml-1 text-slate-500">({inv.email})</span>
                                             </div>
                                             <div className="font-mono text-[10px] text-slate-400">{inv.id}</div>
@@ -3115,6 +3125,7 @@ export default function AdminPage() {
                   externalPage={incomeLogsPage}
                   onPageChange={setIncomeLogsPage}
                   totalPages={incomeLogsTotalPages}
+                  totalItems={incomeLogsTotalItems}
                   searchComponent={
                     <div className="flex flex-col gap-4 w-full">
                       <div className="flex flex-col md:flex-row items-center gap-4 w-full">
