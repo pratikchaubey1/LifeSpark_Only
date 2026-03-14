@@ -3,6 +3,7 @@ const auth = require('../middleware/auth');
 const User = require('../models/User');
 const Withdrawal = require('../models/Withdrawal');
 const IncomeLog = require('../models/IncomeLog');
+const Kyc = require('../models/Kyc');
 
 const router = express.Router();
 
@@ -54,6 +55,7 @@ router.post('/', auth, async (req, res) => {
 
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
+    if (user.isBlocked) return res.status(403).json({ message: 'Your account has been blocked. Please contact admin.' });
 
     // Check minimum ACTIVE direct referrals requirement
     const activeDirectCount = await User.countDocuments({
@@ -63,6 +65,14 @@ router.post('/', auth, async (req, res) => {
     if (activeDirectCount < 2) {
       return res.status(403).json({
         message: `You need at least 2 active direct referrals to request a withdrawal. Currently active: ${activeDirectCount}`
+      });
+    }
+
+    // Check KYC status
+    const kyc = await Kyc.findOne({ userId: user._id.toString() });
+    if (!kyc || kyc.status !== 'approved') {
+      return res.status(403).json({
+        message: 'Your KYC must be approved before you can request a withdrawal.'
       });
     }
 
@@ -159,6 +169,7 @@ router.post('/upgrade', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
+    if (user.isBlocked) return res.status(403).json({ message: 'Your account has been blocked. Please contact admin.' });
 
     const method = req.body?.method === 'cash' ? 'cash' : 'upi';
 
@@ -239,11 +250,20 @@ router.post('/marriage-fund', auth, async (req, res) => {
 
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
+    if (user.isBlocked) return res.status(403).json({ message: 'Your account has been blocked. Please contact admin.' });
 
     const marriageFund = Number(user.marriageFund) || 0;
 
     if (amount > marriageFund) {
       return res.status(400).json({ message: 'Insufficient marriage fund balance.' });
+    }
+
+    // Check KYC status
+    const kyc = await Kyc.findOne({ userId: user._id.toString() });
+    if (!kyc || kyc.status !== 'approved') {
+      return res.status(403).json({
+        message: 'Your KYC must be approved before you can request a withdrawal.'
+      });
     }
 
     // Check for existing pending withdrawal from marriage fund
@@ -317,11 +337,20 @@ router.post('/accident-fund', auth, async (req, res) => {
 
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'User not found' });
+    if (user.isBlocked) return res.status(403).json({ message: 'Your account has been blocked. Please contact admin.' });
 
     const accidentFund = Number(user.accidentFund) || 0;
 
     if (amount > accidentFund) {
       return res.status(400).json({ message: 'Insufficient accident fund balance.' });
+    }
+
+    // Check KYC status
+    const kyc = await Kyc.findOne({ userId: user._id.toString() });
+    if (!kyc || kyc.status !== 'approved') {
+      return res.status(403).json({
+        message: 'Your KYC must be approved before you can request a withdrawal.'
+      });
     }
 
     // Check for existing pending withdrawal from accident fund

@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
+import { FiTrendingUp, FiHeart } from "react-icons/fi";
 import config from "../../config/config";
 
 const API_BASE = config.apiUrl;
@@ -60,8 +61,9 @@ const DASHBOARD_ITEMS = [
   // },
 
   { label: "Withdraw", path: "/dashboard/withdraw" },
-  { label: "Repurchase Wallet", path: "/dashboard/repurchase-wallet" },
-  { label: "Marriage Fund", path: "/dashboard/marriage-fund" },
+  { label: "Repurchase Wallet", icon: <FiTrendingUp />, path: "/dashboard/repurchase-wallet" },
+  { label: "Dann Fund", icon: <FiHeart />, path: "/dashboard/dann-fund" },
+  { label: "Marriage Fund", icon: <FiHeart />, path: "/dashboard/marriage-fund" },
   { label: "Accident Fund", path: "/dashboard/accident-fund" },
 ];
 
@@ -119,17 +121,21 @@ export default function DashboardSidebar({ open = true, onClose, onLogout, user 
                     <Link
                       to={item.path}
                       onClick={() => onClose && onClose()}
-                      className="block px-3 py-2 rounded-md hover:bg-slate-800"
+                      className="flex items-center gap-2 px-3 py-2 rounded-md hover:bg-slate-800"
                     >
-                      {item.label}
+                      {item.icon && <span className="w-4 h-4 flex items-center justify-center">{item.icon}</span>}
+                      <span>{item.label}</span>
                     </Link>
                   ) : (
                     <button
                       onClick={() => setOpenParent(isOpen ? null : item.label)}
-                      className="w-full text-left px-3 py-2 rounded-md hover:bg-slate-800 flex justify-between"
+                      className="w-full text-left px-3 py-2 rounded-md hover:bg-slate-800 flex justify-between items-center"
                     >
-                      {item.label}
-                      {hasChildren && <span>{isOpen ? "▲" : "▼"}</span>}
+                      <div className="flex items-center gap-2">
+                        {item.icon && <span className="w-4 h-4 flex items-center justify-center">{item.icon}</span>}
+                        <span>{item.label}</span>
+                      </div>
+                      {hasChildren && <span className="text-[10px]">{isOpen ? "▲" : "▼"}</span>}
                     </button>
                   )}
 

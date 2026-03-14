@@ -200,6 +200,7 @@ export default function AdminPage() {
   const [loadingKycs, setLoadingKycs] = useState(false);
   const [loadingWithdrawals, setLoadingWithdrawals] = useState(false);
   const [approvingWithdrawalId, setApprovingWithdrawalId] = useState(null);
+  const [blockingUserId, setBlockingUserId] = useState(null);
 
   const [loadingRewards, setLoadingRewards] = useState(false);
   const [pendingRewards, setPendingRewards] = useState([]);
@@ -281,6 +282,86 @@ export default function AdminPage() {
   const [afAmount, setAfAmount] = useState("");
   const [afMessage, setAfMessage] = useState(null);
   const [afLoading, setAfLoading] = useState(false);
+
+  // Dann Fund
+  const [dannSearch, setDannSearch] = useState("");
+  const [dannUser, setDannUser] = useState(null);
+  const [dannAmount, setDannAmount] = useState("");
+  const [dannDescription, setDannDescription] = useState("");
+  const [dannStats, setDannStats] = useState({ balance: 0, logs: [] });
+  const [dannLoading, setDannLoading] = useState(false);
+  const [dannMessage, setDannMessage] = useState(null);
+
+  async function fetchDannStats(token) {
+    if (!token) return;
+    setDannLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/funds/dann/stats`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.status === 401) {
+        handleLogout();
+        setError(data.message || "Unauthorized");
+        return;
+      }
+      if (res.ok) setDannStats(data);
+    } catch (err) { }
+    finally { setDannLoading(false); }
+  }
+
+  async function handleDannSearch() {
+    if (!dannSearch.trim()) return;
+    setDannLoading(true);
+    setDannUser(null);
+    setDannMessage(null);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/admin/users/search/${dannSearch.trim()}`, {
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "User not found");
+      setDannUser(data.user);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDannLoading(false);
+    }
+  }
+
+  async function handleDannTransfer() {
+    if (!dannUser || !dannAmount) return;
+    setDannLoading(true);
+    setDannMessage(null);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/funds/dann/transfer`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`,
+        },
+        body: JSON.stringify({
+          targetInviteCode: dannUser.inviteCode,
+          amount: dannAmount,
+          description: dannDescription
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Transfer failed");
+      toast.success(data.message || "Transfer successful");
+      setDannMessage({ type: 'success', text: data.message || "Transfer successful" });
+      setDannAmount("");
+      setDannDescription("");
+      // Refresh stats
+      fetchDannStats(adminToken);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setDannLoading(false);
+    }
+  }
 
   async function handleMfSearch() {
     if (!mfSearch.trim()) return;
@@ -399,6 +480,9 @@ export default function AdminPage() {
         fetchEpinStats(adminToken);
         fetchEpinHistory(adminToken);
       }
+      if (currentPage === "dannFund") {
+        fetchDannStats(adminToken);
+      }
     }
     // handle browser back/forward
     const onPop = () => {
@@ -455,9 +539,7 @@ export default function AdminPage() {
       });
       const data = await res.json();
       if (res.status === 401) {
-        localStorage.removeItem("adminToken");
-        setAdminToken(null);
-        setUsers([]);
+        handleLogout();
         setError(data.message || "Unauthorized");
         setLoadingUsers(false);
         return;
@@ -721,6 +803,26 @@ export default function AdminPage() {
       setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role: data.user?.role || role } : u)));
     } catch (err) {
       setError(err.message || "Failed to update role");
+    }
+  }
+
+  async function toggleBlockUser(userId) {
+    if (!adminToken || !userId) return;
+    setBlockingUserId(userId);
+    setError(null);
+    try {
+      const res = await fetch(`${API_BASE}/admin/users/${userId}/block`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Failed to toggle block status");
+      toast.success(data.message);
+      setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, isBlocked: data.user?.isBlocked } : u)));
+    } catch (err) {
+      setError(err.message || "Failed to toggle block status");
+    } finally {
+      setBlockingUserId(null);
     }
   }
 
@@ -1071,8 +1173,10 @@ export default function AdminPage() {
         [id]: {
           panNo: kyc.panNo || "",
           aadhaarNo: kyc.aadhaarNo || "",
-          aadhaarAddress: kyc.aadhaarAddress || "",
-          issuedState: kyc.issuedState || "",
+          email: kyc.email || "",
+          phone: kyc.phone || "",
+          aadhaarAddress: kyc.address || kyc.aadhaarAddress || "",
+          issuedState: kyc.state || kyc.issuedState || "",
           status: kyc.status || "pending",
           remarks: kyc.remarks || "",
         },
@@ -1277,11 +1381,12 @@ export default function AdminPage() {
           <SidebarButton label="Withdrawals" active={currentPage === "withdrawals"} icon={<IconDollar />} onClick={() => { openPage("withdrawals"); setSidebarOpen(false); }} />
           <SidebarButton label="E-Pin" active={currentPage === "epin"} icon={<IconKey />} onClick={() => { openPage("epin"); setSidebarOpen(false); }} />
           <SidebarButton label="Income" active={currentPage === "income"} icon={<IconDollar />} onClick={() => { openPage("income"); setSidebarOpen(false); }} />
-          {/* <SidebarButton label="Transaction Logs" active={currentPage === "incomeLogs"} icon={<IconRefresh />} onClick={() => { openPage("incomeLogs"); setSidebarOpen(false); }} /> */}
+          <SidebarButton label="Transaction Logs" active={currentPage === "incomeLogs"} icon={<IconRefresh />} onClick={() => { openPage("incomeLogs"); setSidebarOpen(false); }} />
           <SidebarButton label="Autopool Requests" active={currentPage === "autopool"} icon={<IconUsers />} onClick={() => { openPage("autopool"); setSidebarOpen(false); }} />
           <SidebarButton label="Autopool Tree" active={currentPage === "autopool-tree"} icon={<IconUsers />} onClick={() => { openPage("autopool-tree"); setSidebarOpen(false); }} />
           <SidebarButton label="Marriage Fund" active={currentPage === "marriageFund"} icon={<IconDollar />} onClick={() => { openPage("marriageFund"); setSidebarOpen(false); }} />
           <SidebarButton label="Accident Fund" active={currentPage === "accidentFund"} icon={<IconDollar />} onClick={() => { openPage("accidentFund"); setSidebarOpen(false); }} />
+          <SidebarButton label="Dann Fund" active={currentPage === "dannFund"} icon={<IconAward />} onClick={() => { openPage("dannFund"); setSidebarOpen(false); }} />
           <SidebarButton
             label="Rewards"
             active={currentPage === "rewards"}
@@ -1468,7 +1573,8 @@ export default function AdminPage() {
                         { label: "Status" },
                         { label: "Logs" },
                         { label: "Balance", className: "text-right" },
-                        { label: "Income", className: "text-right" }
+                        { label: "Income", className: "text-right" },
+                        { label: "Block" }
                       ]}
                       data={users.filter(u => {
                         const term = memberSearch.trim().toLowerCase();
@@ -1534,7 +1640,9 @@ export default function AdminPage() {
                               </td>
                               <td className="p-3 font-mono">{u.activationPin || "-"}</td>
                               <td className="p-3">
-                                {u.isActivated ? (
+                                {u.isBlocked ? (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700">Blocked</span>
+                                ) : u.isActivated ? (
                                   <span className="text-green-600 font-semibold">Active</span>
                                 ) : (
                                   <span className="text-slate-500">Inactive</span>
@@ -1558,6 +1666,18 @@ export default function AdminPage() {
                               </td>
                               <td className="p-3 text-right font-mono">₹{u.balance ?? 0}</td>
                               <td className="p-3 text-right font-semibold text-green-600 font-mono">₹{u.totalIncome ?? 0}</td>
+                              <td className="p-3">
+                                <button
+                                  onClick={() => toggleBlockUser(u.id)}
+                                  disabled={blockingUserId === u.id}
+                                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-wider transition-all shadow-sm active:scale-95 disabled:opacity-50 ${u.isBlocked
+                                    ? 'bg-green-50 text-green-600 border border-green-200 hover:bg-green-100'
+                                    : 'bg-red-50 text-red-600 border border-red-200 hover:bg-red-100'
+                                    }`}
+                                >
+                                  {blockingUserId === u.id ? '...' : u.isBlocked ? 'Unblock' : 'Block'}
+                                </button>
+                              </td>
                             </tr>
 
                             {isExpanded && (
@@ -1682,7 +1802,7 @@ export default function AdminPage() {
                     headers={[
                       { label: "User" },
                       { label: "Invite Code" },
-                      { label: "Email" },
+                      { label: "KYC Contact" },
                       { label: "PAN / Aadhaar" },
                       { label: "Status" },
                       { label: "Updated" },
@@ -1731,7 +1851,12 @@ export default function AdminPage() {
                                 {k.user?.inviteCode || "-"}
                               </span>
                             </td>
-                            <td className="p-4 border-t text-slate-500">{k.user?.email || "-"}</td>
+                            <td className="p-4 border-t">
+                              <div className="text-xs space-y-1">
+                                <div className="text-slate-700 font-medium">{k.email || k.user?.email || "-"}</div>
+                                <div className="text-slate-500">{k.phone || k.user?.phone || "-"}</div>
+                              </div>
+                            </td>
                             <td className="p-4 border-t">
                               <div className="text-xs space-y-1 text-slate-600">
                                 <div className="flex items-center gap-2"><span className="text-slate-400 font-medium">PAN:</span> <span className="font-mono">{k.panNo || "-"}</span></div>
@@ -1762,7 +1887,7 @@ export default function AdminPage() {
                                     .map(([key, v]) => (
                                       <a
                                         key={key}
-                                        href={`${config.apiUrl}${typeof v === 'string' ? v : v.filePath}`}
+                                        href={(typeof v === 'string' ? v : v.filePath).startsWith('http') ? (typeof v === 'string' ? v : v.filePath) : `${config.apiUrl}${typeof v === 'string' ? v : v.filePath}`}
                                         target="_blank"
                                         rel="noreferrer"
                                         className="inline-flex items-center px-2 py-1 rounded bg-slate-100 text-blue-600 hover:bg-blue-50 text-[10px] font-bold uppercase transition-colors"
@@ -1799,16 +1924,22 @@ export default function AdminPage() {
                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                     <div className="space-y-4">
                                       <div>
-                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Verification Status</label>
-                                        <select
-                                          value={edit.status}
-                                          onChange={(e) => updateKycEdit(kycId, "status", e.target.value)}
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">KYC Email</label>
+                                        <input
+                                          value={edit.email}
+                                          onChange={(e) => updateKycEdit(kycId, "email", e.target.value.toLowerCase())}
                                           className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                        >
-                                          <option value="pending">Mark as Pending</option>
-                                          <option value="approved">Approve KYC</option>
-                                          <option value="rejected">Reject KYC</option>
-                                        </select>
+                                          placeholder="Email submitted in KYC"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">KYC Phone</label>
+                                        <input
+                                          value={edit.phone}
+                                          onChange={(e) => updateKycEdit(kycId, "phone", e.target.value)}
+                                          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                          placeholder="Phone submitted in KYC"
+                                        />
                                       </div>
                                       <div>
                                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">PAN Number</label>
@@ -1832,6 +1963,15 @@ export default function AdminPage() {
                                         />
                                       </div>
                                       <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Aadhaar Address</label>
+                                        <textarea
+                                          value={edit.aadhaarAddress}
+                                          onChange={(e) => updateKycEdit(kycId, "aadhaarAddress", e.target.value)}
+                                          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none min-h-[80px]"
+                                          placeholder="Full address as per Aadhaar"
+                                        />
+                                      </div>
+                                      <div>
                                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Admin Remarks</label>
                                         <input
                                           value={edit.rejectReason || edit.remarks || ""}
@@ -1842,14 +1982,37 @@ export default function AdminPage() {
                                       </div>
                                     </div>
 
-                                    <div className="flex items-end pb-1">
-                                      <button
-                                        onClick={() => saveKycDetails(kycId)}
-                                        disabled={savingKycId === kycId}
-                                        className="w-full bg-blue-600 text-white rounded-lg px-6 py-2.5 text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition-all shadow-md shadow-blue-200 flex items-center justify-center gap-2"
-                                      >
-                                        {savingKycId === kycId ? "Processing..." : "Update Verification"}
-                                      </button>
+                                    <div className="space-y-4">
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Verification Status</label>
+                                        <select
+                                          value={edit.status}
+                                          onChange={(e) => updateKycEdit(kycId, "status", e.target.value)}
+                                          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                        >
+                                          <option value="pending">Mark as Pending</option>
+                                          <option value="approved">Approve KYC</option>
+                                          <option value="rejected">Reject KYC</option>
+                                        </select>
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Issued State</label>
+                                        <input
+                                          value={edit.issuedState}
+                                          onChange={(e) => updateKycEdit(kycId, "issuedState", e.target.value)}
+                                          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                          placeholder="e.g. Maharashtra"
+                                        />
+                                      </div>
+                                      <div className="flex items-end pb-1">
+                                        <button
+                                          onClick={() => saveKycDetails(kycId)}
+                                          disabled={savingKycId === kycId}
+                                          className="w-full bg-blue-600 text-white rounded-lg px-6 py-2.5 text-sm font-bold hover:bg-blue-700 disabled:opacity-50 transition-all shadow-md shadow-blue-200 flex items-center justify-center gap-2"
+                                        >
+                                          {savingKycId === kycId ? "Processing..." : "Update Verification"}
+                                        </button>
+                                      </div>
                                     </div>
                                   </div>
                                 </div>
@@ -2171,6 +2334,7 @@ export default function AdminPage() {
                   { label: "15% ↓", className: "text-right" },
                   { label: "Status" },
                   { label: "Requested" },
+                  { label: "Payment", className: "text-center" },
                   { label: "Action", className: "text-right" }
                 ]}
                 data={(() => {
@@ -2273,6 +2437,14 @@ export default function AdminPage() {
                         <td className="p-4 text-xs text-slate-400">
                           {w.createdAt ? new Date(w.createdAt).toLocaleDateString() : "-"}
                         </td>
+                        <td className="p-4 text-center">
+                          <button
+                            onClick={() => openPaymentEditor(w.user)}
+                            className="inline-flex items-center px-3 py-1.5 border border-blue-100 rounded-lg text-[10px] font-bold uppercase tracking-wider text-blue-600 bg-blue-50/50 hover:bg-blue-600 hover:text-white transition-all shadow-sm active:scale-95"
+                          >
+                            View
+                          </button>
+                        </td>
                         <td className="p-4 text-right">
                           {w.status === "pending" ? (
                             <div className="flex flex-col gap-2 items-end">
@@ -2299,87 +2471,6 @@ export default function AdminPage() {
                         </td>
                       </tr>
 
-                      {isPaymentOpen && edit && (
-                        <tr className="bg-slate-50/50">
-                          <td colSpan={8} className="p-6">
-                            <div className="max-w-3xl mx-auto bg-white border border-slate-100 rounded-xl shadow-lg p-6 text-left">
-                              <div className="flex items-center justify-between mb-4">
-                                <h4 className="font-bold text-slate-800">Edit Payment Details: {w.user?.name}</h4>
-                                <button onClick={() => setExpandedPaymentUserId(null)} className="text-slate-400 hover:text-slate-600 font-bold text-xl">&times;</button>
-                              </div>
-                              <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">UPI ID</label>
-                                  <input
-                                    value={edit.upiId || ""}
-                                    onChange={(e) => updatePaymentEdit(userId, "upiId", e.target.value)}
-                                    className="w-full border rounded-lg p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                                  />
-                                </div>
-                                <div>
-                                  <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">UPI Mobile</label>
-                                  <input
-                                    value={edit.upiNo || ""}
-                                    onChange={(e) => updatePaymentEdit(userId, "upiNo", e.target.value)}
-                                    className="w-full border rounded-lg p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                                  />
-                                </div>
-                                <div className="col-span-2 border-t pt-4 mt-2 grid grid-cols-2 md:grid-cols-3 gap-4">
-                                  <div className="md:col-span-2">
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Account Holder</label>
-                                    <input
-                                      value={edit.bankDetails?.accountHolder || ""}
-                                      onChange={(e) => updatePaymentEdit(userId, "bankDetails.accountHolder", e.target.value)}
-                                      className="w-full border rounded-lg p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Bank Name</label>
-                                    <input
-                                      value={edit.bankDetails?.bankName || ""}
-                                      onChange={(e) => updatePaymentEdit(userId, "bankDetails.bankName", e.target.value)}
-                                      className="w-full border rounded-lg p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Account No</label>
-                                    <input
-                                      value={edit.bankDetails?.accountNo || ""}
-                                      onChange={(e) => updatePaymentEdit(userId, "bankDetails.accountNo", e.target.value)}
-                                      className="w-full border rounded-lg p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">IFSC</label>
-                                    <input
-                                      value={edit.bankDetails?.ifsc || ""}
-                                      onChange={(e) => updatePaymentEdit(userId, "bankDetails.ifsc", e.target.value)}
-                                      className="w-full border rounded-lg p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                                    />
-                                  </div>
-                                  <div>
-                                    <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">Branch</label>
-                                    <input
-                                      value={edit.bankDetails?.branchName || ""}
-                                      onChange={(e) => updatePaymentEdit(userId, "bankDetails.branchName", e.target.value)}
-                                      className="w-full border rounded-lg p-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="mt-6 flex justify-end">
-                                <button
-                                  onClick={() => savePaymentDetails(userId)}
-                                  disabled={savingPaymentUserId === userId}
-                                  className="bg-blue-600 text-white px-8 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-blue-200 hover:bg-blue-700 transition-all disabled:opacity-50"
-                                >
-                                  {savingPaymentUserId === userId ? "Saving Details..." : "Save Payment Details"}
-                                </button>
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
                     </React.Fragment>
                   );
                 }}
@@ -2604,6 +2695,172 @@ export default function AdminPage() {
                         {afMessage.text}
                       </div>
                     )}
+                  </div>
+                </div>
+              )
+            }
+
+            {/* Dann Fund Page */}
+            {
+              currentPage === "dannFund" && (
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-slate-800">Dann Fund Management</h2>
+                    <button
+                      onClick={() => fetchDannStats(adminToken)}
+                      className="bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition active:scale-90"
+                    >
+                      <IconRefresh className={dannLoading ? "animate-spin" : ""} />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                    <div className="lg:col-span-1 space-y-6">
+                      <div className="bg-blue-600 text-white p-6 border rounded-2xl shadow-lg shadow-blue-100 relative overflow-hidden group">
+                        <div className="absolute -right-8 -bottom-8 opacity-10 group-hover:scale-110 transition-transform">
+                          <IconAward />
+                        </div>
+                        <div className="relative z-10">
+                          <div className="text-[10px] uppercase font-bold text-blue-100 tracking-widest mb-1 opacity-80">Total Community Fund</div>
+                          <div className="text-4xl font-black tracking-tighter">₹{(dannStats.balance || 0).toLocaleString()}</div>
+                        </div>
+                      </div>
+
+                      <div className="bg-white p-6 border rounded-2xl shadow-sm space-y-4 transition-all hover:shadow-md">
+                        <div className="text-sm font-bold text-slate-900 border-b pb-2 uppercase tracking-tight flex items-center gap-2">
+                          <IconUsers /> Transfer to Member
+                        </div>
+
+                        <div className="space-y-4">
+                          <div className="flex flex-col sm:flex-row gap-2">
+                            <input
+                              type="text"
+                              placeholder="Member Code / Email..."
+                              value={dannSearch}
+                              onChange={(e) => setDannSearch(e.target.value)}
+                              className="flex-1 border border-slate-200 rounded-xl px-4 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-500 bg-slate-50 transition-all font-medium"
+                              onKeyDown={(e) => e.key === 'Enter' && handleDannSearch()}
+                            />
+                            <button
+                              onClick={handleDannSearch}
+                              disabled={dannLoading}
+                              className="w-full sm:w-auto bg-slate-900 text-white px-4 py-2 rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-slate-800 disabled:opacity-50 transition-all"
+                            >
+                              Search
+                            </button>
+                          </div>
+
+                          {dannUser && (
+                            <div className="p-4 bg-blue-50/50 border border-blue-100 rounded-xl space-y-4 animate-in fade-in zoom-in-95 duration-300">
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <div className="text-xs font-black text-slate-800 uppercase tracking-tight">{dannUser.name}</div>
+                                  <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">{dannUser.inviteCode}</div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="text-[10px] text-slate-400 font-bold uppercase mb-0.5">Wallet</div>
+                                  <div className="text-sm font-black text-blue-600 tracking-tight">₹{Number(dannUser.balance || 0).toLocaleString()}</div>
+                                </div>
+                              </div>
+
+                              <div className="space-y-3 border-t border-blue-100 pt-3">
+                                <div>
+                                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Amount to Transfer</label>
+                                  <div className="relative">
+                                    <span className="absolute left-3 top-2.5 text-slate-400 font-bold text-xs">₹</span>
+                                    <input
+                                      type="number"
+                                      placeholder="0.00"
+                                      value={dannAmount}
+                                      onChange={(e) => setDannAmount(e.target.value)}
+                                      className="w-full border border-slate-200 rounded-xl pl-7 pr-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-blue-600 bg-white font-black"
+                                    />
+                                  </div>
+                                </div>
+                                <div>
+                                  <label className="block text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Transfer Note</label>
+                                  <input
+                                    type="text"
+                                    placeholder="Optional description..."
+                                    value={dannDescription}
+                                    onChange={(e) => setDannDescription(e.target.value)}
+                                    className="w-full border border-slate-200 rounded-xl px-4 py-2 text-xs outline-none focus:ring-2 focus:ring-blue-600 bg-white font-medium italic"
+                                  />
+                                </div>
+                                <button
+                                  onClick={handleDannTransfer}
+                                  disabled={dannLoading || !dannAmount || Number(dannAmount) <= 0}
+                                  className="w-full bg-blue-600 text-white py-3 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] hover:bg-blue-700 disabled:opacity-50 shadow-lg shadow-blue-100 transition-all active:scale-[0.98]"
+                                >
+                                  {dannLoading ? "Processing..." : "Execute Transfer"}
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="lg:col-span-2 bg-white border rounded-[2rem] shadow-sm overflow-hidden flex flex-col transition-all hover:shadow-lg">
+                      <div className="p-4 sm:p-6 border-b bg-slate-50/50 flex flex-col sm:flex-row items-center justify-between gap-2">
+                        <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
+                          <IconRefresh className="text-blue-600" /> Fund History
+                        </h3>
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{dannStats.logs?.length || 0} Records</div>
+                      </div>
+                      <div className="overflow-x-auto overflow-y-auto max-h-[600px]">
+                        <table className="w-full text-left text-xs min-w-[700px]">
+                          <thead className="bg-slate-50 sticky top-0 z-10">
+                            <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                              <th className="px-6 py-4">User Details</th>
+                              <th className="px-6 py-4">Action Type</th>
+                              <th className="px-6 py-4">Value</th>
+                              <th className="px-6 py-4">Date / Note</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {(dannStats.logs || []).map((log) => (
+                              <tr key={log._id} className="hover:bg-slate-50/80 transition-colors group">
+                                <td className="px-6 py-5">
+                                  <div className="font-black text-slate-800 leading-tight uppercase tracking-tight">{log.userName || "Admin"}</div>
+                                  <div className="text-[9px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">{log.userInviteCode || "System"}</div>
+                                </td>
+                                <td className="px-6 py-5">
+                                  <span className={`inline-flex px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${log.type === 'contribution'
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-100'
+                                    : 'bg-blue-50 text-blue-800 border-blue-100'
+                                    }`}>
+                                    {log.type === 'contribution' ? 'Gift' : 'Transfer'}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-5">
+                                  <div className={`font-black text-sm tracking-tighter ${log.type === 'contribution' ? 'text-emerald-600' : 'text-blue-600'
+                                    }`}>
+                                    {log.type === 'contribution' ? '+' : '-'}₹{log.amount.toLocaleString()}
+                                  </div>
+                                </td>
+                                <td className="px-6 py-5">
+                                  <div className="text-slate-500 font-bold text-[10px] uppercase tracking-widest mb-0.5">
+                                    {new Date(log.createdAt).toLocaleDateString([], { day: '2-digit', month: 'short' })}
+                                  </div>
+                                  <div className="text-slate-400 italic text-[10px] truncate max-w-[150px]">{log.description || "-"}</div>
+                                </td>
+                              </tr>
+                            ))}
+                            {(!dannStats.logs || dannStats.logs.length === 0) && (
+                              <tr>
+                                <td colSpan={4} className="px-6 py-20 text-center opacity-30">
+                                  <div className="flex flex-col items-center">
+                                    <IconAward size={48} className="mb-3" />
+                                    <div className="text-[10px] font-black uppercase tracking-widest">No fund movements found</div>
+                                  </div>
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )
@@ -3123,6 +3380,102 @@ export default function AdminPage() {
           </div>
         </div>
       </div>
+
+      {/* Payment Details Modal */}
+      {expandedPaymentUserId && paymentEdits[expandedPaymentUserId] && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            {/* Modal Header */}
+            <div className="px-6 py-5 border-b flex items-center justify-between bg-slate-50/50">
+              <div>
+                <h3 className="text-lg font-black text-slate-800 uppercase tracking-tight">View Payment Details</h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">User Bank & UPI Information</p>
+              </div>
+              <button
+                onClick={() => setExpandedPaymentUserId(null)}
+                className="p-2 hover:bg-slate-200 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+                title="Close Modal"
+              >
+                <IconClose />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-8 max-h-[70vh] overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* UPI Section */}
+                <div className="space-y-4">
+                  <h4 className="text-[11px] font-black text-blue-600 uppercase tracking-widest border-b pb-2">UPI Information</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">UPI ID</label>
+                      <div className="w-full border border-slate-100 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 bg-slate-50/50">
+                        {paymentEdits[expandedPaymentUserId].upiId || "Not Provided"}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">UPI Mobile Number</label>
+                      <div className="w-full border border-slate-100 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 bg-slate-50/50">
+                        {paymentEdits[expandedPaymentUserId].upiNo || "Not Provided"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bank Section */}
+                <div className="space-y-4">
+                  <h4 className="text-[11px] font-black text-emerald-600 uppercase tracking-widest border-b pb-2">Bank Account</h4>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Account Holder Name</label>
+                      <div className="w-full border border-slate-100 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 bg-slate-50/50">
+                        {paymentEdits[expandedPaymentUserId].bankDetails?.accountHolder || "Not Provided"}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Bank Name</label>
+                      <div className="w-full border border-slate-100 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 bg-slate-50/50">
+                        {paymentEdits[expandedPaymentUserId].bankDetails?.bankName || "Not Provided"}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="md:col-span-2 grid grid-cols-1 md:grid-cols-3 gap-6 pt-4">
+                  <div>
+                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Account Number</label>
+                    <div className="w-full border border-slate-100 rounded-xl px-4 py-3 text-sm font-mono font-bold text-slate-700 bg-slate-50/50">
+                      {paymentEdits[expandedPaymentUserId].bankDetails?.accountNo || "Not Provided"}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">IFSC Code</label>
+                    <div className="w-full border border-slate-100 rounded-xl px-4 py-3 text-sm font-mono font-bold text-slate-700 bg-slate-50/50">
+                      {paymentEdits[expandedPaymentUserId].bankDetails?.ifsc || "Not Provided"}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Branch Name</label>
+                    <div className="w-full border border-slate-100 rounded-xl px-4 py-3 text-sm font-bold text-slate-700 bg-slate-50/50">
+                      {paymentEdits[expandedPaymentUserId].bankDetails?.branchName || "Not Provided"}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-8 py-5 border-t bg-slate-50/50 flex justify-end">
+              <button
+                onClick={() => setExpandedPaymentUserId(null)}
+                className="px-8 py-2.5 bg-slate-800 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-900 transition-all active:scale-95 shadow-lg shadow-slate-200"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

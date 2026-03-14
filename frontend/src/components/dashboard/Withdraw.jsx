@@ -33,6 +33,7 @@ export default function Withdraw({ onMenuOpen }) {
   const [upgradeMethod, setUpgradeMethod] = useState("upi"); // upi, cash
 
   const [withdrawals, setWithdrawals] = useState([]);
+  const [kycStatus, setKycStatus] = useState("none"); // none, pending, approved, rejected
 
   const loadAll = async () => {
     const token = localStorage.getItem("token");
@@ -46,7 +47,7 @@ export default function Withdraw({ onMenuOpen }) {
     try {
       setLoading(true);
 
-      const [profileRes, listRes, teamRes] = await Promise.all([
+      const [profileRes, listRes, teamRes, kycRes] = await Promise.all([
         fetch(`${API_BASE}/profile`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
@@ -58,11 +59,16 @@ export default function Withdraw({ onMenuOpen }) {
         fetch(`${API_BASE}/team/direct`, {
           headers: { Authorization: `Bearer ${token}` },
         }),
+
+        fetch(`${API_BASE}/kyc`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
       ]);
 
       const profileData = await profileRes.json();
       const listData = await listRes.json();
       const teamData = await teamRes.json();
+      const kycData = await kycRes.json();
 
       if (profileRes.ok) {
         setBalance(Number(profileData.user?.balance) || 0);
@@ -77,6 +83,12 @@ export default function Withdraw({ onMenuOpen }) {
         setDirectCount(activeCount);
       } else {
         setDirectCount(0);
+      }
+
+      if (kycRes.ok && kycData.kyc) {
+        setKycStatus(kycData.kyc.status);
+      } else {
+        setKycStatus("none");
       }
 
       const wdList = Array.isArray(listData.withdrawals) ? listData.withdrawals : [];
@@ -135,6 +147,10 @@ export default function Withdraw({ onMenuOpen }) {
     if (directCount < 2) {
       setMsgType("error");
       return setMsg(`Need 2 active direct referrals. Currently active: ${directCount}`);
+    }
+    if (kycStatus !== 'approved') {
+      setMsgType("error");
+      return setMsg("Your KYC must be approved before you can request a withdrawal.");
     }
 
     try {
@@ -352,13 +368,26 @@ export default function Withdraw({ onMenuOpen }) {
                 </div>
               ) : (
                 <>
-                  {directCount < 2 ? (
-                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex gap-3 text-amber-800">
-                      <FiAlertCircle className="mt-0.5 shrink-0" />
-                      <div className="text-sm">
-                        <div className="font-semibold mb-1">Requirement Check</div>
-                        <p>You need at least <span className="font-bold">2 active direct referrals</span> to request a withdrawal.</p>
-                        <p className="mt-1 opacity-80">Active Referrals: <span className="font-mono font-bold">{directCount}/2</span></p>
+                  {directCount < 2 || kycStatus !== 'approved' ? (
+                    <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col gap-4 text-amber-800">
+                      <div className="flex gap-3">
+                        <FiAlertCircle className="mt-0.5 shrink-0" />
+                        <div className="text-sm">
+                          <div className="font-semibold mb-1">Requirement Check</div>
+                          <p>Complete the following to enable withdrawals:</p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className={`p-3 rounded-xl border flex items-center gap-3 ${directCount >= 2 ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-white border-amber-100'}`}>
+                          {directCount >= 2 ? <FiCheckCircle className="shrink-0" /> : <div className="w-1.5 h-1.5 bg-amber-400 rounded-full shrink-0"></div>}
+                          <div className="text-[11px] font-bold uppercase tracking-wider">2 Active Directs ({directCount}/2)</div>
+                        </div>
+
+                        <div className={`p-3 rounded-xl border flex items-center gap-3 ${kycStatus === 'approved' ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-white border-amber-100'}`}>
+                          {kycStatus === 'approved' ? <FiCheckCircle className="shrink-0" /> : <div className="w-1.5 h-1.5 bg-amber-400 rounded-full shrink-0"></div>}
+                          <div className="text-[11px] font-bold uppercase tracking-wider">KYC Approved ({kycStatus})</div>
+                        </div>
                       </div>
                     </div>
                   ) : null}
@@ -393,7 +422,7 @@ export default function Withdraw({ onMenuOpen }) {
 
                   <button
                     onClick={handleSubmit}
-                    disabled={submitting || directCount < 2}
+                    disabled={submitting || directCount < 2 || kycStatus !== 'approved'}
                     className="w-full py-4 rounded-2xl text-white font-bold bg-slate-900 hover:bg-slate-800 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-2 shadow-lg shadow-slate-200"
                   >
                     {submitting ? (

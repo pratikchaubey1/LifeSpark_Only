@@ -21,6 +21,10 @@ const siteSettingsSchema = new mongoose.Schema({
         type: Boolean,
         default: true
     },
+    dannFundBalance: {
+        type: Number,
+        default: 0
+    },
     updatedAt: {
         type: Date,
         default: Date.now

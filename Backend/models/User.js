@@ -24,6 +24,9 @@ const userSchema = new mongoose.Schema({
   activationPackage: { type: String, default: null }, // e.g., 'Basic', 'Standard'
   activatedAt: { type: Date, default: null },
 
+  // Block Status
+  isBlocked: { type: Boolean, default: false },
+
   // Financial Fields
   balance: { type: Number, default: 0 },
   totalIncome: { type: Number, default: 0 },
@@ -88,6 +91,7 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ phone: 1 });
 userSchema.index({ sponsorId: 1 });
 userSchema.index({ isActivated: 1 });
+userSchema.index({ isBlocked: 1 });
 userSchema.index({ autopoolStatus: 1 });
 userSchema.index({ sponsorId: 1, isActivated: 1 }); // Compound index for referral queries
 

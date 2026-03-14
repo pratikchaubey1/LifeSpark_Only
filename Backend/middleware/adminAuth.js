@@ -1,5 +1,5 @@
 const jwt = require('jsonwebtoken');
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_jwt_key_change_me';
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_jwt_key_change_me_change_this';
 
 module.exports = function adminAuth(req, res, next) {
     const authHeader = req.headers['authorization'];

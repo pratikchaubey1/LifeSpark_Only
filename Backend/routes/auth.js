@@ -8,7 +8,7 @@ const { sendWelcomeEmail } = require('../utils/email');
 
 const router = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_jwt_key_change_me';
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_jwt_key_change_me_change_this';
 
 function generateInviteCode() {
   return 'LS' + Math.floor(100000 + Math.random() * 900000); // e.g. LS123456

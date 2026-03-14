@@ -50,6 +50,10 @@ const CAP_UNLOCK_THRESHOLDS = {
  */
 async function distributeIncome(beneficiary) {
     try {
+        if (beneficiary.isBlocked) {
+            console.log(`🚫 ${beneficiary.inviteCode} is BLOCKED, skipping all income distribution`);
+            return;
+        }
         if (!beneficiary.sponsorId) {
             console.log(`⚠️  No sponsor for ${beneficiary.inviteCode}, skipping income distribution`);
             return;
@@ -65,6 +69,13 @@ async function distributeIncome(beneficiary) {
             if (!sponsor) {
                 console.log(`⚠️  Sponsor not found at level ${level}: ${currentSponsorCode}`);
                 break;
+            }
+
+            // Skip blocked sponsors — don't credit them, but continue walking up
+            if (sponsor.isBlocked) {
+                console.log(`🚫 Sponsor ${sponsor.inviteCode} at level ${level} is BLOCKED, skipping credit`);
+                currentSponsorCode = sponsor.sponsorId;
+                continue;
             }
 
             let totalToCredit = 0;
@@ -173,6 +184,7 @@ async function distributeDailyLevelIncomeWithCaps(activeUsers) {
         // Phase 1: Aggregate uncapped level income AND active user count per sponsor per level
         for (const user of activeUsers) {
             if (!user.sponsorId) continue;
+            if (user.isBlocked) continue; // Blocked users don't generate level income for sponsors
 
             let currentSponsorCode = user.sponsorId;
 

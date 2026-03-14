@@ -16,7 +16,7 @@ const { sendWelcomeEmail } = require('../utils/email');
 
 const router = express.Router();
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_jwt_key_change_me';
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_jwt_key_change_me_change_this';
 
 async function generateUniqueInviteCode() {
   let code;
@@ -71,7 +71,7 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid admin credentials' });
     }
 
-    const token = jwt.sign({ role: 'admin', userId: user._id }, JWT_SECRET, { expiresIn: '1d' });
+    const token = jwt.sign({ role: 'admin', id: user._id }, JWT_SECRET, { expiresIn: '1d' });
     return res.json({ token });
   } catch (err) {
     console.error('Admin login error', err);
@@ -242,6 +242,7 @@ router.get('/users', adminAuth, async (req, res) => {
           inviteCode: 1,
           role: { $ifNull: ['$role', 'member'] },
           isActivated: { $ifNull: ['$isActivated', false] },
+          isBlocked: { $ifNull: ['$isBlocked', false] },
           activationPackage: { $ifNull: ['$activationPackage', null] },
           balance: { $ifNull: ['$balance', 0] },
           totalIncome: { $ifNull: ['$totalIncome', 0] },
@@ -451,6 +452,28 @@ router.put('/users/:id/role', adminAuth, async (req, res) => {
   }
 });
 
+// Block / Unblock a user (admin-only)
+router.put('/users/:id/block', adminAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // Toggle isBlocked
+    user.isBlocked = !user.isBlocked;
+    await user.save();
+
+    const userObj = user.toObject();
+    delete userObj.password;
+    return res.json({
+      message: user.isBlocked ? 'User has been blocked' : 'User has been unblocked',
+      user: userObj
+    });
+  } catch (err) {
+    console.error('Block/unblock user error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // Manual user activation (admin-only)
 router.put('/users/:id/activate', adminAuth, async (req, res) => {
   try {
@@ -550,12 +573,14 @@ router.put('/kyc/:id', adminAuth, async (req, res) => {
 });
 
 async function updateKycRecord(kyc, req, res) {
-  const { panNo, aadhaarNo, aadhaarAddress, issuedState, status, remarks } = req.body || {};
+  const { panNo, aadhaarNo, email, phone, aadhaarAddress, issuedState, status, remarks } = req.body || {};
 
   if (panNo !== undefined) kyc.panNo = panNo;
   if (aadhaarNo !== undefined) kyc.aadhaarNo = aadhaarNo;
-  if (aadhaarAddress !== undefined) kyc.aadhaarAddress = aadhaarAddress;
-  if (issuedState !== undefined) kyc.issuedState = issuedState;
+  if (email !== undefined) kyc.email = email;
+  if (phone !== undefined) kyc.phone = phone;
+  if (aadhaarAddress !== undefined) kyc.address = aadhaarAddress; // Note: model uses 'address' now, but request might use 'aadhaarAddress' for compatibility
+  if (issuedState !== undefined) kyc.state = issuedState;
   if (status !== undefined) kyc.status = status;
   if (remarks !== undefined) kyc.remarks = remarks;
 

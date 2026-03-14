@@ -49,14 +49,15 @@ app.use('/api/auth', authRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/kyc', kycRoutes);
 app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/withdrawals', withdrawalsRoutes);
+app.use('/api/withdrawals', require('./routes/withdrawals'));
+app.use('/api/funds', require('./routes/funds'));
 app.use('/api/epins', epinsRoutes);
 app.use('/api/team', teamRoutes);
 app.use('/api/level-income', levelIncomeRoutes);
 app.use('/api/projects', projectsRoutes);
 app.use('/api/site', siteRoutes);
 app.use('/api/test', testRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api/admin', require('./routes/admin'));
 app.use('/api/rewards', rewardsRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/franchise', franchiseRoutes);
@@ -75,7 +76,7 @@ const SiteSettings = require('./models/SiteSettings');
 const IncomeLog = require('./models/IncomeLog');
 
 // CRON JOB — runs at 00:00 (midnight)
-cron.schedule("31 1 * * *", async () => {
+cron.schedule("54 18 * * *", async () => {
   console.log("⏰ Midnight Daily Bonus Started...");
 
   try {
@@ -89,7 +90,7 @@ cron.schedule("31 1 * * *", async () => {
     console.log(`📅 Today: ${todayStr}`);
 
     // Find all activated users
-    const users = await User.find({ isActivated: true, activatedAt: { $ne: null } });
+    const users = await User.find({ isActivated: true, activatedAt: { $ne: null }, isBlocked: { $ne: true } });
     console.log(`👥 Total activated users found: ${users.length}`);
 
     // Collect users eligible for daily level income distribution
@@ -155,10 +156,23 @@ cron.schedule("31 1 * * *", async () => {
   }
 });
 
+/* ------------------ DIAGNOSTIC ROUTES ------------------ */
+/* ------------------ GLOBAL ERROR HANDLER ------------------ */
+app.use((err, req, res, next) => {
+  console.error('Unhandled Error:', err);
+  res.status(500).json({
+    message: 'An internal server error occurred',
+    error: err.message
+  });
+});
+
 /* ------------------ START SERVER ------------------ */
 
 console.log('🔄 Connecting to MongoDB...');
 console.log('MongoDB URI:', process.env.MONGO_URI ? process.env.MONGO_URI.replace(/\/\/([^:]+):([^@]+)@/, '//$1:****@') : 'NOT SET');
+
+// Disable auto-indexing in production or if you want to manage them manually
+// mongoose.set('autoIndex', false); 
 
 mongoose
   .connect(process.env.MONGO_URI)
@@ -171,11 +185,5 @@ mongoose
   })
   .catch((err) => {
     console.error('❌ MongoDB connection error:', err.message);
-    console.error('');
-    console.error('💡 Possible solutions:');
-    console.error('   1. If using local MongoDB: Make sure MongoDB is running');
-    console.error('   2. If using MongoDB Atlas: Check your connection string in .env');
-    console.error('   3. Check your internet connection if using cloud database');
-    console.error('');
     process.exit(1);
   });

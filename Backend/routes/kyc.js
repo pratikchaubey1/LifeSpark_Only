@@ -13,91 +13,164 @@ if (!fs.existsSync(UPLOAD_DIR)) {
   fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 }
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, UPLOAD_DIR);
-  },
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const safeField = String(file.fieldname || 'document').replace(/[^a-z0-9_-]/gi, '');
-    cb(null, `${req.user._id}-${safeField}-${Date.now()}${ext}`);
+const cloudinary = require('cloudinary').v2;
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'kyc_documents',
+    allowed_formats: ['jpg', 'png', 'jpeg', 'pdf'],
+    public_id: (req, file) => {
+      const safeField = String(file.fieldname || 'document').replace(/[^a-z0-9_-]/gi, '');
+      return `${req.user._id}-${safeField}-${Date.now()}`;
+    },
   },
 });
 
-const upload = multer({ storage });
+const upload = multer({
+  storage,
+  limits: { fileSize: 2 * 1024 * 1024 } // 2MB
+});
 
-// Supports multiple docs:
-// - profile (image)
-// - pan (image)
-// - aadhaar (image)
-// - bank (image)
-// Backwards-compatible: also supports "document" single upload.
-const uploadAny = upload.fields([
-  { name: 'profile', maxCount: 1 },
-  { name: 'pan', maxCount: 1 },
+const uploadFields = upload.fields([
   { name: 'aadhaar', maxCount: 1 },
-  { name: 'bank', maxCount: 1 },
-  { name: 'document', maxCount: 1 },
+  { name: 'pan', maxCount: 1 },
+  { name: 'selfie', maxCount: 1 },
 ]);
 
-router.post('/', auth, uploadAny, async (req, res) => {
+// ============ CHECK DUPLICATE (real-time validation) ============
+router.post('/check-duplicate', auth, async (req, res) => {
+  try {
+    const { field, value } = req.body;
+    if (!field || !value) {
+      return res.status(400).json({ message: 'Field and value are required' });
+    }
+
+    const allowed = ['panNo', 'aadhaarNo', 'email', 'phone'];
+    if (!allowed.includes(field)) {
+      return res.status(400).json({ message: 'Invalid field' });
+    }
+
+    const trimmed = value.trim();
+    if (!trimmed) return res.json({ duplicate: false });
+
+    // Check if another user's KYC already has this value
+    const existing = await Kyc.findOne({
+      [field]: trimmed,
+      userId: { $ne: req.user._id.toString() }
+    });
+
+    return res.json({ duplicate: !!existing });
+  } catch (err) {
+    console.error('KYC duplicate check error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// ============ SUBMIT KYC (text + images in one request) ============
+router.post('/', auth, (req, res, next) => {
+  uploadFields(req, res, (err) => {
+    if (err instanceof multer.MulterError) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(400).json({ message: 'File too large. Max limit is 2MB per image.' });
+      }
+      return res.status(400).json({ message: `Upload error: ${err.message}` });
+    } else if (err) {
+      console.error('Cloudinary/Multer Error:', err);
+      return res.status(500).json({ message: 'Cloudinary upload failed. Check your credentials.' });
+    }
+    next();
+  });
+}, async (req, res) => {
   try {
     const files = req.files || {};
-
     const getFile = (field) => {
       const arr = files[field];
       return Array.isArray(arr) && arr.length > 0 ? arr[0] : null;
     };
 
-    const profile = getFile('profile');
-    const pan = getFile('pan');
-    const aadhaar = getFile('aadhaar');
-    const bank = getFile('bank');
-    const legacy = getFile('document');
+    const { panNo, aadhaarNo, email, phone, address, state } = req.body;
 
-    if (!profile && !pan && !aadhaar && !bank && !legacy) {
-      return res.status(400).json({
-        message:
-          'At least one file is required: profile, pan, aadhaar, bank (or legacy field: document)',
-      });
+    // Validate required text fields
+    if (!panNo || !aadhaarNo || !email || !phone || !address || !state) {
+      return res.status(400).json({ message: 'All text fields are required (PAN, Aadhaar, Email, Phone, Address, State)' });
     }
 
-    let record = await Kyc.findOne({ userId: req.user._id.toString() });
+    const userId = req.user._id.toString();
+
+    // Duplicate checks
+    const dupChecks = [
+      { field: 'panNo', value: panNo.trim(), label: 'PAN Number' },
+      { field: 'aadhaarNo', value: aadhaarNo.trim(), label: 'Aadhaar Number' },
+      { field: 'email', value: email.trim(), label: 'Email' },
+      { field: 'phone', value: phone.trim(), label: 'Phone Number' },
+    ];
+
+    for (const check of dupChecks) {
+      if (check.value) {
+        const dup = await Kyc.findOne({
+          [check.field]: check.value,
+          userId: { $ne: userId }
+        });
+        if (dup) {
+          return res.status(409).json({
+            message: `${check.label} "${check.value}" is already used by another user. Please provide a different one.`,
+            duplicateField: check.field
+          });
+        }
+      }
+    }
+
+    // Find existing or create new
+    let record = await Kyc.findOne({ userId });
 
     if (!record) {
-      record = new Kyc({
-        userId: req.user._id.toString(),
-        documents: {},
-        status: 'pending'
-      });
+      record = new Kyc({ userId, documents: {} });
     }
 
-    // Update documents
-    if (profile) {
-      record.documents.profile = `/uploads/${profile.filename}`;
-    }
-    if (pan) {
-      record.documents.pan = `/uploads/${pan.filename}`;
-    }
-    if (aadhaar) {
-      record.documents.aadhaar = `/uploads/${aadhaar.filename}`;
-    }
-    if (bank) {
-      record.documents.bank = `/uploads/${bank.filename}`;
-    }
-    if (legacy) {
-      record.documents.document = `/uploads/${legacy.filename}`;
+    // Update text fields
+    record.panNo = panNo.trim();
+    record.aadhaarNo = aadhaarNo.trim();
+    record.email = email.trim();
+    record.phone = phone.trim();
+    record.address = address.trim();
+    record.state = state.trim();
+    record.status = 'pending';
+    record.submittedAt = Date.now();
+    record.remarks = '';
+
+    // Update image files (only if new ones uploaded)
+    const aadhaarFile = getFile('aadhaar');
+    const panFile = getFile('pan');
+    const selfieFile = getFile('selfie');
+
+    if (aadhaarFile) record.documents.aadhaar = aadhaarFile.path;
+    if (panFile) record.documents.pan = panFile.path;
+    if (selfieFile) record.documents.selfie = selfieFile.path;
+
+    // For new submissions, require all 3 images
+    if (!record.documents.aadhaar || !record.documents.pan || !record.documents.selfie) {
+      return res.status(400).json({ message: 'All 3 images are required: Aadhaar, PAN, and Selfie' });
     }
 
     await record.save();
 
     res.status(201).json({ kyc: record });
   } catch (err) {
-    console.error('KYC upload error', err);
-    res.status(500).json({ message: 'Server error' });
+    console.error('KYC submit error details:', err);
+    res.status(500).json({ message: `Server error: ${err.message}` });
   }
 });
 
+// ============ GET OWN KYC ============
 router.get('/', auth, async (req, res) => {
   try {
     const record = await Kyc.findOne({ userId: req.user._id.toString() });
@@ -105,41 +178,6 @@ router.get('/', auth, async (req, res) => {
     res.json({ kyc: record });
   } catch (err) {
     console.error('Get KYC error', err);
-    res.status(500).json({ message: 'Server error' });
-  }
-});
-
-// Text-based KYC data (PAN, Aadhaar etc.)
-router.post('/text', auth, async (req, res) => {
-  try {
-    const { pan, aadhaar, aadhaarAddress, issuedState } = req.body;
-
-    if (!pan || !aadhaar || !aadhaarAddress || !issuedState) {
-      return res.status(400).json({ message: 'All fields are required' });
-    }
-
-    let record = await Kyc.findOne({ userId: req.user._id.toString() });
-
-    if (!record) {
-      record = new Kyc({
-        userId: req.user._id.toString(),
-        documents: {},
-        status: 'pending'
-      });
-    }
-
-    record.panNo = pan;
-    record.aadhaarNo = aadhaar;
-    record.aadhaarAddress = aadhaarAddress;
-    record.issuedState = issuedState;
-    record.status = 'pending'; // Reset to pending when updating data?
-    record.submittedAt = Date.now();
-
-    await record.save();
-
-    res.status(200).json({ message: 'KYC text details updated successfully', kyc: record });
-  } catch (err) {
-    console.error('KYC text submission error', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
