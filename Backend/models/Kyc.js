@@ -10,6 +10,7 @@ const kycSchema = new mongoose.Schema({
     phone: { type: String, default: '' },
     address: { type: String, default: '' },
     state: { type: String, default: '' },
+    nominee: { type: String, default: '' },
 
     // Document images
     documents: {

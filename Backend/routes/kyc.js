@@ -97,11 +97,11 @@ router.post('/', auth, (req, res, next) => {
       return Array.isArray(arr) && arr.length > 0 ? arr[0] : null;
     };
 
-    const { panNo, aadhaarNo, email, phone, address, state } = req.body;
+    const { panNo, aadhaarNo, email, phone, address, state, nominee } = req.body;
 
     // Validate required text fields
-    if (!panNo || !aadhaarNo || !email || !phone || !address || !state) {
-      return res.status(400).json({ message: 'All text fields are required (PAN, Aadhaar, Email, Phone, Address, State)' });
+    if (!panNo || !aadhaarNo || !email || !phone || !address || !state || !nominee) {
+      return res.status(400).json({ message: 'All text fields are required (PAN, Aadhaar, Email, Phone, Address, State, Nominee)' });
     }
 
     const userId = req.user._id.toString();
@@ -143,6 +143,7 @@ router.post('/', auth, (req, res, next) => {
     record.phone = phone.trim();
     record.address = address.trim();
     record.state = state.trim();
+    record.nominee = nominee.trim();
     record.status = 'pending';
     record.submittedAt = Date.now();
     record.remarks = '';

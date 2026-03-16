@@ -54,6 +54,7 @@ export default function KycTextForm({ onMenuOpen }) {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
   const [state, setState] = useState("");
+  const [nominee, setNominee] = useState("");
 
   const [aadhaarImg, setAadhaarImg] = useState(null);
   const [panImg, setPanImg] = useState(null);
@@ -109,6 +110,8 @@ export default function KycTextForm({ onMenuOpen }) {
       if (!value) error = "State is required";
     } else if (field === "address") {
       if (!value) error = "Address is required";
+    } else if (field === "nominee") {
+      if (!value) error = "Nominee name is required";
     }
 
     setErrors(prev => ({ ...prev, [field]: error }));
@@ -160,8 +163,9 @@ export default function KycTextForm({ onMenuOpen }) {
     const isPhoneValid = validate("phone", phone);
     const isAddressValid = validate("address", address);
     const isStateValid = validate("state", state);
+    const isNomineeValid = validate("nominee", nominee);
 
-    if (!isPanValid || !isAadhaarValid || !isEmailValid || !isPhoneValid || !isAddressValid || !isStateValid) {
+    if (!isPanValid || !isAadhaarValid || !isEmailValid || !isPhoneValid || !isAddressValid || !isStateValid || !isNomineeValid) {
       return setMsg("Please fix validation errors.");
     }
 
@@ -182,6 +186,7 @@ export default function KycTextForm({ onMenuOpen }) {
       formData.append("phone", phone);
       formData.append("address", address);
       formData.append("state", state);
+      formData.append("nominee", nominee);
       if (aadhaarImg) formData.append("aadhaar", aadhaarImg);
       if (panImg) formData.append("pan", panImg);
       if (selfieImg) formData.append("selfie", selfieImg);
@@ -265,6 +270,9 @@ export default function KycTextForm({ onMenuOpen }) {
               <DetailItem label="State" value={existingKyc.state} />
               <div className="md:col-span-2">
                 <DetailItem label="Address" value={existingKyc.address} />
+              </div>
+              <div className="md:col-span-2">
+                <DetailItem label="Nominee" value={existingKyc.nominee} />
               </div>
             </div>
 
@@ -387,6 +395,21 @@ export default function KycTextForm({ onMenuOpen }) {
                   placeholder="e.g. Maharashtra"
                 />
                 {errors.state && <div className="text-xs text-red-600 mt-1 font-medium">{errors.state}</div>}
+              </div>
+
+              {/* Nominee */}
+              <div>
+                <label className="text-sm font-semibold text-slate-700">Nominee Name <span className="text-red-500">*</span></label>
+                <input
+                  className={`${inputBase} ${errors.nominee ? 'border-red-400' : ''}`}
+                  value={nominee}
+                  onChange={(e) => {
+                    setNominee(e.target.value);
+                    if (errors.nominee) validate('nominee', e.target.value);
+                  }}
+                  placeholder="Enter full name of nominee"
+                />
+                {errors.nominee && <div className="text-xs text-red-600 mt-1 font-medium">{errors.nominee}</div>}
               </div>
 
               {/* Address */}

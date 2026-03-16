@@ -1184,6 +1184,7 @@ export default function AdminPage() {
           phone: kyc.phone || "",
           aadhaarAddress: kyc.address || kyc.aadhaarAddress || "",
           issuedState: kyc.state || kyc.issuedState || "",
+          nominee: kyc.nominee || "",
           status: kyc.status || "pending",
           remarks: kyc.remarks || "",
         },
@@ -1871,6 +1872,7 @@ export default function AdminPage() {
                               <div className="text-xs space-y-1 text-slate-600">
                                 <div className="flex items-center gap-2"><span className="text-slate-400 font-medium">PAN:</span> <span className="font-mono">{k.panNo || "-"}</span></div>
                                 <div className="flex items-center gap-2"><span className="text-slate-400 font-medium">UID:</span> <span className="font-mono">{k.aadhaarNo || "-"}</span></div>
+                                <div className="flex items-center gap-2"><span className="text-slate-400 font-medium">Nominee:</span> <span className="font-semibold text-slate-700">{k.nominee || "-"}</span></div>
                               </div>
                             </td>
                             <td className="p-4 border-t">
@@ -1948,7 +1950,16 @@ export default function AdminPage() {
                                           value={edit.phone}
                                           onChange={(e) => updateKycEdit(kycId, "phone", e.target.value)}
                                           className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                                          placeholder="Phone submitted in KYC"
+                                          placeholder="Phone"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nominee Name</label>
+                                        <input
+                                          value={edit.nominee}
+                                          onChange={(e) => updateKycEdit(kycId, "nominee", e.target.value)}
+                                          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                          placeholder="Nominee Name"
                                         />
                                       </div>
                                       <div>

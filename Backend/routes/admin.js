@@ -574,14 +574,15 @@ router.put('/kyc/:id', adminAuth, async (req, res) => {
 });
 
 async function updateKycRecord(kyc, req, res) {
-  const { panNo, aadhaarNo, email, phone, aadhaarAddress, issuedState, status, remarks } = req.body || {};
+  const { panNo, aadhaarNo, email, phone, aadhaarAddress, issuedState, nominee, status, remarks } = req.body || {};
 
   if (panNo !== undefined) kyc.panNo = panNo;
   if (aadhaarNo !== undefined) kyc.aadhaarNo = aadhaarNo;
   if (email !== undefined) kyc.email = email;
   if (phone !== undefined) kyc.phone = phone;
-  if (aadhaarAddress !== undefined) kyc.address = aadhaarAddress; // Note: model uses 'address' now, but request might use 'aadhaarAddress' for compatibility
+  if (aadhaarAddress !== undefined) kyc.address = aadhaarAddress; 
   if (issuedState !== undefined) kyc.state = issuedState;
+  if (nominee !== undefined) kyc.nominee = nominee;
   if (status !== undefined) kyc.status = status;
   if (remarks !== undefined) kyc.remarks = remarks;
 
