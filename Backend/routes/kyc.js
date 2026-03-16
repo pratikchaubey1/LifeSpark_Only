@@ -46,8 +46,11 @@ const uploadFields = upload.fields([
   { name: 'selfie', maxCount: 1 },
 ]);
 
+router.get('/test', (req, res) => res.json({ message: 'KYC route is alive' }));
+
 // ============ CHECK DUPLICATE (real-time validation) ============
 router.post('/check-duplicate', auth, async (req, res) => {
+  console.log('KYC check-duplicate request received');
   try {
     const { field, value } = req.body;
     if (!field || !value) {
@@ -76,20 +79,8 @@ router.post('/check-duplicate', auth, async (req, res) => {
 });
 
 // ============ SUBMIT KYC (text + images in one request) ============
-router.post('/', auth, (req, res, next) => {
-  uploadFields(req, res, (err) => {
-    if (err instanceof multer.MulterError) {
-      if (err.code === 'LIMIT_FILE_SIZE') {
-        return res.status(400).json({ message: 'File too large. Max limit is 1MB per image.' });
-      }
-      return res.status(400).json({ message: `Upload error: ${err.message}` });
-    } else if (err) {
-      console.error('Cloudinary/Multer Error:', err);
-      return res.status(500).json({ message: 'Cloudinary upload failed. Check your credentials.' });
-    }
-    next();
-  });
-}, async (req, res) => {
+router.post('/', auth, uploadFields, async (req, res) => {
+  console.log('KYC submission started for user:', req.user._id);
   try {
     const files = req.files || {};
     const getFile = (field) => {
@@ -97,11 +88,11 @@ router.post('/', auth, (req, res, next) => {
       return Array.isArray(arr) && arr.length > 0 ? arr[0] : null;
     };
 
-    const { panNo, aadhaarNo, email, phone, address, state, nominee } = req.body;
+    const { panNo, aadhaarNo, email, phone, address, state, nominee, nomineeAge, nomineeRelation } = req.body;
 
     // Validate required text fields
-    if (!panNo || !aadhaarNo || !email || !phone || !address || !state || !nominee) {
-      return res.status(400).json({ message: 'All text fields are required (PAN, Aadhaar, Email, Phone, Address, State, Nominee)' });
+    if (!panNo || !aadhaarNo || !email || !phone || !address || !state || !nominee || !nomineeAge || !nomineeRelation) {
+      return res.status(400).json({ message: 'All text fields are required (PAN, Aadhaar, Email, Phone, Address, State, Nominee Name, Age, Relation)' });
     }
 
     const userId = req.user._id.toString();
@@ -144,6 +135,8 @@ router.post('/', auth, (req, res, next) => {
     record.address = address.trim();
     record.state = state.trim();
     record.nominee = nominee.trim();
+    record.nomineeAge = nomineeAge.trim();
+    record.nomineeRelation = nomineeRelation.trim();
     record.status = 'pending';
     record.submittedAt = Date.now();
     record.remarks = '';

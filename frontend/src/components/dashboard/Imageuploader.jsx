@@ -55,6 +55,8 @@ export default function KycTextForm({ onMenuOpen }) {
   const [address, setAddress] = useState("");
   const [state, setState] = useState("");
   const [nominee, setNominee] = useState("");
+  const [nomineeAge, setNomineeAge] = useState("");
+  const [nomineeRelation, setNomineeRelation] = useState("");
 
   const [aadhaarImg, setAadhaarImg] = useState(null);
   const [panImg, setPanImg] = useState(null);
@@ -112,6 +114,11 @@ export default function KycTextForm({ onMenuOpen }) {
       if (!value) error = "Address is required";
     } else if (field === "nominee") {
       if (!value) error = "Nominee name is required";
+    } else if (field === "nomineeAge") {
+      if (!value) error = "Nominee age is required";
+      else if (isNaN(value) || parseInt(value) <= 0) error = "Invalid age";
+    } else if (field === "nomineeRelation") {
+      if (!value) error = "Nominee relation is required";
     }
 
     setErrors(prev => ({ ...prev, [field]: error }));
@@ -164,8 +171,10 @@ export default function KycTextForm({ onMenuOpen }) {
     const isAddressValid = validate("address", address);
     const isStateValid = validate("state", state);
     const isNomineeValid = validate("nominee", nominee);
+    const isNomineeAgeValid = validate("nomineeAge", nomineeAge);
+    const isNomineeRelationValid = validate("nomineeRelation", nomineeRelation);
 
-    if (!isPanValid || !isAadhaarValid || !isEmailValid || !isPhoneValid || !isAddressValid || !isStateValid || !isNomineeValid) {
+    if (!isPanValid || !isAadhaarValid || !isEmailValid || !isPhoneValid || !isAddressValid || !isStateValid || !isNomineeValid || !isNomineeAgeValid || !isNomineeRelationValid) {
       return setMsg("Please fix validation errors.");
     }
 
@@ -187,6 +196,8 @@ export default function KycTextForm({ onMenuOpen }) {
       formData.append("address", address);
       formData.append("state", state);
       formData.append("nominee", nominee);
+      formData.append("nomineeAge", nomineeAge);
+      formData.append("nomineeRelation", nomineeRelation);
       if (aadhaarImg) formData.append("aadhaar", aadhaarImg);
       if (panImg) formData.append("pan", panImg);
       if (selfieImg) formData.append("selfie", selfieImg);
@@ -272,7 +283,7 @@ export default function KycTextForm({ onMenuOpen }) {
                 <DetailItem label="Address" value={existingKyc.address} />
               </div>
               <div className="md:col-span-2">
-                <DetailItem label="Nominee" value={existingKyc.nominee} />
+                <DetailItem label="Nominee" value={`${existingKyc.nominee} (${existingKyc.nomineeRelation}, Age: ${existingKyc.nomineeAge})`} />
               </div>
             </div>
 
@@ -410,6 +421,35 @@ export default function KycTextForm({ onMenuOpen }) {
                   placeholder="Enter full name of nominee"
                 />
                 {errors.nominee && <div className="text-xs text-red-600 mt-1 font-medium">{errors.nominee}</div>}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div>
+                  <label className="text-sm font-semibold text-slate-700">Nominee Age <span className="text-red-500">*</span></label>
+                  <input
+                    className={`${inputBase} ${errors.nomineeAge ? 'border-red-400' : ''}`}
+                    value={nomineeAge}
+                    onChange={(e) => {
+                      setNomineeAge(e.target.value);
+                      if (errors.nomineeAge) validate('nomineeAge', e.target.value);
+                    }}
+                    placeholder="Enter age"
+                  />
+                  {errors.nomineeAge && <div className="text-xs text-red-600 mt-1 font-medium">{errors.nomineeAge}</div>}
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700">Nominee Relation <span className="text-red-500">*</span></label>
+                  <input
+                    className={`${inputBase} ${errors.nomineeRelation ? 'border-red-400' : ''}`}
+                    value={nomineeRelation}
+                    onChange={(e) => {
+                      setNomineeRelation(e.target.value);
+                      if (errors.nomineeRelation) validate('nomineeRelation', e.target.value);
+                    }}
+                    placeholder="e.g. Spouse / Brother"
+                  />
+                  {errors.nomineeRelation && <div className="text-xs text-red-600 mt-1 font-medium">{errors.nomineeRelation}</div>}
+                </div>
               </div>
 
               {/* Address */}

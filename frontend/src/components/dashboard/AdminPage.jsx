@@ -1185,6 +1185,8 @@ export default function AdminPage() {
           aadhaarAddress: kyc.address || kyc.aadhaarAddress || "",
           issuedState: kyc.state || kyc.issuedState || "",
           nominee: kyc.nominee || "",
+          nomineeAge: kyc.nomineeAge || "",
+          nomineeRelation: kyc.nomineeRelation || "",
           status: kyc.status || "pending",
           remarks: kyc.remarks || "",
         },
@@ -1872,7 +1874,7 @@ export default function AdminPage() {
                               <div className="text-xs space-y-1 text-slate-600">
                                 <div className="flex items-center gap-2"><span className="text-slate-400 font-medium">PAN:</span> <span className="font-mono">{k.panNo || "-"}</span></div>
                                 <div className="flex items-center gap-2"><span className="text-slate-400 font-medium">UID:</span> <span className="font-mono">{k.aadhaarNo || "-"}</span></div>
-                                <div className="flex items-center gap-2"><span className="text-slate-400 font-medium">Nominee:</span> <span className="font-semibold text-slate-700">{k.nominee || "-"}</span></div>
+                                <div className="flex items-center gap-2"><span className="text-slate-400 font-medium">Nominee:</span> <span className="font-semibold text-slate-700">{k.nominee || "-"} ({k.nomineeRelation || "-"}, {k.nomineeAge || "-"})</span></div>
                               </div>
                             </td>
                             <td className="p-4 border-t">
@@ -1960,6 +1962,24 @@ export default function AdminPage() {
                                           onChange={(e) => updateKycEdit(kycId, "nominee", e.target.value)}
                                           className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                                           placeholder="Nominee Name"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nominee Age</label>
+                                        <input
+                                          value={edit.nomineeAge}
+                                          onChange={(e) => updateKycEdit(kycId, "nomineeAge", e.target.value)}
+                                          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                          placeholder="Age"
+                                        />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">Nominee Relation</label>
+                                        <input
+                                          value={edit.nomineeRelation}
+                                          onChange={(e) => updateKycEdit(kycId, "nomineeRelation", e.target.value)}
+                                          className="w-full border border-slate-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 outline-none"
+                                          placeholder="Relation"
                                         />
                                       </div>
                                       <div>

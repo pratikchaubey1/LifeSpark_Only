@@ -157,6 +157,8 @@ cron.schedule("31 1 * * *", async () => {
 });
 
 /* ------------------ DIAGNOSTIC ROUTES ------------------ */
+app.get('/api/health', (req, res) => res.json({ status: 'ok', time: new Date() }));
+
 /* ------------------ GLOBAL ERROR HANDLER ------------------ */
 app.use((err, req, res, next) => {
   console.error('Unhandled Error:', err);
