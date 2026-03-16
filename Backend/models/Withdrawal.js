@@ -4,6 +4,8 @@ const withdrawalSchema = new mongoose.Schema({
     withdrawalId: { type: String, required: true, unique: true }, // e.g., 'WD-1234567890'
     userId: { type: String, required: true },
     amount: { type: Number, required: true },
+    repurchaseAmount: { type: Number, default: 0 },
+    originalAmount: { type: Number, default: 0 },
     upiId: { type: String, default: '' },
     upiNo: { type: String, default: '' },
     status: { type: String, enum: ['pending', 'approved', 'rejected'], default: 'pending' },

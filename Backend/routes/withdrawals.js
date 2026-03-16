@@ -109,7 +109,7 @@ router.post('/', auth, async (req, res) => {
       });
     }
 
-    // Split amount: 10% to Repurchase Wallet, 90% to actual Withdrawal
+    // Split amount: 10% to Repurchase Wallet (on approval), 90% actual payout
     const repurchaseAmount = Number((amount * 0.1).toFixed(2));
     const withdrawalAmount = Number((amount - repurchaseAmount).toFixed(2));
 
@@ -117,6 +117,8 @@ router.post('/', auth, async (req, res) => {
       withdrawalId: `WD-${Date.now()}`,
       userId: req.user._id.toString(),
       amount: withdrawalAmount,
+      repurchaseAmount: repurchaseAmount,
+      originalAmount: amount,
       upiId: method === 'upi' ? upiId : '',
       upiNo: method === 'upi' ? upiNo : 'CASH',
       status: 'pending',
@@ -129,18 +131,8 @@ router.post('/', auth, async (req, res) => {
 
     await withdrawal.save();
 
-    // Credit Repurchase Wallet
-    user.repurchaseWallet = (Number(user.repurchaseWallet) || 0) + repurchaseAmount;
-
-    // Log the Repurchase Wallet credit
-    await IncomeLog.create({
-      userId: user._id.toString(),
-      userName: user.name,
-      userInviteCode: user.inviteCode,
-      type: 'repurchase_transfer',
-      amount: repurchaseAmount,
-      description: `From withdrawal request of ₹${amount}`
-    });
+    // NOTE: Repurchase wallet credit is deferred to approval time.
+    // If admin rejects, the full amount is returned to the user.
 
     // Only update user UPI info if method is upi
     if (method === 'upi') {
@@ -156,7 +148,8 @@ router.post('/', auth, async (req, res) => {
     return res.status(201).json({
       withdrawal,
       repurchaseAmount,
-      message: `Withdrawal request for ₹${withdrawalAmount} created. ₹${repurchaseAmount} (10%) added to Repurchase Wallet.`
+      withdrawalAmount,
+      message: `Withdrawal request for ₹${withdrawalAmount} created. ₹${repurchaseAmount} (10%) will be added to Repurchase Wallet on approval.`
     });
   } catch (err) {
     console.error('Create withdrawal error', err);

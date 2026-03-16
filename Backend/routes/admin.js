@@ -705,6 +705,22 @@ router.post('/withdrawals/:id/approve', adminAuth, async (req, res) => {
       user.upgradeLevel = (Number(user.upgradeLevel) || 0) + 1;
     } else {
       user.withdrawal = (Number(user.withdrawal) || 0) + amount;
+
+      // Credit Repurchase Wallet with the 10% portion on approval
+      const repurchaseAmt = Number(withdrawal.repurchaseAmount) || 0;
+      if (repurchaseAmt > 0) {
+        user.repurchaseWallet = (Number(user.repurchaseWallet) || 0) + repurchaseAmt;
+
+        // Log the Repurchase Wallet credit
+        await IncomeLog.create({
+          userId: user._id.toString(),
+          userName: user.name,
+          userInviteCode: user.inviteCode,
+          type: 'repurchase_transfer',
+          amount: repurchaseAmt,
+          description: `10% from approved withdrawal ${withdrawal.withdrawalId} (₹${amount + repurchaseAmt})`
+        });
+      }
     }
     await user.save();
 
@@ -715,7 +731,7 @@ router.post('/withdrawals/:id/approve', adminAuth, async (req, res) => {
 
     return res.json({
       withdrawal,
-      user: { id: user._id.toString(), balance: user.balance, withdrawal: user.withdrawal, marriageFund: user.marriageFund, accidentFund: user.accidentFund }
+      user: { id: user._id.toString(), balance: user.balance, withdrawal: user.withdrawal, repurchaseWallet: user.repurchaseWallet, marriageFund: user.marriageFund, accidentFund: user.accidentFund }
     });
   } catch (err) {
     console.error('Approve withdrawal error', err);
@@ -744,13 +760,27 @@ router.post('/withdrawals/:id/reject', adminAuth, async (req, res) => {
 
     const amount = Number(withdrawal.amount) || 0;
 
-    // REFUND logic: Return the money since it was deducted at request time
-    if (withdrawal.source === 'marriageFund') {
-      user.marriageFund = (Number(user.marriageFund) || 0) + amount;
-    } else if (withdrawal.source === 'accidentFund') {
-      user.accidentFund = (Number(user.accidentFund) || 0) + amount;
+    // REFUND logic: Return the FULL original amount to the user.
+    // originalAmount stores the exact amount the user originally requested (before the 10% split).
+    // For OLD records that don't have originalAmount, calculate it: amount is 90%, so original = amount / 0.9
+    let fullRefund;
+    if (Number(withdrawal.originalAmount) > 0) {
+      fullRefund = Number(withdrawal.originalAmount);
+    } else if (withdrawal.source !== 'marriageFund' && withdrawal.source !== 'accidentFund' && withdrawal.type !== 'upgrade') {
+      // Old record: stored amount is 90% of original
+      fullRefund = Number((amount / 0.9).toFixed(2));
     } else {
-      user.balance = (Number(user.balance) || 0) + amount;
+      fullRefund = amount;
+    }
+
+    console.log(`[REJECT REFUND] withdrawalId=${withdrawal.withdrawalId}, storedAmount=${amount}, originalAmount=${withdrawal.originalAmount}, fullRefund=${fullRefund}, source=${withdrawal.source}`);
+
+    if (withdrawal.source === 'marriageFund') {
+      user.marriageFund = (Number(user.marriageFund) || 0) + fullRefund;
+    } else if (withdrawal.source === 'accidentFund') {
+      user.accidentFund = (Number(user.accidentFund) || 0) + fullRefund;
+    } else {
+      user.balance = (Number(user.balance) || 0) + fullRefund;
     }
     await user.save();
 
