@@ -229,7 +229,19 @@ router.get('/users', adminAuth, async (req, res) => {
           as: 'usedEpins'
         }
       },
-      // Stage 4: Project to final shape
+      // Stage 4: Lookup KYC info
+      {
+        $lookup: {
+          from: 'kyc',
+          let: { usrId: { $toString: '$_id' } },
+          pipeline: [
+            { $match: { $expr: { $eq: ['$userId', '$$usrId'] } } },
+            { $project: { nominee: 1, nomineeAge: 1, nomineeRelation: 1, status: 1 } }
+          ],
+          as: 'kycInfo'
+        }
+      },
+      // Stage 5: Project to final shape
       {
         $project: {
           id: { $toString: '$_id' },
@@ -257,6 +269,7 @@ router.get('/users', adminAuth, async (req, res) => {
           directInviteCount: { $size: '$invitees' },
           leftWithMe: { $ifNull: [{ $arrayElemAt: ['$unusedEpins.count', 0] }, 0] },
           usedByMe: { $ifNull: [{ $arrayElemAt: ['$usedEpins.count', 0] }, 0] },
+          kyc: { $arrayElemAt: ['$kycInfo', 0] },
           invitees: {
             $map: {
               input: '$invitees',

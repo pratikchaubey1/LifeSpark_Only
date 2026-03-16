@@ -1577,6 +1577,7 @@ export default function AdminPage() {
                         { label: "Email" },
                         { label: "Invite Code" },
                         { label: "Invite People" },
+                        { label: "KYC / Nominee" },
                         { label: "Pins (L/U)" },
                         { label: "Role" },
                         { label: "E-Pin" },
@@ -1631,6 +1632,19 @@ export default function AdminPage() {
                                     {isExpanded ? "Hide" : "View"}
                                   </button>
                                 </div>
+                              </td>
+                              <td className="p-3">
+                                {u.kyc ? (
+                                  <div className="text-[10px] space-y-0.5">
+                                    <div className={`font-bold ${u.kyc.status === 'approved' ? 'text-green-600' : u.kyc.status === 'rejected' ? 'text-red-600' : 'text-amber-600'}`}>
+                                      {u.kyc.status ? u.kyc.status.toUpperCase() : 'SUBMITTED'}
+                                    </div>
+                                    <div className="text-slate-700 font-semibold truncate max-w-[120px]" title={u.kyc.nominee}>{u.kyc.nominee || "-"}</div>
+                                    <div className="text-slate-400 font-medium whitespace-nowrap">{u.kyc.nomineeRelation || "-"}, {u.kyc.nomineeAge || "-"}y</div>
+                                  </div>
+                                ) : (
+                                  <span className="text-[10px] text-slate-400 font-bold italic tracking-tighter">NOT SUBMITTED</span>
+                                )}
                               </td>
                               <td className="p-3">
                                 <div className="flex flex-col text-[10px] font-bold">
@@ -1871,10 +1885,15 @@ export default function AdminPage() {
                               </div>
                             </td>
                             <td className="p-4 border-t">
-                              <div className="text-xs space-y-1 text-slate-600">
+                              <div className="text-xs space-y-1.5 text-slate-600">
                                 <div className="flex items-center gap-2"><span className="text-slate-400 font-medium">PAN:</span> <span className="font-mono">{k.panNo || "-"}</span></div>
                                 <div className="flex items-center gap-2"><span className="text-slate-400 font-medium">UID:</span> <span className="font-mono">{k.aadhaarNo || "-"}</span></div>
-                                <div className="flex items-center gap-2"><span className="text-slate-400 font-medium">Nominee:</span> <span className="font-semibold text-slate-700">{k.nominee || "-"} ({k.nomineeRelation || "-"}, {k.nomineeAge || "-"})</span></div>
+                                <div className="border-t border-slate-100 mt-1 pt-1">
+                                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Nominee Details</div>
+                                  <div className="flex items-center gap-2"><span className="text-slate-400">Name:</span> <span className="font-semibold text-slate-700">{k.nominee || "-"}</span></div>
+                                  <div className="flex items-center gap-2"><span className="text-slate-400">Relation:</span> <span className="text-slate-600">{k.nomineeRelation || "-"}</span></div>
+                                  <div className="flex items-center gap-2"><span className="text-slate-400">Age:</span> <span className="text-slate-600">{k.nomineeAge || "-"}</span></div>
+                                </div>
                               </div>
                             </td>
                             <td className="p-4 border-t">
@@ -1936,6 +1955,32 @@ export default function AdminPage() {
                                   </div>
 
                                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {/* Submission Info Summary (Read-only Highlight) */}
+                                    <div className="md:col-span-2 lg:col-span-3 bg-blue-50/50 border border-blue-100 rounded-xl p-4 mb-2">
+                                      <div className="text-[10px] font-bold text-blue-600 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-blue-600 animate-pulse"></div>
+                                        Submitted Details Summary
+                                      </div>
+                                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                        <div>
+                                          <div className="text-[9px] text-slate-400 font-bold uppercase">Nominee Name</div>
+                                          <div className="text-sm font-bold text-slate-700">{k.nominee || "Not Provided"}</div>
+                                        </div>
+                                        <div>
+                                          <div className="text-[9px] text-slate-400 font-bold uppercase">Relation</div>
+                                          <div className="text-sm font-bold text-slate-700">{k.nomineeRelation || "Not Provided"}</div>
+                                        </div>
+                                        <div>
+                                          <div className="text-[9px] text-slate-400 font-bold uppercase">Age</div>
+                                          <div className="text-sm font-bold text-slate-700">{k.nomineeAge || "Not Provided"}</div>
+                                        </div>
+                                        <div>
+                                          <div className="text-[9px] text-slate-400 font-bold uppercase">PAN No.</div>
+                                          <div className="text-sm font-mono font-bold text-slate-700">{k.panNo || "Not Provided"}</div>
+                                        </div>
+                                      </div>
+                                    </div>
+
                                     <div className="space-y-4">
                                       <div>
                                         <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5">KYC Email</label>
