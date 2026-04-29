@@ -8,11 +8,11 @@ const router = express.Router();
 
 // Income per user at each level
 const LEVEL_INCOME_RATES = {
-    1: 6,
-    2: 5,
-    3: 4,
-    4: 3,
-    5: 2,
+    1: 5,
+    2: 4,
+    3: 3,
+    4: 2,
+    5: 1,
     6: 1,
     7: 0.5,
     8: 0.5,

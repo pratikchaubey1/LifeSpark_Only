@@ -110,7 +110,7 @@ cron.schedule("31 1 * * *", async () => {
         continue;
       }
 
-      const DAILY_BONUS = 50;
+      const DAILY_BONUS = 40;
 
       // Only give ₹50 daily bonus if within 30 days of activation
       if (daysSince < 30) {
