@@ -56,16 +56,16 @@ async function findGlobalAutopoolParent() {
 
 // Income Charts
 const POOL_INCOME_LEVELS = [
-    { level: 1, requiredMembers: 3, income: 3000 },
-    { level: 2, requiredMembers: 9, income: 6000 },
-    { level: 3, requiredMembers: 27, income: 9000 },
-    { level: 4, requiredMembers: 81, income: 12000 },
-    { level: 5, requiredMembers: 243, income: 15000 },
-    { level: 6, requiredMembers: 729, income: 18000 },
-    { level: 7, requiredMembers: 2187, income: 21000 },
-    { level: 8, requiredMembers: 6561, income: 24000 }, // Note: User said 6551 in text but chart usually follows power of 3. Chart img says 6561 (3^8). Text said '6551'. I will use 6561 (3^8) for consistency unless strictly told. Chart img shows "6551" but logic is 3x. 2187*3 = 6561. I'll stick to 6561. Wait, image shows 6551? Let me re-read user text. "6551". I will use 6561 as it is mathematically correct for a 3x3 matrix, 6551 must be a typo in their manual entry or image.
-    { level: 9, requiredMembers: 19683, income: 27000 },
-    { level: 10, requiredMembers: 59049, income: 30000 }
+    { level: 1, requiredMembers: 3, income: 2000 },
+    { level: 2, requiredMembers: 9, income: 4000 },
+    { level: 3, requiredMembers: 27, income: 6000 },
+    { level: 4, requiredMembers: 81, income: 8000 },
+    { level: 5, requiredMembers: 243, income: 10000 },
+    { level: 6, requiredMembers: 729, income: 12000 },
+    { level: 7, requiredMembers: 2187, income: 14000 },
+    { level: 8, requiredMembers: 6561, income: 16000 }, // Note: User said 6551 in text but chart usually follows power of 3. Chart img says 6561 (3^8). Text said '6551'. I will use 6561 (3^8) for consistency unless strictly told. Chart img shows "6551" but logic is 3x. 2187*3 = 6561. I'll stick to 6561. Wait, image shows 6551? Let me re-read user text. "6551". I will use 6561 as it is mathematically correct for a 3x3 matrix, 6551 must be a typo in their manual entry or image.
+    { level: 9, requiredMembers: 19683, income: 18000 },
+    { level: 10, requiredMembers: 59049, income: 20000 }
 ];
 
 async function distributeAutopoolIncome(newUser) {
