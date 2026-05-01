@@ -50,63 +50,61 @@ const LEVEL_INCOME_CAPS = {
  * @returns {Promise<Object>} - Statistics object.
  */
 async function getTeamStats(user) {
-    const levelUncapped = {}; // Track uncapped income per level
-    const levelActiveCounts = {}; // Track active user count per level
+    const levelUncapped = {}; 
+    const levelActiveCounts = {}; 
 
-    const directMembers = await User.find({ sponsorId: user.inviteCode }).select('_id').lean();
+    // 1. Get downline ID map (Recursive lookup)
+    const directMembers = await User.find({ sponsorId: user.inviteCode }).select('_id isActivated activatedAt createdAt').lean();
     const directIds = directMembers.map(m => m._id.toString());
-
     const levelUserIdsMap = await getDownlineByLevels(directIds);
-    const allDownlineIds = [];
 
+    // Flatten all IDs to fetch in one go
+    const allDownlineIds = [];
+    Object.values(levelUserIdsMap).forEach(ids => allDownlineIds.push(...ids));
+
+    // 2. Single batch fetch for ALL downline users
+    const allTeamUsers = await User.find({
+        _id: { $in: allDownlineIds }
+    }).select('_id isActivated activatedAt createdAt').lean();
+
+    // Index them by ID for fast lookup
+    const userMap = {};
+    allTeamUsers.forEach(u => userMap[u._id.toString()] = u);
+
+    // 3. Process Levels in-memory
     for (let level = 1; level <= 10; level++) {
         const userIds = levelUserIdsMap[level] || [];
-        if (userIds.length === 0) continue;
-
-        const levelUsers = await User.find({
-            _id: { $in: userIds }
-        }).select('_id isActivated activatedAt').lean();
-
         const rate = LEVEL_INCOME_RATES[level] || 0;
         let activeCount = 0;
 
-        for (const u of levelUsers) {
-            if (u.isActivated) {
+        for (const id of userIds) {
+            const u = userMap[id];
+            if (u && u.isActivated) {
                 levelUncapped[level] = (levelUncapped[level] || 0) + rate;
                 activeCount++;
             }
-            allDownlineIds.push(u._id.toString());
         }
         levelActiveCounts[level] = activeCount;
     }
 
-    // Total daily level rate = sum of all uncapped level incomes (display only, cap applied in cron)
     const totalDailyLevelRate = Object.values(levelUncapped).reduce((sum, v) => sum + v, 0);
 
-    // Fetch full team details for stats (total/active/today)
-    const teamUsers = await User.find({
-        _id: { $in: allDownlineIds }
-    }).select('isActivated activatedAt createdAt').lean();
-
-    const directUsers = await User.find({
-        sponsorId: user.inviteCode
-    }).select('isActivated activatedAt createdAt').lean();
-
+    // 4. Calculate stats from memory
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
     const stats = {
-        totalUser: teamUsers.length,
-        totalActiveUser: teamUsers.filter(u => u.isActivated).length,
-        totalInactiveUser: teamUsers.filter(u => !u.isActivated).length,
+        totalUser: allTeamUsers.length,
+        totalActiveUser: allTeamUsers.filter(u => u.isActivated).length,
+        totalInactiveUser: allTeamUsers.filter(u => !u.isActivated).length,
 
-        totalDirect: directUsers.length,
-        totalDirectActive: directUsers.filter(u => u.isActivated).length,
-        totalDirectInactive: directUsers.filter(u => !u.isActivated).length,
+        totalDirect: directMembers.length,
+        totalDirectActive: directMembers.filter(u => u.isActivated).length,
+        totalDirectInactive: directMembers.filter(u => !u.isActivated).length,
 
-        todayActive: teamUsers.filter(u => u.isActivated && u.activatedAt >= todayStart).length,
-        todayInactive: teamUsers.filter(u => !u.isActivated && u.createdAt >= todayStart).length,
-        todayTotalId: teamUsers.filter(u => u.createdAt >= todayStart).length,
+        todayActive: allTeamUsers.filter(u => u.isActivated && u.activatedAt >= todayStart).length,
+        todayInactive: allTeamUsers.filter(u => !u.isActivated && u.createdAt >= todayStart).length,
+        todayTotalId: allTeamUsers.filter(u => u.createdAt >= todayStart).length,
 
         dailyLevelIncome: totalDailyLevelRate,
     };

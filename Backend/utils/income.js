@@ -16,6 +16,16 @@ const LEVEL_INCOME_RATES = {
 
 const SPONSOR_INCOME = 50;
 
+// Helper to check if a user is expired (60-day system)
+function isUserExpired(user) {
+    if (!user) return false;
+    if (user.upgradeStatus === 'approved') return false;
+    if (!user.firstReferralDate) return false;
+    const msSinceFirst = Date.now() - new Date(user.firstReferralDate).getTime();
+    const daysSinceFirst = msSinceFirst / (1000 * 60 * 60 * 24);
+    return daysSinceFirst >= 60;
+}
+
 // Maximum daily level income caps (total income cap, unlocked progressively)
 const LEVEL_INCOME_CAPS = {
     1: 500,
@@ -54,6 +64,13 @@ async function distributeIncome(beneficiary) {
             console.log(`🚫 ${beneficiary.inviteCode} is BLOCKED, skipping all income distribution`);
             return;
         }
+
+        // 60-Day Upgrade Check for Beneficiary
+        if (isUserExpired(beneficiary)) {
+            console.log(`🚫 ${beneficiary.inviteCode} is EXPIRED (60-day rule), skipping upline income generation`);
+            return;
+        }
+
         if (!beneficiary.sponsorId) {
             console.log(`⚠️  No sponsor for ${beneficiary.inviteCode}, skipping income distribution`);
             return;
@@ -71,9 +88,9 @@ async function distributeIncome(beneficiary) {
                 break;
             }
 
-            // Skip blocked sponsors — don't credit them, but continue walking up
-            if (sponsor.isBlocked) {
-                console.log(`🚫 Sponsor ${sponsor.inviteCode} at level ${level} is BLOCKED, skipping credit`);
+            // Skip blocked or expired sponsors — don't credit them, but continue walking up
+            if (sponsor.isBlocked || isUserExpired(sponsor)) {
+                console.log(`🚫 Sponsor ${sponsor.inviteCode} at level ${level} is BLOCKED or EXPIRED, skipping credit`);
                 currentSponsorCode = sponsor.sponsorId;
                 continue;
             }
@@ -152,7 +169,10 @@ async function distributeDailyLevelIncome(beneficiary) {
             const sponsor = await User.findOne({ inviteCode: currentSponsorCode });
             if (!sponsor) break;
 
-            const levelRate = LEVEL_INCOME_RATES[level] || 0;
+            if (sponsor.isBlocked || isUserExpired(sponsor)) {
+                currentSponsorCode = sponsor.sponsorId;
+                continue;
+            }
 
             if (levelRate > 0) {
                 sponsor.balance = (Number(sponsor.balance) || 0) + levelRate;
@@ -184,7 +204,8 @@ async function distributeDailyLevelIncomeWithCaps(activeUsers) {
         // Phase 1: Aggregate uncapped level income AND active user count per sponsor per level
         for (const user of activeUsers) {
             if (!user.sponsorId) continue;
-            if (user.isBlocked) continue; // Blocked users don't generate level income for sponsors
+            // Blocked or Expired users don't generate level income for sponsors
+            if (user.isBlocked || isUserExpired(user)) continue; 
 
             let currentSponsorCode = user.sponsorId;
 
@@ -192,8 +213,14 @@ async function distributeDailyLevelIncomeWithCaps(activeUsers) {
                 if (!currentSponsorCode) break;
 
                 const sponsor = await User.findOne({ inviteCode: currentSponsorCode })
-                    .select('_id inviteCode sponsorId').lean();
+                    .select('_id inviteCode sponsorId firstReferralDate upgradeStatus').lean();
                 if (!sponsor) break;
+
+                // Skip expired sponsors in the aggregation
+                if (isUserExpired(sponsor)) {
+                    currentSponsorCode = sponsor.sponsorId;
+                    continue;
+                }
 
                 const sponsorId = sponsor._id.toString();
                 const levelRate = LEVEL_INCOME_RATES[level] || 0;

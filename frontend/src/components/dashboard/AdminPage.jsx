@@ -293,6 +293,59 @@ export default function AdminPage() {
   const [dannLoading, setDannLoading] = useState(false);
   const [dannMessage, setDannMessage] = useState(null);
 
+  // Upgrade Requests (60-Day System)
+  const [upgradeRequests, setUpgradeRequests] = useState([]);
+  const [upgradeHistory, setUpgradeHistory] = useState([]);
+  const [loadingUpgrades, setLoadingUpgrades] = useState(false);
+  const [processingUpgradeId, setProcessingUpgradeId] = useState(null);
+
+  async function fetchUpgradeRequests(token) {
+    if (!token) return;
+    setLoadingUpgrades(true);
+    try {
+      const res = await fetch(`${API_BASE}/admin/upgrade-requests`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) setUpgradeRequests(data.requests || []);
+    } catch (err) { }
+    finally { setLoadingUpgrades(false); }
+  }
+
+  async function fetchUpgradeHistory(token) {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE}/admin/upgrade-history`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) setUpgradeHistory(data.history || []);
+    } catch (err) { }
+  }
+
+  async function handleUpgradeAction(userId, action) {
+    if (!adminToken) return;
+    setProcessingUpgradeId(userId);
+    try {
+      const res = await fetch(`${API_BASE}/admin/upgrade-requests/${userId}/${action}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${adminToken}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message);
+        fetchUpgradeRequests(adminToken);
+        fetchUpgradeHistory(adminToken);
+      } else {
+        toast.error(data.message || 'Action failed');
+      }
+    } catch (err) {
+      toast.error('Server error');
+    } finally {
+      setProcessingUpgradeId(null);
+    }
+  }
+
   async function fetchDannStats(token) {
     if (!token) return;
     setDannLoading(true);
@@ -483,6 +536,10 @@ export default function AdminPage() {
       }
       if (currentPage === "dannFund") {
         fetchDannStats(adminToken);
+      }
+      if (currentPage === "upgradeRequests") {
+        fetchUpgradeRequests(adminToken);
+        fetchUpgradeHistory(adminToken);
       }
     }
     // handle browser back/forward
@@ -1394,9 +1451,9 @@ export default function AdminPage() {
           <SidebarButton label="Transaction Logs" active={currentPage === "incomeLogs"} icon={<IconRefresh />} onClick={() => { openPage("incomeLogs"); setSidebarOpen(false); }} />
           <SidebarButton label="Autopool Requests" active={currentPage === "autopool"} icon={<IconUsers />} onClick={() => { openPage("autopool"); setSidebarOpen(false); }} />
           <SidebarButton label="Autopool Tree" active={currentPage === "autopool-tree"} icon={<IconUsers />} onClick={() => { openPage("autopool-tree"); setSidebarOpen(false); }} />
-          <SidebarButton label="Marriage Fund" active={currentPage === "marriageFund"} icon={<IconDollar />} onClick={() => { openPage("marriageFund"); setSidebarOpen(false); }} />
           <SidebarButton label="Accident Fund" active={currentPage === "accidentFund"} icon={<IconDollar />} onClick={() => { openPage("accidentFund"); setSidebarOpen(false); }} />
           <SidebarButton label="Dann Fund" active={currentPage === "dannFund"} icon={<IconAward />} onClick={() => { openPage("dannFund"); setSidebarOpen(false); }} />
+          <SidebarButton label="Upgrade Requests" active={currentPage === "upgradeRequests"} icon={<IconRefresh />} onClick={() => { openPage("upgradeRequests"); setSidebarOpen(false); }} />
           <SidebarButton
             label="Rewards"
             active={currentPage === "rewards"}
@@ -2145,6 +2202,20 @@ export default function AdminPage() {
                     <div className="space-y-6">
                       <div className="bg-white border rounded-2xl shadow-sm p-6">
                         <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 mb-4">Basic Information</h3>
+                        <div className="grid grid-cols-2 gap-4 mb-4">
+                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Joining Date</label>
+                            <div className="text-sm font-bold text-slate-700">
+                              {mgmtUser.createdAt ? new Date(mgmtUser.createdAt).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' }) : "N/A"}
+                            </div>
+                          </div>
+                          <div className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                            <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">ID Activation Date</label>
+                            <div className="text-sm font-bold text-blue-600">
+                              {mgmtUser.activatedAt ? new Date(mgmtUser.activatedAt).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' }) : "Not Activated"}
+                            </div>
+                          </div>
+                        </div>
                         <div className="space-y-4">
                           <div>
                             <label className="block text-xs font-medium text-slate-500 mb-1">Full Name</label>
@@ -2416,8 +2487,9 @@ export default function AdminPage() {
                   { label: "User" },
                   { label: "Invite Code" },
                   { label: "UPI" },
-                  { label: "Amount", className: "text-right" },
-                  { label: "15% ↓", className: "text-right" },
+                  { label: "Original", className: "text-right" },
+                  { label: "Charge (25%)", className: "text-right" },
+                  { label: "Payout", className: "text-right" },
                   { label: "Status" },
                   { label: "Requested" },
                   { label: "Payment", className: "text-center" },
@@ -2501,7 +2573,7 @@ export default function AdminPage() {
                           )}
                         </td>
                         <td className="p-4 text-right">
-                          <div className="text-base font-bold text-slate-800 font-mono">₹{w.amount}</div>
+                          <div className="text-xs font-bold text-slate-500 font-mono">₹{w.originalAmount || (Number(w.amount) / 0.9).toFixed(2)}</div>
                           {w.type === 'upgrade' && (
                             <div className={`mt-1 inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase tracking-tight ${w.method === 'cash' ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-blue-100 border-blue-200 text-blue-600'}`}>
                               Upgrade Request {w.method === 'cash' ? '(Cash)' : '(Wallet)'}
@@ -2509,7 +2581,12 @@ export default function AdminPage() {
                           )}
                         </td>
                         <td className="p-4 text-right">
-                          <div className="text-sm font-bold text-blue-600 font-mono">₹{(Number(w.amount) * 0.85).toFixed(2)}</div>
+                          <div className="text-xs font-bold text-red-500 font-mono">
+                            -₹{w.chargeAmount !== undefined ? w.chargeAmount : (Number(w.originalAmount || (Number(w.amount) / 0.9)) * 0.1).toFixed(2)}
+                          </div>
+                        </td>
+                        <td className="p-4 text-right">
+                          <div className="text-base font-bold text-emerald-600 font-mono">₹{w.amount}</div>
                         </td>
                         <td className="p-4">
                           {w.status === "pending" ? (
@@ -2951,6 +3028,155 @@ export default function AdminPage() {
                 </div>
               )
             }
+
+            {/* Upgrade Requests Page (60-Day System) */}
+            {currentPage === "upgradeRequests" && (
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-slate-800">Upgrade Requests (60-Day)</h2>
+                  <button
+                    onClick={() => fetchUpgradeRequests(adminToken)}
+                    className="bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition active:scale-90"
+                  >
+                    <IconRefresh className={loadingUpgrades ? "animate-spin" : ""} />
+                  </button>
+                </div>
+
+                {loadingUpgrades ? (
+                  <div className="text-center py-20 text-slate-400">Loading...</div>
+                ) : upgradeRequests.length === 0 ? (
+                  <div className="text-center py-20 bg-white border rounded-2xl shadow-sm">
+                    <div className="text-4xl mb-3">✅</div>
+                    <div className="text-sm font-bold text-slate-400">No pending upgrade requests</div>
+                  </div>
+                ) : (
+                  <div className="bg-white border rounded-2xl shadow-sm overflow-hidden">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-xs min-w-[800px]">
+                        <thead className="bg-slate-50 sticky top-0 z-10">
+                          <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                            <th className="px-4 py-3">User</th>
+                            <th className="px-4 py-3">Invite Code</th>
+                            <th className="px-4 py-3">Phone</th>
+                            <th className="px-4 py-3">Sponsor</th>
+                            <th className="px-4 py-3">1st Referral Date</th>
+                            <th className="px-4 py-3">Status</th>
+                            <th className="px-4 py-3">Requested At</th>
+                            <th className="px-4 py-3 text-right">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {upgradeRequests.map((u) => (
+                            <tr key={u._id} className="hover:bg-slate-50 transition-colors">
+                              <td className="px-4 py-4">
+                                <div className="font-bold text-slate-800">{u.name}</div>
+                                <div className="text-[10px] text-slate-400">{u.email}</div>
+                              </td>
+                              <td className="px-4 py-4 font-mono font-bold text-blue-600">{u.inviteCode}</td>
+                              <td className="px-4 py-4 text-slate-600">{u.phone || '-'}</td>
+                              <td className="px-4 py-4 text-slate-600">{u.sponsorId || '-'}</td>
+                              <td className="px-4 py-4 text-slate-600">
+                                {u.firstReferralDate ? new Date(u.firstReferralDate).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
+                              </td>
+                              <td className="px-4 py-4">
+                                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[9px] font-bold uppercase tracking-widest border ${
+                                  u.upgradeStatus === 'pending'
+                                    ? 'bg-amber-50 text-amber-700 border-amber-200'
+                                    : 'bg-red-50 text-red-600 border-red-200'
+                                }`}>
+                                  {u.upgradeStatus === 'pending' && <div className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse"></div>}
+                                  {u.upgradeStatus}
+                                </span>
+                              </td>
+                              <td className="px-4 py-4 text-slate-500">
+                                {u.upgradeRequestedAt ? new Date(u.upgradeRequestedAt).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' }) : '-'}
+                              </td>
+                              <td className="px-4 py-4 text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                  {u.upgradeStatus === 'pending' && (
+                                    <>
+                                      <button
+                                        onClick={() => handleUpgradeAction(u._id, 'approve')}
+                                        disabled={processingUpgradeId === u._id}
+                                        className="px-3 py-1.5 bg-emerald-600 text-white rounded-lg text-xs font-bold hover:bg-emerald-700 transition disabled:opacity-50"
+                                      >
+                                        {processingUpgradeId === u._id ? '...' : 'Approve'}
+                                      </button>
+                                      <button
+                                        onClick={() => handleUpgradeAction(u._id, 'reject')}
+                                        disabled={processingUpgradeId === u._id}
+                                        className="px-3 py-1.5 bg-red-100 text-red-600 rounded-lg text-xs font-bold hover:bg-red-200 transition disabled:opacity-50"
+                                      >
+                                        Reject
+                                      </button>
+                                    </>
+                                  )}
+                                  {u.upgradeStatus === 'expired' && (
+                                    <span className="text-[10px] text-slate-400 font-bold">Awaiting user request</span>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+
+                {/* History Section */}
+                <div className="mt-12">
+                  <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <IconRefresh size={14} /> Completed Upgrade History
+                  </h3>
+                  
+                  {upgradeHistory.length === 0 ? (
+                    <div className="text-center py-10 bg-slate-50 border border-dashed rounded-2xl">
+                      <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No history records found</div>
+                    </div>
+                  ) : (
+                    <div className="bg-white border rounded-2xl shadow-sm overflow-hidden">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs min-w-[800px]">
+                          <thead className="bg-slate-50">
+                            <tr className="text-[10px] font-black text-slate-400 uppercase tracking-widest border-b border-slate-100">
+                              <th className="px-4 py-3">User</th>
+                              <th className="px-4 py-3">Invite Code</th>
+                              <th className="px-4 py-3">Amount</th>
+                              <th className="px-4 py-3">Status</th>
+                              <th className="px-4 py-3">Date</th>
+                              <th className="px-4 py-3">Note</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {upgradeHistory.map((h) => (
+                              <tr key={h._id} className="hover:bg-slate-50 transition-colors">
+                                <td className="px-4 py-3 font-bold text-slate-700">{h.userName}</td>
+                                <td className="px-4 py-3 font-mono font-bold text-blue-600">{h.userInviteCode}</td>
+                                <td className="px-4 py-3 font-black text-emerald-600">₹{h.amount.toLocaleString()}</td>
+                                <td className="px-4 py-3">
+                                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                                    h.status === 'approved' 
+                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-100' 
+                                    : 'bg-red-50 text-red-700 border-red-100'
+                                  }`}>
+                                    {h.status}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-slate-500">
+                                  {new Date(h.adminActionAt).toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                </td>
+                                <td className="px-4 py-3 text-slate-400 italic">{h.description}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* E-Pin page */}
             {

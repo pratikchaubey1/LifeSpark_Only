@@ -11,6 +11,7 @@ import ImageUpload from "./Imageuploader";
 import EditBankDetail from "./Editbankdetail";
 import EditPassword from "./EditPassword";
 import WelcomeLetter from "./WelcomeLetter";
+import MemberIDCard from "./MemberIDCard";
 
 import ActivateID from "./ActivateID";
 
@@ -151,6 +152,10 @@ export default function MemberLayout({ onLogout }) {
           <Route
             path="activate-id"
             element={<ActivateID onMenuOpen={() => setSidebarOpen(true)} />}
+          />
+          <Route
+            path="id-card"
+            element={<MemberIDCard onMenuOpen={() => setSidebarOpen(true)} />}
           />
 
           <Route

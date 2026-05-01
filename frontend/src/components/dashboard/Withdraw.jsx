@@ -420,7 +420,7 @@ export default function Withdraw({ onMenuOpen }) {
                     Minimum payout amount is ₹300
                   </div>
 
-                  {/* 10% Repurchase Info */}
+                  {/* 25% Withdrawal Charge Info */}
                   {Number(amount) >= 300 && (
                     <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 space-y-1.5 -mt-1">
                       <div className="flex items-center justify-between text-xs">
@@ -428,12 +428,12 @@ export default function Withdraw({ onMenuOpen }) {
                         <span className="font-bold text-slate-700">₹{Number(amount).toLocaleString()}</span>
                       </div>
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-500">Repurchase (10%)</span>
-                        <span className="font-semibold text-amber-600">-₹{Number((Number(amount) * 0.1).toFixed(2)).toLocaleString()}</span>
+                        <span className="text-slate-500">Withdrawal Charge (25%)</span>
+                        <span className="font-semibold text-red-600">-₹{Number((Number(amount) * 0.25).toFixed(2)).toLocaleString()}</span>
                       </div>
                       <div className="border-t border-blue-200 pt-1.5 flex items-center justify-between text-xs">
                         <span className="text-slate-600 font-semibold">You will receive</span>
-                        <span className="font-bold text-emerald-600">₹{Number((Number(amount) * 0.9).toFixed(2)).toLocaleString()}</span>
+                        <span className="font-bold text-emerald-600">₹{Number((Number(amount) * 0.75).toFixed(2)).toLocaleString()}</span>
                       </div>
                     </div>
                   )}
@@ -472,6 +472,7 @@ export default function Withdraw({ onMenuOpen }) {
                     <tr className="bg-slate-50 text-[10px] uppercase tracking-widest font-bold text-slate-400 border-b border-slate-100">
                       <th className="px-6 py-4">ID / Date</th>
                       <th className="px-6 py-4">Amount</th>
+                      <th className="px-6 py-4">Charge (25%)</th>
                       <th className="px-6 py-4">Status</th>
                     </tr>
                   </thead>
@@ -497,6 +498,13 @@ export default function Withdraw({ onMenuOpen }) {
                           </div>
                         </td>
                         <td className="px-6 py-4">
+                          {w.chargeAmount > 0 ? (
+                            <span className="text-sm font-semibold text-red-500">-₹{Number(w.chargeAmount).toLocaleString()}</span>
+                          ) : (
+                            <span className="text-xs text-slate-400">—</span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
                           <StatusBadge status={w.status} />
                         </td>
                       </tr>
@@ -504,7 +512,7 @@ export default function Withdraw({ onMenuOpen }) {
 
                     {withdrawals.length === 0 && (
                       <tr>
-                        <td colSpan={3} className="px-6 py-12 text-center">
+                        <td colSpan={4} className="px-6 py-12 text-center">
                           <div className="flex flex-col items-center opacity-40">
                             <FiClock size={48} className="text-slate-300" />
                             <div className="mt-3 text-sm text-slate-500 font-medium">No withdrawal requests yet.</div>

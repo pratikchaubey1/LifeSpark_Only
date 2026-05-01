@@ -14,11 +14,30 @@ router.get('/', auth, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // ---- 60-Day Upgrade Check ----
+    let upgradeRequired = false;
+    let daysRemaining = null;
+    if (user.firstReferralDate && user.upgradeStatus !== 'approved') {
+      const msSinceFirst = Date.now() - new Date(user.firstReferralDate).getTime();
+      const daysSinceFirst = msSinceFirst / (1000 * 60 * 60 * 24);
+      daysRemaining = Math.max(0, Math.ceil(60 - daysSinceFirst));
+      if (daysSinceFirst >= 60) {
+        upgradeRequired = true;
+        if (user.upgradeStatus !== 'pending') {
+          user.upgradeStatus = 'expired';
+          await user.save();
+        }
+      }
+    }
+    // ---- End 60-Day Check ----
+
     const teamStats = await getTeamStats(user);
     const { password, ...safeUser } = user.toObject();
 
     res.json({
       user: safeUser,
+      upgradeRequired,
+      daysRemaining,
       cards: {
         totalIncome: user.totalIncome || 0,
         withdrawal: user.withdrawal || 0,
@@ -174,6 +193,30 @@ router.get('/income-logs', auth, async (req, res) => {
     res.json({ logs });
   } catch (err) {
     console.error('User Income Logs error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+/* -------------------- REQUEST UPGRADE (60-Day System) -------------------- */
+router.post('/request-upgrade', auth, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    if (user.upgradeStatus === 'approved') {
+      return res.status(400).json({ message: 'Your account is already upgraded.' });
+    }
+    if (user.upgradeStatus === 'pending') {
+      return res.status(400).json({ message: 'Your upgrade request is already pending. Please wait for admin approval.' });
+    }
+
+    user.upgradeStatus = 'pending';
+    user.upgradeRequestedAt = new Date();
+    await user.save();
+
+    res.json({ message: 'Upgrade request submitted successfully! Please pay ₹3000 to admin and wait for approval.' });
+  } catch (err) {
+    console.error('Request upgrade error', err);
     res.status(500).json({ message: 'Server error' });
   }
 });

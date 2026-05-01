@@ -143,7 +143,7 @@ export default function Autopool({ sidebarOpen, onMenuOpen }) {
                         <div className="flex justify-center mb-8">
                             <div className="text-center p-6 bg-slate-50 rounded-xl border border-slate-200 w-full max-w-sm">
                                 <p className="text-sm text-slate-500 uppercase font-semibold mb-1">Activation Cost</p>
-                                <p className="text-4xl font-extrabold text-slate-900">₹3,000</p>
+                                <p className="text-4xl font-extrabold text-slate-900">₹2,000</p>
                             </div>
                         </div>
 
@@ -151,7 +151,7 @@ export default function Autopool({ sidebarOpen, onMenuOpen }) {
                         <ul className="space-y-3 mb-8 text-slate-600">
                             <li className="flex items-start"><span className="mr-2 text-green-500">✓</span> Join the global company tree</li>
                             <li className="flex items-start"><span className="mr-2 text-green-500">✓</span> Automatic placement (Top-to-bottom, Left-to-right)</li>
-                            <li className="flex items-start"><span className="mr-2 text-green-500">✓</span> Earn ₹3,000 immediately when your Level 1 (3 members) fills</li>
+                            <li className="flex items-start"><span className="mr-2 text-green-500">✓</span> Earn ₹3,000 when your Level 1 (3 members) fills</li>
                             <li className="flex items-start"><span className="mr-2 text-green-500">✓</span> Total potential income up to Level 10</li>
                         </ul>
 

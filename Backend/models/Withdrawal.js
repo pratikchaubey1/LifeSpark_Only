@@ -5,6 +5,7 @@ const withdrawalSchema = new mongoose.Schema({
     userId: { type: String, required: true },
     amount: { type: Number, required: true },
     repurchaseAmount: { type: Number, default: 0 },
+    chargeAmount: { type: Number, default: 0 },
     originalAmount: { type: Number, default: 0 },
     upiId: { type: String, default: '' },
     upiNo: { type: String, default: '' },

@@ -207,6 +207,12 @@ router.post('/register', async (req, res) => {
       }
       sponsorUser.directInviteIds.push(newUser._id.toString());
 
+      // 60-Day Upgrade System: Record the date of first referral
+      if (sponsorUser.directInviteIds.length === 1 && !sponsorUser.firstReferralDate) {
+        sponsorUser.firstReferralDate = new Date();
+        console.log(`📅 First referral date set for sponsor ${sponsorUser.inviteCode}`);
+      }
+
       // NOTE: Referral income is now credited only when the user ACTIVATES their account (in dashboard.js)
 
       await sponsorUser.save();

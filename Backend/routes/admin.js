@@ -9,6 +9,7 @@ const Withdrawal = require('../models/Withdrawal');
 const Project = require('../models/Project');
 const Testimonial = require('../models/Testimonial');
 const IncomeLog = require('../models/IncomeLog');
+const UpgradeHistory = require('../models/UpgradeHistory');
 const { getUsersAtLevel } = require('../utils/team');
 const { distributeIncome } = require('../utils/income');
 const adminAuth = require('../middleware/adminAuth');
@@ -706,21 +707,9 @@ router.post('/withdrawals/:id/approve', adminAuth, async (req, res) => {
     } else {
       user.withdrawal = (Number(user.withdrawal) || 0) + amount;
 
-      // Credit Repurchase Wallet with the 10% portion on approval
-      const repurchaseAmt = Number(withdrawal.repurchaseAmount) || 0;
-      if (repurchaseAmt > 0) {
-        user.repurchaseWallet = (Number(user.repurchaseWallet) || 0) + repurchaseAmt;
-
-        // Log the Repurchase Wallet credit
-        await IncomeLog.create({
-          userId: user._id.toString(),
-          userName: user.name,
-          userInviteCode: user.inviteCode,
-          type: 'repurchase_transfer',
-          amount: repurchaseAmt,
-          description: `10% from approved withdrawal ${withdrawal.withdrawalId} (₹${amount + repurchaseAmt})`
-        });
-      }
+      // No wallet credit for withdrawal charges (25% fee is simply deducted)
+      // Note: Withdrawal charge (25%) is already stored in withdrawal.chargeAmount
+      // and deduction happened at request time.
     }
     await user.save();
 
@@ -1263,6 +1252,89 @@ router.get('/income-logs', adminAuth, async (req, res) => {
     });
   } catch (err) {
     console.error('Get income logs error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+/* -------------------- 60-DAY UPGRADE REQUESTS -------------------- */
+
+// List all completed upgrade history (Admin Only)
+router.get('/upgrade-history', adminAuth, async (req, res) => {
+  try {
+    const history = await UpgradeHistory.find().sort({ adminActionAt: -1 }).limit(100);
+    res.json({ history });
+  } catch (err) {
+    console.error('Get upgrade history error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// List all pending upgrade requests
+router.get('/upgrade-requests', adminAuth, async (req, res) => {
+  try {
+    const users = await User.find({
+      upgradeStatus: { $in: ['pending', 'expired'] }
+    }).select('name email phone inviteCode sponsorId firstReferralDate upgradeStatus upgradeRequestedAt createdAt').sort({ upgradeRequestedAt: -1 });
+
+    res.json({ requests: users });
+  } catch (err) {
+    console.error('Get upgrade requests error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Approve upgrade request - resets 60-day timer
+router.post('/upgrade-requests/:userId/approve', adminAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.upgradeStatus = 'approved';
+    user.upgradeApprovedAt = new Date();
+    // Reset the 60-day timer: set firstReferralDate to now so they get another 60 days
+    user.firstReferralDate = new Date();
+    await user.save();
+
+    // Create Private Admin History
+    await UpgradeHistory.create({
+      userId: user._id,
+      userName: user.name,
+      userInviteCode: user.inviteCode,
+      amount: 3000,
+      status: 'approved',
+      description: `Approved by admin`
+    });
+
+    res.json({ message: `Upgrade approved for ${user.name} (${user.inviteCode}). 60-day timer has been reset.` });
+  } catch (err) {
+    console.error('Approve upgrade error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Reject upgrade request
+router.post('/upgrade-requests/:userId/reject', adminAuth, async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    user.upgradeStatus = 'expired';
+    user.upgradeRequestedAt = null;
+    await user.save();
+
+    // Create Private Admin History
+    await UpgradeHistory.create({
+      userId: user._id,
+      userName: user.name,
+      userInviteCode: user.inviteCode,
+      amount: 0,
+      status: 'rejected',
+      description: `Rejected by admin`
+    });
+
+    res.json({ message: `Upgrade rejected for ${user.name} (${user.inviteCode}).` });
+  } catch (err) {
+    console.error('Reject upgrade error', err);
     res.status(500).json({ message: 'Server error' });
   }
 });

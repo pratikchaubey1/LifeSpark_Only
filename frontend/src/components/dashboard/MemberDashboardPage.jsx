@@ -112,49 +112,157 @@ function DashBoardPage() {
   const [settings, setSettings] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
 
+  // 60-Day Upgrade System
+  const [upgradeRequired, setUpgradeRequired] = useState(false);
+  const [daysRemaining, setDaysRemaining] = useState(null);
+  const [upgradeRequesting, setUpgradeRequesting] = useState(false);
+  const [upgradeStatus, setUpgradeStatus] = useState('none'); // none, pending, expired
+
+  const [loading, setLoading] = useState(true);
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) return;
 
     (async () => {
       try {
-        // Fetch dashboard data
-        const res = await fetch(`${config.apiUrl}/dashboard`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.ok) {
-          const data = await res.json();
+        setLoading(true);
+        // Fetch dashboard data and settings in parallel
+        const [dashRes, settingsRes] = await Promise.all([
+          fetch(`${config.apiUrl}/dashboard`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`${config.apiUrl}/settings`)
+        ]);
+
+        if (dashRes.ok) {
+          const data = await dashRes.json();
           setUser(data.user);
           setCards(data.cards || {});
+          setUpgradeRequired(data.upgradeRequired || false);
+          setDaysRemaining(data.daysRemaining);
+          setUpgradeStatus(data.user?.upgradeStatus || 'none');
         }
 
-        // Fetch site settings
-        const settingsRes = await fetch(`${config.apiUrl}/settings`);
         if (settingsRes.ok) {
           const settingsData = await settingsRes.json();
           setSettings(settingsData);
 
-          // Show popup if enabled and not already dismissed in this session
+          // Show popup if enabled and not already seen
           if (settingsData.popupEnabled && settingsData.popupImageUrl) {
             const hasSeenPopup = sessionStorage.getItem("announcement_popup_seen");
             if (!hasSeenPopup) {
-              setTimeout(() => setShowPopup(true), 1200);
+              // Removed the 1.2s delay to make it feel instant
+              setShowPopup(true);
             }
           }
         }
       } catch (e) {
         console.error("Failed to load data", e);
+      } finally {
+        setLoading(false);
       }
     })();
   }, []);
+
+  const handleRequestUpgrade = async () => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    setUpgradeRequesting(true);
+    try {
+      const res = await fetch(`${config.apiUrl}/dashboard/request-upgrade`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        toast.success(data.message || "Upgrade request submitted!");
+        setUpgradeStatus('pending');
+      } else {
+        toast.error(data.message || "Failed to submit upgrade request.");
+      }
+    } catch (err) {
+      toast.error("Something went wrong.");
+    } finally {
+      setUpgradeRequesting(false);
+    }
+  };
 
   const closePopup = () => {
     setShowPopup(false);
     sessionStorage.setItem("announcement_popup_seen", "true");
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+          <div className="text-slate-400 font-bold uppercase tracking-widest text-[10px]">Loading Dashboard...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-full bg-white relative">
+
+      {/* 60-Day Upgrade Popup */}
+      {upgradeRequired && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
+            {/* Header */}
+            <div className="bg-gradient-to-r from-red-500 to-orange-500 p-6 text-center">
+              <div className="text-5xl mb-3">⏰</div>
+              <h2 className="text-2xl font-black text-white">Account Upgrade Required</h2>
+              <p className="text-sm text-white/80 mt-2">Your 60-day period has expired</p>
+            </div>
+
+            {/* Body */}
+            <div className="p-6 text-center">
+              {upgradeStatus === 'pending' ? (
+                <>
+                  <div className="text-6xl mb-4">✅</div>
+                  <h3 className="text-lg font-bold text-slate-900 mb-2">Upgrade Request Submitted!</h3>
+                  <p className="text-sm text-slate-600 mb-4">
+                    Your upgrade request has been sent to the admin. Please pay <strong>₹3,000</strong> to admin and wait for approval.
+                  </p>
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-sm font-bold">
+                    <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
+                    Pending Admin Approval
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-slate-600 mb-6">
+                    Your account has been active for more than 60 days since you started adding members. To continue using all features, please upgrade your account.
+                  </p>
+
+                  <div className="bg-blue-50 rounded-2xl p-6 mb-6 border border-blue-100">
+                    <div className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">Upgrade Fee</div>
+                    <div className="text-4xl font-black text-blue-600">₹3,000</div>
+                    <div className="text-xs text-slate-500 mt-1">One-time payment to admin</div>
+                  </div>
+
+                  <button
+                    onClick={handleRequestUpgrade}
+                    disabled={upgradeRequesting}
+                    className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-black text-lg rounded-2xl transition-all shadow-xl shadow-blue-200 active:translate-y-0.5 disabled:opacity-50"
+                  >
+                    {upgradeRequesting ? "Submitting..." : "Request Upgrade"}
+                  </button>
+                  <p className="text-[11px] text-slate-400 mt-3">
+                    Pay ₹3,000 to admin and click above to submit your request.
+                  </p>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
       {/* Top info bar (Marquee) */}
       {settings?.marqueeEnabled && (
         <div className="bg-sky-600 border-b border-sky-500 overflow-hidden py-2 shadow-sm sticky top-0 z-40">

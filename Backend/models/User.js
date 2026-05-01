@@ -27,6 +27,12 @@ const userSchema = new mongoose.Schema({
   // Block Status
   isBlocked: { type: Boolean, default: false },
 
+  // 60-Day Upgrade System
+  firstReferralDate: { type: Date, default: null },   // Set when user's first direct member joins
+  upgradeStatus: { type: String, enum: ['none', 'pending', 'approved', 'expired'], default: 'none' },
+  upgradeRequestedAt: { type: Date, default: null },
+  upgradeApprovedAt: { type: Date, default: null },
+
   // Financial Fields
   balance: { type: Number, default: 0 },
   totalIncome: { type: Number, default: 0 },
