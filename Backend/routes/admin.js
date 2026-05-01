@@ -1300,7 +1300,7 @@ router.post('/upgrade-requests/:userId/approve', adminAuth, async (req, res) => 
       userId: user._id,
       userName: user.name,
       userInviteCode: user.inviteCode,
-      amount: 3000,
+      amount: 1199,
       status: 'approved',
       description: `Approved by admin`
     });

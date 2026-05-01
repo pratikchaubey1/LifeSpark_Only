@@ -228,7 +228,7 @@ function DashBoardPage() {
                   <div className="text-6xl mb-4">✅</div>
                   <h3 className="text-lg font-bold text-slate-900 mb-2">Upgrade Request Submitted!</h3>
                   <p className="text-sm text-slate-600 mb-4">
-                    Your upgrade request has been sent to the admin. Please pay <strong>₹3,000</strong> to admin and wait for approval.
+                    Your upgrade request has been sent to the admin. Please pay <strong>₹1199</strong> to admin and wait for approval.
                   </p>
                   <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-sm font-bold">
                     <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
@@ -243,7 +243,7 @@ function DashBoardPage() {
 
                   <div className="bg-blue-50 rounded-2xl p-6 mb-6 border border-blue-100">
                     <div className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">Upgrade Fee</div>
-                    <div className="text-4xl font-black text-blue-600">₹3,000</div>
+                    <div className="text-4xl font-black text-blue-600">₹1199</div>
                     <div className="text-xs text-slate-500 mt-1">One-time payment to admin</div>
                   </div>
 
@@ -255,7 +255,7 @@ function DashBoardPage() {
                     {upgradeRequesting ? "Submitting..." : "Request Upgrade"}
                   </button>
                   <p className="text-[11px] text-slate-400 mt-3">
-                    Pay ₹3,000 to admin and click above to submit your request.
+                    Pay ₹1199 to admin and click above to submit your request.
                   </p>
                 </>
               )}
