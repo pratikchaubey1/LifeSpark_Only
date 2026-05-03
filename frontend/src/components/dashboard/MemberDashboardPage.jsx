@@ -106,7 +106,7 @@ const bottomStatConfig = [
 
 /* ---------- COMPONENT ---------- */
 
-function DashBoardPage() {
+function DashBoardPage({ setLoading: setParentLoading }) {
   const [user, setUser] = useState(null);
   const [cards, setCards] = useState(null);
   const [settings, setSettings] = useState(null);
@@ -127,6 +127,7 @@ function DashBoardPage() {
     (async () => {
       try {
         setLoading(true);
+        if (setParentLoading) setParentLoading(true);
         // Fetch dashboard data and settings in parallel
         const [dashRes, settingsRes] = await Promise.all([
           fetch(`${config.apiUrl}/dashboard`, {
@@ -161,9 +162,16 @@ function DashBoardPage() {
         console.error("Failed to load data", e);
       } finally {
         setLoading(false);
+        if (setParentLoading) setParentLoading(false);
       }
     })();
   }, []);
+
+  useEffect(() => {
+    return () => {
+      if (setParentLoading) setParentLoading(false);
+    };
+  }, [setParentLoading]);
 
   const handleRequestUpgrade = async () => {
     const token = localStorage.getItem("token");

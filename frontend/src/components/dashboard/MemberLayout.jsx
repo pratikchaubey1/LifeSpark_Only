@@ -45,6 +45,7 @@ export default function MemberLayout({ onLogout }) {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
   const [hideButtons, setHideButtons] = useState(false);
+  const [childLoading, setChildLoading] = useState(false);
 
   const navigate = useNavigate(); // ✅ Fix for redirect
 
@@ -82,6 +83,29 @@ export default function MemberLayout({ onLogout }) {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // Security Helper: Check if user is expired (60-day rule)
+  const isExpired = () => {
+    if (!user) return false;
+    // Admin and franchise roles should not be blocked by the 60-day rule
+    if (user.role === 'admin' || user.role === 'franchise') return false;
+    if (user.upgradeStatus === 'approved') return false;
+    if (!user.firstReferralDate) return false;
+
+    const msSinceFirst = Date.now() - new Date(user.firstReferralDate).getTime();
+    const daysSinceFirst = msSinceFirst / (1000 * 60 * 60 * 24);
+    return daysSinceFirst >= 60;
+  };
+
+  // Redirect expired users to main dashboard to show the 60-day popup
+  useEffect(() => {
+    if (isExpired()) {
+      const path = window.location.pathname;
+      if (path !== "/dashboard" && path !== "/dashboard/") {
+        navigate("/dashboard");
+      }
+    }
+  }, [user, navigate]);
+
   return (
     <div className="min-h-screen bg-slate-950 text-white">
       {/* Sidebar */}
@@ -100,7 +124,7 @@ export default function MemberLayout({ onLogout }) {
             : "opacity-100"
           }`}
       >
-        {isLoggedIn && !sidebarOpen && (
+        {isLoggedIn && user && !childLoading && !isExpired() && !sidebarOpen && (
           <button
             onClick={() => setSidebarOpen(true)}
             className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700"
@@ -109,7 +133,7 @@ export default function MemberLayout({ onLogout }) {
           </button>
         )}
 
-        {isLoggedIn && !sidebarOpen && (
+        {isLoggedIn && user && !childLoading && !sidebarOpen && (
           <button
             onClick={() => {
               onLogout();       // remove token
@@ -125,7 +149,7 @@ export default function MemberLayout({ onLogout }) {
       {/* ROUTES */}
       <div className="p-3 pt-16">
         <Routes>
-          <Route path="/" element={<DashBoardPage />} />
+          <Route path="/" element={<DashBoardPage setLoading={setChildLoading} />} />
 
           {/* Pages with Menu Button */}
           <Route
