@@ -44,6 +44,11 @@ router.get('/sponsor/:code', async (req, res) => {
       return res.status(404).json({ message: 'Invalid invite code' });
     }
 
+    if (!sponsorUser.isActivated) {
+      console.log('❌ Sponsor is not activated:', sponsorUser.inviteCode);
+      return res.status(400).json({ message: 'This sponsor account is not yet activated. You cannot join under an inactive sponsor.' });
+    }
+
     console.log('✅ Sponsor found:', sponsorUser.name, '(', sponsorUser.inviteCode, ')');
     return res.json({
       sponsor: {
@@ -94,13 +99,13 @@ router.post('/register', async (req, res) => {
     let sponsorUser = null;
     if (hasExistingUsers) {
       console.log('Looking up sponsor with code:', sponsorId);
-      const code = String(sponsorId || '').trim();
-      // Only search by inviteCode (not _id, as that would cause CastError)
-      sponsorUser = await User.findOne({ inviteCode: code });
-      console.log('Sponsor found:', sponsorUser ? `Yes (${sponsorUser.name})` : 'No');
+      const sponsorCode = String(sponsorId || '').trim();
+      sponsorUser = await User.findOne({ inviteCode: sponsorCode });
       if (!sponsorUser) {
-        console.log('Validation failed: Invalid invite code');
-        return res.status(400).json({ message: 'Invalid invite code' });
+        return res.status(400).json({ message: 'Sponsor not found' });
+      }
+      if (!sponsorUser.isActivated) {
+        return res.status(400).json({ message: 'Sponsor is not activated' });
       }
     }
 
@@ -207,11 +212,7 @@ router.post('/register', async (req, res) => {
       }
       sponsorUser.directInviteIds.push(newUser._id.toString());
 
-      // 60-Day Upgrade System: Record the date of first referral
-      if (sponsorUser.directInviteIds.length === 1 && !sponsorUser.firstReferralDate) {
-        sponsorUser.firstReferralDate = new Date();
-        console.log(`📅 First referral date set for sponsor ${sponsorUser.inviteCode}`);
-      }
+      // NOTE: Referral income and 60-day timer are handled during ACTIVATION (in dashboard.js)
 
       // NOTE: Referral income is now credited only when the user ACTIVATES their account (in dashboard.js)
 

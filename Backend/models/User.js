@@ -32,6 +32,7 @@ const userSchema = new mongoose.Schema({
   upgradeStatus: { type: String, enum: ['none', 'pending', 'approved', 'expired'], default: 'none' },
   upgradeRequestedAt: { type: Date, default: null },
   upgradeApprovedAt: { type: Date, default: null },
+  incomeExpiryDate: { type: Date, default: null },   // 60 days from activation/upgrade
 
   // Financial Fields
   balance: { type: Number, default: 0 },

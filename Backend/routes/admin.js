@@ -503,6 +503,7 @@ router.put('/users/:id/activate', adminAuth, async (req, res) => {
     user.isActivated = true;
     if (!user.activationPackage) user.activationPackage = 'AdminManual';
     if (!user.activatedAt) user.activatedAt = new Date();
+    user.incomeExpiryDate = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // 60 days
     user.lastDailyCredit = null;
 
     // ---------------- INCOME DISTRIBUTION LOGIC ----------------
@@ -1293,6 +1294,8 @@ router.post('/upgrade-requests/:userId/approve', adminAuth, async (req, res) => 
     user.upgradeApprovedAt = new Date();
     // Reset the 60-day timer: set firstReferralDate to now so they get another 60 days
     user.firstReferralDate = new Date();
+    // Also reset the income generation timer
+    user.incomeExpiryDate = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); 
     await user.save();
 
     // Create Private Admin History

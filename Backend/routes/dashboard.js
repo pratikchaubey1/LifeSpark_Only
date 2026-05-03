@@ -125,6 +125,7 @@ router.post('/activate-id', auth, async (req, res) => {
     beneficiary.isActivated = true;
     beneficiary.activationPackage = packageId;
     beneficiary.activatedAt = new Date();
+    beneficiary.incomeExpiryDate = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // 60 days
     beneficiary.lastDailyCredit = null;
 
     // ---------------- INCOME DISTRIBUTION LOGIC ----------------

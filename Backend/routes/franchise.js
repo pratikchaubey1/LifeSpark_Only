@@ -123,6 +123,7 @@ router.post('/activate/:userId', auth, franchiseAuth, async (req, res) => {
         targetUser.isActivated = true;
         targetUser.activationPackage = 'FranchiseActivation';
         targetUser.activatedAt = new Date();
+        targetUser.incomeExpiryDate = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000); // 60 days
         targetUser.lastDailyCredit = null;
 
         // 3. Distribute income

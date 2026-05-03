@@ -14,9 +14,9 @@ const LEVEL_INCOME_RATES = {
     10: 0.5
 };
 
-const SPONSOR_INCOME = 50;
+const SPONSOR_INCOME = 40;
 
-// Helper to check if a user is expired (60-day system)
+// Helper to check if a user is expired for RECEIVING income (60 days from first team member)
 function isUserExpired(user) {
     if (!user) return false;
     if (user.upgradeStatus === 'approved') return false;
@@ -24,6 +24,13 @@ function isUserExpired(user) {
     const msSinceFirst = Date.now() - new Date(user.firstReferralDate).getTime();
     const daysSinceFirst = msSinceFirst / (1000 * 60 * 60 * 24);
     return daysSinceFirst >= 60;
+}
+
+// Helper to check if a user is expired for GENERATING income for upline (60 days from activation/upgrade)
+function isIncomeGenerationExpired(user) {
+    if (!user) return false;
+    if (!user.incomeExpiryDate) return false; // Should be set on activation
+    return new Date() > new Date(user.incomeExpiryDate);
 }
 
 // Maximum daily level income caps (total income cap, unlocked progressively)
@@ -65,9 +72,9 @@ async function distributeIncome(beneficiary) {
             return;
         }
 
-        // 60-Day Upgrade Check for Beneficiary
-        if (isUserExpired(beneficiary)) {
-            console.log(`🚫 ${beneficiary.inviteCode} is EXPIRED (60-day rule), skipping upline income generation`);
+        // 60-Day Income Generation Check for Beneficiary (Starts from Activation)
+        if (isIncomeGenerationExpired(beneficiary)) {
+            console.log(`🚫 ${beneficiary.inviteCode} is EXPIRED for income generation (60 days from activation), skipping upline income`);
             return;
         }
 
@@ -88,9 +95,9 @@ async function distributeIncome(beneficiary) {
                 break;
             }
 
-            // Skip blocked or expired sponsors — don't credit them, but continue walking up
-            if (sponsor.isBlocked || isUserExpired(sponsor)) {
-                console.log(`🚫 Sponsor ${sponsor.inviteCode} at level ${level} is BLOCKED or EXPIRED, skipping credit`);
+            // Skip blocked, expired, or UNACTIVATED sponsors — don't credit them, but continue walking up
+            if (sponsor.isBlocked || isUserExpired(sponsor) || !sponsor.isActivated) {
+                console.log(`🚫 Sponsor ${sponsor.inviteCode} at level ${level} is BLOCKED, EXPIRED, or NOT ACTIVATED, skipping credit`);
                 currentSponsorCode = sponsor.sponsorId;
                 continue;
             }
@@ -100,6 +107,12 @@ async function distributeIncome(beneficiary) {
 
             // 1. Level 1 logic: Give SPONSOR_INCOME (50) + Level 1 rate (6) = ₹56 total
             if (level === 1) {
+                // 60-Day Timer Trigger: Starts when the FIRST direct referral ACTIVATES
+                if (!sponsor.firstReferralDate) {
+                    sponsor.firstReferralDate = new Date();
+                    console.log(`📅 60-day timer started for sponsor ${sponsor.inviteCode} (First active referral)`);
+                }
+
                 totalToCredit = SPONSOR_INCOME + levelRate;
                 sponsor.levelIncome = (Number(sponsor.levelIncome) || 0) + levelRate;
             } else {
@@ -204,8 +217,8 @@ async function distributeDailyLevelIncomeWithCaps(activeUsers) {
         // Phase 1: Aggregate uncapped level income AND active user count per sponsor per level
         for (const user of activeUsers) {
             if (!user.sponsorId) continue;
-            // Blocked or Expired users don't generate level income for sponsors
-            if (user.isBlocked || isUserExpired(user)) continue; 
+            // Income Generation Block: Skip users past 60 days from activation/upgrade
+            if (user.isBlocked || isIncomeGenerationExpired(user)) continue; 
 
             let currentSponsorCode = user.sponsorId;
 
@@ -213,11 +226,11 @@ async function distributeDailyLevelIncomeWithCaps(activeUsers) {
                 if (!currentSponsorCode) break;
 
                 const sponsor = await User.findOne({ inviteCode: currentSponsorCode })
-                    .select('_id inviteCode sponsorId firstReferralDate upgradeStatus').lean();
+                    .select('_id inviteCode sponsorId firstReferralDate upgradeStatus incomeExpiryDate isActivated').lean();
                 if (!sponsor) break;
 
-                // Skip expired sponsors in the aggregation
-                if (isUserExpired(sponsor)) {
+                // Skip expired/unactivated sponsors in the aggregation (Receiving Block)
+                if (isUserExpired(sponsor) || !sponsor.isActivated) {
                     currentSponsorCode = sponsor.sponsorId;
                     continue;
                 }
