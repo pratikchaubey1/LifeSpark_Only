@@ -7,6 +7,16 @@ const Kyc = require('../models/Kyc');
 
 const router = express.Router();
 
+const WITHDRAWAL_TIERS = [
+  { limit: 5000, fee: 1000 },
+  { limit: 15000, fee: 1000 },
+  { limit: 25000, fee: 1000 },
+  { limit: 40000, fee: 1500 },
+  { limit: 80000, fee: 2000 },
+  { limit: 120000, fee: 2500 },
+  { limit: 160000, fee: 2500 },
+];
+
 function normalize(v) {
   if (v == null) return '';
   return String(v).trim();
@@ -82,9 +92,13 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ message: 'Insufficient balance.' });
     }
 
-    // CAP CHECK: (upgradeLevel + 1) * 10000
-    const currentLimit = ((user.upgradeLevel || 0) + 1) * 10000;
-
+    // CAP CHECK: based on WITHDRAWAL_TIERS
+    const level = user.upgradeLevel || 0;
+    const tier = WITHDRAWAL_TIERS[level] || WITHDRAWAL_TIERS[WITHDRAWAL_TIERS.length - 1];
+    const currentLimit = tier.limit;
+    const nextTier = WITHDRAWAL_TIERS[level] || WITHDRAWAL_TIERS[WITHDRAWAL_TIERS.length - 1];
+    const upgradeFee = nextTier.fee;
+ 
     // Compute totalWithdrawn from actual withdrawal records (approved + pending)
     // Use $ne: 'upgrade' to exclude upgrades, and also exclude by withdrawalId prefix 'UP-'
     // (old upgrade records may lack the type field but always start with 'UP-')
@@ -105,7 +119,7 @@ router.post('/', auth, async (req, res) => {
 
     if (totalWithdrawn + amount > currentLimit) {
       return res.status(403).json({
-        message: `Withdrawal limit reached for your current level (₹${currentLimit.toLocaleString()}). Please request an upgrade of ₹1,176 to continue.`
+        message: `Withdrawal limit reached for your current level (₹${currentLimit.toLocaleString()}). Please request an upgrade of ₹${upgradeFee.toLocaleString()} to continue.`
       });
     }
 
@@ -163,26 +177,29 @@ router.post('/upgrade', auth, async (req, res) => {
     if (user.isBlocked) return res.status(403).json({ message: 'Your account has been blocked. Please contact admin.' });
 
     const method = req.body?.method === 'cash' ? 'cash' : 'upi';
-
-    // Deduct fixed ₹1,176 for upgrade if method is upi
-    const upgradeAmount = 1176;
+ 
+    // Determine upgrade fee based on current level
+    const level = user.upgradeLevel || 0;
+    const tier = WITHDRAWAL_TIERS[level] || WITHDRAWAL_TIERS[WITHDRAWAL_TIERS.length - 1];
+    const upgradeAmount = tier.fee;
+ 
     const balance = Number(user.balance) || 0;
-
+ 
     if (method === 'upi' && balance < upgradeAmount) {
-      return res.status(400).json({ message: 'Insufficient balance for ₹1,176 upgrade.' });
+      return res.status(400).json({ message: `Insufficient balance for ₹${upgradeAmount.toLocaleString()} upgrade.` });
     }
-
+ 
     // Check for existing pending upgrade request
     const existingUpgrade = await Withdrawal.findOne({
       userId: req.user._id.toString(),
       type: 'upgrade',
       status: 'pending'
     });
-
+ 
     if (existingUpgrade) {
       return res.status(400).json({ message: 'You already have a pending upgrade request.' });
     }
-
+ 
     const upgradeRequest = new Withdrawal({
       withdrawalId: `UP-${Date.now()}`,
       userId: req.user._id.toString(),
@@ -194,18 +211,18 @@ router.post('/upgrade', auth, async (req, res) => {
       type: 'upgrade',
       method
     });
-
+ 
     await upgradeRequest.save();
-
+ 
     // Deduct balance ONLY if method is upi
     if (method === 'upi') {
       user.balance = balance - upgradeAmount;
       await user.save();
     }
-
+ 
     return res.status(201).json({
       message: method === 'cash'
-        ? 'Upgrade request submitted successfully. Please pay ₹1,176 manually to admin.'
+        ? `Upgrade request submitted successfully. Please pay ₹${upgradeAmount.toLocaleString()} manually to admin.`
         : 'Upgrade request submitted successfully. Admin will approve it shortly.',
       withdrawal: upgradeRequest
     });

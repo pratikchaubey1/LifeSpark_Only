@@ -17,6 +17,16 @@ import {
 
 const API_BASE = config.apiUrl;
 
+const WITHDRAWAL_TIERS = [
+  { limit: 5000, fee: 1000 },
+  { limit: 15000, fee: 1000 },
+  { limit: 25000, fee: 1000 },
+  { limit: 40000, fee: 1500 },
+  { limit: 80000, fee: 2000 },
+  { limit: 120000, fee: 2500 },
+  { limit: 160000, fee: 2500 },
+];
+
 export default function Withdraw({ onMenuOpen }) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -188,9 +198,12 @@ export default function Withdraw({ onMenuOpen }) {
     const token = localStorage.getItem("token");
     if (!token) return setMsg("Please login again.");
 
-    if (upgradeMethod === "upi" && balance < 1176) {
+    const currentTier = WITHDRAWAL_TIERS[upgradeLevel] || WITHDRAWAL_TIERS[WITHDRAWAL_TIERS.length - 1];
+    const upgradeFee = currentTier.fee;
+
+    if (upgradeMethod === "upi" && balance < upgradeFee) {
       setMsgType("error");
-      return setMsg("Insufficient balance for ₹1,176 upgrade.");
+      return setMsg(`Insufficient balance for ₹${upgradeFee.toLocaleString()} upgrade.`);
     }
 
     try {
@@ -222,7 +235,10 @@ export default function Withdraw({ onMenuOpen }) {
     }
   };
 
-  const currentLimit = (upgradeLevel + 1) * 10000;
+  const currentTier = WITHDRAWAL_TIERS[upgradeLevel] || WITHDRAWAL_TIERS[WITHDRAWAL_TIERS.length - 1];
+  const currentLimit = currentTier.limit;
+  const upgradeFee = currentTier.fee;
+
   const remainingLimit = currentLimit - totalWithdrawn;
   // Show upgrade UI if limit is fully reached OR remaining is below min withdrawal (₹300)
   const isCapped = totalWithdrawn >= currentLimit || remainingLimit < 300;
@@ -322,7 +338,7 @@ export default function Withdraw({ onMenuOpen }) {
                     <div className="text-sm">
                       <div className="font-semibold mb-1">Limit Reached</div>
                       <p>You have {remainingLimit <= 0 ? 'reached' : 'nearly reached'} your withdrawal limit of <span className="font-bold">₹{currentLimit.toLocaleString()}</span>{remainingLimit > 0 ? ` (only ₹${remainingLimit.toLocaleString()} remaining, below ₹300 minimum)` : ''}.</p>
-                      <p className="mt-2 text-rose-600 font-medium">To continue withdrawing, you must request an upgrade of <span className="font-bold">₹1,176</span>.</p>
+                      <p className="mt-2 text-rose-600 font-medium">To continue withdrawing, you must request an upgrade of <span className="font-bold">₹{upgradeFee.toLocaleString()}</span>.</p>
                     </div>
                   </div>
 
@@ -331,7 +347,7 @@ export default function Withdraw({ onMenuOpen }) {
                       onClick={() => setUpgradeMethod("upi")}
                       className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${upgradeMethod === "upi" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-white/50"}`}
                     >
-                      Use Wallet (₹1,176)
+                      Use Wallet (₹{upgradeFee.toLocaleString()})
                     </button>
                     <button
                       onClick={() => setUpgradeMethod("cash")}
@@ -343,7 +359,7 @@ export default function Withdraw({ onMenuOpen }) {
 
                   <button
                     onClick={handleUpgradeRequest}
-                    disabled={submitting || (upgradeMethod === "upi" && balance < 1176)}
+                    disabled={submitting || (upgradeMethod === "upi" && balance < upgradeFee)}
                     className="w-full py-4 rounded-2xl text-white font-bold bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-blue-100"
                   >
                     {submitting ? (
@@ -351,18 +367,18 @@ export default function Withdraw({ onMenuOpen }) {
                     ) : (
                       <>
                         <FiTrendingUp />
-                        {upgradeMethod === "cash" ? "Request Manual Upgrade" : "Request Wallet Upgrade (₹1,176)"}
+                        {upgradeMethod === "cash" ? "Request Manual Upgrade" : `Request Wallet Upgrade (₹${upgradeFee.toLocaleString()})`}
                       </>
                     )}
                   </button>
-                  {upgradeMethod === "upi" && balance < 1176 && !submitting && (
+                  {upgradeMethod === "upi" && balance < upgradeFee && !submitting && (
                     <p className="text-[10px] text-center text-rose-500 font-bold uppercase tracking-widest">
                       Insufficient balance for wallet upgrade
                     </p>
                   )}
                   {upgradeMethod === "cash" && (
                     <p className="text-[10px] text-center text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
-                      You will need to pay ₹1,176 manually to the admin <br /> after submitting this request.
+                      You will need to pay ₹{upgradeFee.toLocaleString()} manually to the admin <br /> after submitting this request.
                     </p>
                   )}
                 </div>
