@@ -1,11 +1,4 @@
 const User = require('../models/User');
-
-/**
- * Recursively get all user IDs in the downline up to N levels.
- * @param {Array} directIds - Immediate downline IDs.
- * @param {number} maxLevel - Depth limit.
- * @returns {Promise<Array>} - Flattened array of all unique user IDs in the downline.
- */
 const { getDownlineByLevels } = require('./team');
 
 async function getAllDownlineIds(inviteCode, maxLevel = 10) {
@@ -44,6 +37,36 @@ const LEVEL_INCOME_CAPS = {
     10: 5000
 };
 
+const CAP_UNLOCK_THRESHOLDS = {
+    1: 10,
+    2: 50,
+    3: 150,
+    4: 300,
+    5: 600,
+    6: 1200,
+    7: 2400,
+    8: 4800,
+    9: 9600,
+    10: 20000
+};
+
+// Helper to check if a user is expired for RECEIVING income (60 days from first team member)
+function isUserExpired(user) {
+    if (!user) return false;
+    if (user.upgradeStatus === 'approved') return false;
+    if (!user.firstReferralDate) return false;
+    const msSinceFirst = Date.now() - new Date(user.firstReferralDate).getTime();
+    const daysSinceFirst = msSinceFirst / (1000 * 60 * 60 * 24);
+    return daysSinceFirst >= 60;
+}
+
+// Helper to check if a user is expired for GENERATING income for upline (60 days from activation/upgrade)
+function isIncomeGenerationExpired(user) {
+    if (!user) return false;
+    if (!user.incomeExpiryDate) return false; // Should be set on activation
+    return new Date() > new Date(user.incomeExpiryDate);
+}
+
 /**
  * Calculate comprehensive team statistics and daily level income rate for a user.
  * @param {Object} user - Mongoose user object.
@@ -51,10 +74,11 @@ const LEVEL_INCOME_CAPS = {
  */
 async function getTeamStats(user) {
     const levelUncapped = {}; 
-    const levelActiveCounts = {}; 
+    const levelActiveCountsForActual = {}; 
+    let actualLevelUncappedTotal = 0;
 
     // 1. Get downline ID map (Recursive lookup)
-    const directMembers = await User.find({ sponsorId: user.inviteCode }).select('_id isActivated activatedAt createdAt').lean();
+    const directMembers = await User.find({ sponsorId: user.inviteCode }).select('_id isActivated activatedAt createdAt isBlocked incomeExpiryDate').lean();
     const directIds = directMembers.map(m => m._id.toString());
     const levelUserIdsMap = await getDownlineByLevels(directIds);
 
@@ -65,7 +89,7 @@ async function getTeamStats(user) {
     // 2. Single batch fetch for ALL downline users
     const allTeamUsers = await User.find({
         _id: { $in: allDownlineIds }
-    }).select('_id isActivated activatedAt createdAt').lean();
+    }).select('_id isActivated activatedAt createdAt isBlocked incomeExpiryDate').lean();
 
     // Index them by ID for fast lookup
     const userMap = {};
@@ -75,21 +99,55 @@ async function getTeamStats(user) {
     for (let level = 1; level <= 10; level++) {
         const userIds = levelUserIdsMap[level] || [];
         const rate = LEVEL_INCOME_RATES[level] || 0;
-        let activeCount = 0;
+        let activeCountForActual = 0;
 
         for (const id of userIds) {
             const u = userMap[id];
             if (u && u.isActivated) {
+                // Potential Income (just check activation)
                 levelUncapped[level] = (levelUncapped[level] || 0) + rate;
-                activeCount++;
+                
+                // Actual Income Generation (check if they generate income for upline)
+                if (!u.isBlocked && !isIncomeGenerationExpired(u)) {
+                    actualLevelUncappedTotal += rate;
+                    activeCountForActual++;
+                }
             }
         }
-        levelActiveCounts[level] = activeCount;
+        levelActiveCountsForActual[level] = activeCountForActual;
     }
 
-    const totalDailyLevelRate = Object.values(levelUncapped).reduce((sum, v) => sum + v, 0);
+    const potentialDailyLevelRate = Object.values(levelUncapped).reduce((sum, v) => sum + v, 0);
 
-    // 4. Calculate stats from memory
+    // 4. Apply Caps to calculate Actual Credited Income
+    let actualCreditedIncome = 0;
+    const totalDirectActive = directMembers.filter(u => u.isActivated).length;
+
+    // A sponsor only receives income if they themselves are active, not blocked, and not expired
+    if (user.isActivated && !user.isBlocked && !isUserExpired(user)) {
+        // Direct referral cap: if < 5 active directs, cap at ₹200
+        let directCap = Infinity;
+        if (totalDirectActive < 5) {
+            directCap = 200;
+        }
+
+        // Progressive cap based on meeting thresholds at each level
+        let effectiveCap = LEVEL_INCOME_CAPS[1] || 500;
+        for (let level = 1; level <= 10; level++) {
+            const count = levelActiveCountsForActual[level] || 0;
+            const threshold = CAP_UNLOCK_THRESHOLDS[level] || Infinity;
+            if (count >= threshold && LEVEL_INCOME_CAPS[level + 1]) {
+                effectiveCap = LEVEL_INCOME_CAPS[level + 1];
+            } else {
+                break;
+            }
+        }
+
+        effectiveCap = Math.min(effectiveCap, directCap);
+        actualCreditedIncome = Math.min(actualLevelUncappedTotal, effectiveCap);
+    }
+
+    // 5. Calculate stats from memory
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
@@ -99,14 +157,15 @@ async function getTeamStats(user) {
         totalInactiveUser: allTeamUsers.filter(u => !u.isActivated).length,
 
         totalDirect: directMembers.length,
-        totalDirectActive: directMembers.filter(u => u.isActivated).length,
+        totalDirectActive: totalDirectActive,
         totalDirectInactive: directMembers.filter(u => !u.isActivated).length,
 
         todayActive: allTeamUsers.filter(u => u.isActivated && u.activatedAt >= todayStart).length,
         todayInactive: allTeamUsers.filter(u => !u.isActivated && u.createdAt >= todayStart).length,
         todayTotalId: allTeamUsers.filter(u => u.createdAt >= todayStart).length,
 
-        dailyLevelIncome: totalDailyLevelRate,
+        dailyLevelIncome: potentialDailyLevelRate,
+        actualCreditedIncome: actualCreditedIncome
     };
 
     return stats;

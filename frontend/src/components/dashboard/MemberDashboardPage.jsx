@@ -40,6 +40,11 @@ const topStatConfig = [
     color: "bg-gradient-to-r from-indigo-400 to-blue-500",
   },
   {
+    label: "Actual Credited Income",
+    key: "actualCreditedIncome",
+    color: "bg-gradient-to-r from-blue-600 to-cyan-500",
+  },
+  {
     label: "Marriage Fund",
     key: "marriageFund",
     color: "bg-gradient-to-r from-pink-500 to-rose-500",
