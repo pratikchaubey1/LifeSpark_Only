@@ -43,12 +43,16 @@ export default function ActivateID({ compact = false, onMenuOpen }) {
     const handler = setTimeout(async () => {
       try {
         setLookupLoading(true);
-        const res = await fetch(`${API_BASE}/auth/sponsor/${code}`);
+        const res = await fetch(`${API_BASE}/auth/member-lookup/${code}`);
         const data = await res.json();
-        if (res.ok && data.sponsor) {
-          setTargetName(data.sponsor.name);
+        if (res.ok && data.member) {
+          if (data.member.isActivated) {
+            setTargetName(`${data.member.name} (Already Active)`);
+          } else {
+            setTargetName(data.member.name);
+          }
         } else {
-          setTargetName("User not found");
+          setTargetName("Member not found");
         }
       } catch {
         setTargetName("");

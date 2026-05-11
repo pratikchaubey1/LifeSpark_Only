@@ -39,6 +39,8 @@ const NAV_ITEMS = [
 
 import { Toaster } from 'react-hot-toast';
 
+const SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 1 day
+
 export default function App() {
   const [activeSection, setActiveSection] = useState("home");
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -53,11 +55,28 @@ export default function App() {
 
   function handleLogout() {
     localStorage.removeItem("token");
+    localStorage.removeItem("lastActivity");
     setIsAuthenticated(false);
     setAuthView(null);
     setWelcomeData(null);
     navigate("/");
   }
+
+  // Session timeout: auto-logout if inactive for 24 hours
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const lastActivity = Number(localStorage.getItem("lastActivity") || 0);
+    if (lastActivity && Date.now() - lastActivity > SESSION_TIMEOUT_MS) {
+      console.log("⏰ Session expired (24h inactivity). Logging out.");
+      handleLogout();
+      return;
+    }
+
+    // Update activity timestamp on every page load
+    localStorage.setItem("lastActivity", String(Date.now()));
+  }, []);
 
   // REGISTER SUBMIT
   async function handleRegisterSubmit(payload) {
@@ -71,6 +90,7 @@ export default function App() {
     if (!res.ok) throw new Error(data.message || "Register failed");
 
     localStorage.setItem("token", data.token);
+    localStorage.setItem("lastActivity", String(Date.now()));
     setIsAuthenticated(true);
 
     setWelcomeData({
@@ -96,6 +116,7 @@ export default function App() {
     if (!res.ok) throw new Error(data.message || "Login failed");
 
     localStorage.setItem("token", data.token);
+    localStorage.setItem("lastActivity", String(Date.now()));
     setIsAuthenticated(true);
 
     setAuthView("dashboard");

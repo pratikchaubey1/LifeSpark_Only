@@ -63,6 +63,36 @@ router.get('/sponsor/:code', async (req, res) => {
   }
 });
 
+// Member lookup (for activation flow — returns user regardless of activation status)
+router.get('/member-lookup/:code', async (req, res) => {
+  try {
+    const code = String(req.params.code || '').trim().toUpperCase();
+    if (!code) {
+      return res.status(400).json({ message: 'Invite code is required' });
+    }
+
+    const user = await User.findOne({
+      inviteCode: { $regex: new RegExp(`^${code}$`, 'i') }
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    return res.json({
+      member: {
+        id: user._id,
+        name: user.name,
+        inviteCode: user.inviteCode,
+        isActivated: user.isActivated
+      }
+    });
+  } catch (err) {
+    console.error('❌ Member lookup error:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
 router.post('/register', async (req, res) => {
   try {
     console.log('=== REGISTRATION REQUEST ===');

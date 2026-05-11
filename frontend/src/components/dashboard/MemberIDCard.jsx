@@ -145,7 +145,7 @@ export default function MemberIDCard({ onMenuOpen }) {
             {/* Logo Area */}
             <div className="flex items-center justify-center gap-2 mb-8">
               <div className="w-10 h-10 bg-white rounded-xl shadow-lg flex items-center justify-center p-1.5">
-                <img src="/logo192.png" alt="LS" className="w-full h-full object-contain" onError={(e) => e.target.src = "https://cdn-icons-png.flaticon.com/512/3256/3256121.png"} />
+                <img src="/one.png" alt="LS" className="w-full h-full object-contain" onError={(e) => e.target.src = "https://cdn-icons-png.flaticon.com/512/3256/3256121.png"} />
               </div>
               <div className="text-left">
                 <div className="text-white font-black text-sm leading-tight tracking-tight uppercase">Life Spark</div>

@@ -167,7 +167,25 @@ export default function AdminPage() {
   // Auth & tokens
   const [username, setUsername] = useState("admin");
   const [password, setPassword] = useState("admin123");
-  const [adminToken, setAdminToken] = useState(() => localStorage.getItem("adminToken") || null);
+  const SESSION_TIMEOUT_MS = 24 * 60 * 60 * 1000; // 1 day
+
+  const [adminToken, setAdminToken] = useState(() => {
+    const token = localStorage.getItem("adminToken");
+    if (!token) return null;
+
+    // Check session timeout on init
+    const lastActivity = Number(localStorage.getItem("adminLastActivity") || 0);
+    if (lastActivity && Date.now() - lastActivity > SESSION_TIMEOUT_MS) {
+      console.log("\u23f0 Admin session expired (24h inactivity). Logging out.");
+      localStorage.removeItem("adminToken");
+      localStorage.removeItem("adminLastActivity");
+      return null;
+    }
+
+    // Refresh activity timestamp
+    localStorage.setItem("adminLastActivity", String(Date.now()));
+    return token;
+  });
 
   // data
   const [users, setUsers] = useState([]); // user objects expected to have id, name, email, totalIncome, balance, isActivated, inviteCode, activationPin
@@ -578,6 +596,7 @@ export default function AdminPage() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.message || "Login failed");
       localStorage.setItem("adminToken", data.token);
+      localStorage.setItem("adminLastActivity", String(Date.now()));
       setAdminToken(data.token);
       // fetch initial small data
       fetchEpins(data.token);
@@ -823,6 +842,7 @@ export default function AdminPage() {
 
   function handleLogout() {
     localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminLastActivity");
     setAdminToken(null);
     setUsers([]);
     // optional: navigate to root
