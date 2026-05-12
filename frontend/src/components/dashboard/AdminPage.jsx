@@ -3474,6 +3474,7 @@ export default function AdminPage() {
                             <option value="daily_level_income">Daily Level Income</option>
                             <option value="marriage_fund">Marriage Fund Credit</option>
                             <option value="accident_fund">Accident Fund Credit</option>
+                            <option value="withdrawal">Withdrawal (Approved)</option>
                           </select>
                         </div>
                       </div>
@@ -3529,7 +3530,8 @@ export default function AdminPage() {
                             log.type === 'level_income' ? 'bg-purple-100 text-purple-700' :
                               log.type === 'marriage_fund' ? 'bg-pink-100 text-pink-700' :
                                 log.type === 'accident_fund' ? 'bg-orange-100 text-orange-700' :
-                                  'bg-amber-100 text-amber-700'
+                                  log.type === 'withdrawal' ? 'bg-red-100 text-red-700' :
+                                    'bg-amber-100 text-amber-700'
                           }`}>
                           {log.type.replace(/_/g, ' ')}
                         </span>

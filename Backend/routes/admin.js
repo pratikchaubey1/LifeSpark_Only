@@ -719,6 +719,16 @@ router.post('/withdrawals/:id/approve', adminAuth, async (req, res) => {
     withdrawal.approvedBy = 'admin';
     await withdrawal.save();
 
+    // Create IncomeLog for withdrawal tracking
+    await IncomeLog.create({
+      userId: user._id.toString(),
+      userName: user.name || '',
+      userInviteCode: user.inviteCode || '',
+      type: 'withdrawal',
+      amount: amount,
+      description: `${withdrawal.type === 'upgrade' ? 'Upgrade Fee' : 'Withdrawal'} of ₹${amount} approved by admin (Method: ${withdrawal.method || 'wallet'})`
+    });
+
     return res.json({
       withdrawal,
       user: { id: user._id.toString(), balance: user.balance, withdrawal: user.withdrawal, repurchaseWallet: user.repurchaseWallet, marriageFund: user.marriageFund, accidentFund: user.accidentFund }

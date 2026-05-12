@@ -7,7 +7,7 @@ const incomeLogSchema = new mongoose.Schema({
     type: {
         type: String,
         required: true,
-        enum: ['daily_bonus', 'sponsor_income', 'level_income', 'daily_level_income', 'marriage_fund', 'accident_fund', 'repurchase_transfer'],
+        enum: ['daily_bonus', 'sponsor_income', 'level_income', 'daily_level_income', 'marriage_fund', 'accident_fund', 'repurchase_transfer', 'withdrawal'],
         index: true
     },
     amount: { type: Number, required: true },
