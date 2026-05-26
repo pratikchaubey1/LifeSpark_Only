@@ -226,11 +226,11 @@ async function distributeDailyLevelIncomeWithCaps(activeUsers) {
                 if (!currentSponsorCode) break;
 
                 const sponsor = await User.findOne({ inviteCode: currentSponsorCode })
-                    .select('_id inviteCode sponsorId firstReferralDate upgradeStatus incomeExpiryDate isActivated').lean();
+                    .select('_id inviteCode sponsorId firstReferralDate upgradeStatus incomeExpiryDate isActivated isBlocked').lean();
                 if (!sponsor) break;
 
-                // Skip expired/unactivated sponsors in the aggregation (Receiving Block)
-                if (isUserExpired(sponsor) || !sponsor.isActivated) {
+                // Skip blocked/expired/unactivated sponsors in the aggregation (Receiving Block)
+                if (sponsor.isBlocked || isUserExpired(sponsor) || !sponsor.isActivated) {
                     currentSponsorCode = sponsor.sponsorId;
                     continue;
                 }
