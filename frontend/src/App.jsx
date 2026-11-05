@@ -113,7 +113,13 @@ export default function App() {
     });
 
     const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Login failed");
+    if (!res.ok) {
+      // BLOCK CHECK: Show clear message if account is blocked
+      if (res.status === 403) {
+        throw new Error(data.message || "Your account has been blocked by admin. Please contact support.");
+      }
+      throw new Error(data.message || "Login failed");
+    }
 
     localStorage.setItem("token", data.token);
     localStorage.setItem("lastActivity", String(Date.now()));

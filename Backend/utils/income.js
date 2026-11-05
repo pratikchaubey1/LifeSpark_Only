@@ -2,35 +2,30 @@ const User = require('../models/User');
 const IncomeLog = require('../models/IncomeLog');
 
 const LEVEL_INCOME_RATES = {
-    1: 5,
-    2: 4,
-    3: 3,
-    4: 2,
-    5: 1,
-    6: 1,
-    7: 0.5,
-    8: 0.5,
-    9: 0.5,
-    10: 0.5
+    1: 300,
+    2: 100,
+    3: 100,
+    4: 100,
+    5: 50,
+    6: 50,
+    7: 50,
+    8: 50,
+    9: 50,
+    10: 50
 };
 
 const SPONSOR_INCOME = 40;
 
-// Helper to check if a user is expired for RECEIVING income (60 days from first team member)
+// Helper to check if a user is expired for RECEIVING income (REMOVED: Accounts have lifetime validity)
 function isUserExpired(user) {
-    if (!user) return false;
-    if (user.upgradeStatus === 'approved') return false;
-    if (!user.firstReferralDate) return false;
-    const msSinceFirst = Date.now() - new Date(user.firstReferralDate).getTime();
-    const daysSinceFirst = msSinceFirst / (1000 * 60 * 60 * 24);
-    return daysSinceFirst >= 60;
+    // 60-day expiry rule has been removed - IDs never close or expire
+    return false;
 }
 
-// Helper to check if a user is expired for GENERATING income for upline (60 days from activation/upgrade)
+// Helper to check if a user is expired for GENERATING income for upline (REMOVED: Accounts have lifetime validity)
 function isIncomeGenerationExpired(user) {
-    if (!user) return false;
-    if (!user.incomeExpiryDate) return false; // Should be set on activation
-    return new Date() > new Date(user.incomeExpiryDate);
+    // 60-day expiry rule has been removed - IDs always generate upline income
+    return false;
 }
 
 // Maximum daily level income caps (total income cap, unlocked progressively)
@@ -105,7 +100,7 @@ async function distributeIncome(beneficiary) {
             let totalToCredit = 0;
             const levelRate = LEVEL_INCOME_RATES[level] || 0;
 
-            // 1. Level 1 logic: Give SPONSOR_INCOME (50) + Level 1 rate (6) = ₹56 total
+            // 1. Level 1 logic: Give SPONSOR_INCOME (40) + Level 1 rate (300) = ₹340 total
             if (level === 1) {
                 // 60-Day Timer Trigger: Starts when the FIRST direct referral ACTIVATES
                 if (!sponsor.firstReferralDate) {
@@ -128,7 +123,7 @@ async function distributeIncome(beneficiary) {
                 console.log(`✅ Level ${level}: ${sponsor.inviteCode} (${sponsor.name}) +₹${totalToCredit}`);
                 await sponsor.save();
 
-                // Log sponsor income (₹50) separately from level income
+                // Log sponsor income (₹40) separately from level income
                 if (level === 1) {
                     await IncomeLog.create({
                         userId: sponsor._id.toString(),

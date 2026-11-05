@@ -313,6 +313,12 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+    // BLOCK CHECK: Prevent blocked users from logging in
+    if (user.isBlocked) {
+      console.log('Login failed: User is blocked', user._id);
+      return res.status(403).json({ message: 'Your account has been blocked by admin. Please contact support.' });
+    }
+
     console.log('Login success for user:', user._id);
     const token = jwt.sign({ id: user._id }, JWT_SECRET, { expiresIn: '7d' });
     const userObj = user.toObject();

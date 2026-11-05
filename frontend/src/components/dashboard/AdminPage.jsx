@@ -295,6 +295,13 @@ export default function AdminPage() {
   const [mfMessage, setMfMessage] = useState(null);
   const [mfLoading, setMfLoading] = useState(false);
 
+  // Repurchase Wallet
+  const [repurchaseUsers, setRepurchaseUsers] = useState([]);
+  const [repurchaseStats, setRepurchaseStats] = useState({ totalRepurchaseBalance: 0, totalWithRepurchase: 0 });
+  const [loadingRepurchase, setLoadingRepurchase] = useState(false);
+  const [repurchaseSearch, setRepurchaseSearch] = useState("");
+  const [repurchasePage, setRepurchasePage] = useState(1);
+
   // Accident Fund
   const [afSearch, setAfSearch] = useState("");
   const [afUser, setAfUser] = useState(null);
@@ -361,6 +368,28 @@ export default function AdminPage() {
       toast.error('Server error');
     } finally {
       setProcessingUpgradeId(null);
+    }
+  }
+
+  async function fetchRepurchaseData(token) {
+    if (!token) return;
+    setLoadingRepurchase(true);
+    try {
+      const res = await fetch(`${API_BASE}/admin/repurchase-users`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setRepurchaseUsers(data.users || []);
+        setRepurchaseStats({
+          totalRepurchaseBalance: data.totalRepurchaseBalance || 0,
+          totalWithRepurchase: data.totalWithRepurchase || 0
+        });
+      }
+    } catch (err) {
+      console.error("Fetch repurchase data error", err);
+    } finally {
+      setLoadingRepurchase(false);
     }
   }
 
@@ -554,6 +583,9 @@ export default function AdminPage() {
       }
       if (currentPage === "dannFund") {
         fetchDannStats(adminToken);
+      }
+      if (currentPage === "repurchaseWallet") {
+        fetchRepurchaseData(adminToken);
       }
       if (currentPage === "upgradeRequests") {
         fetchUpgradeRequests(adminToken);
@@ -1471,6 +1503,7 @@ export default function AdminPage() {
           <SidebarButton label="Transaction Logs" active={currentPage === "incomeLogs"} icon={<IconRefresh />} onClick={() => { openPage("incomeLogs"); setSidebarOpen(false); }} />
           <SidebarButton label="Autopool Requests" active={currentPage === "autopool"} icon={<IconUsers />} onClick={() => { openPage("autopool"); setSidebarOpen(false); }} />
           <SidebarButton label="Autopool Tree" active={currentPage === "autopool-tree"} icon={<IconUsers />} onClick={() => { openPage("autopool-tree"); setSidebarOpen(false); }} />
+          <SidebarButton label="Repurchase Wallet" active={currentPage === "repurchaseWallet"} icon={<IconDollar />} onClick={() => { openPage("repurchaseWallet"); setSidebarOpen(false); }} />
           <SidebarButton label="Accident Fund" active={currentPage === "accidentFund"} icon={<IconDollar />} onClick={() => { openPage("accidentFund"); setSidebarOpen(false); }} />
           <SidebarButton label="Dann Fund" active={currentPage === "dannFund"} icon={<IconAward />} onClick={() => { openPage("dannFund"); setSidebarOpen(false); }} />
           <SidebarButton label="Upgrade Requests" active={currentPage === "upgradeRequests"} icon={<IconRefresh />} onClick={() => { openPage("upgradeRequests"); setSidebarOpen(false); }} />
@@ -1741,13 +1774,20 @@ export default function AdminPage() {
                               </td>
                               <td className="p-3 font-mono">{u.activationPin || "-"}</td>
                               <td className="p-3">
-                                {u.isBlocked ? (
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700">Blocked</span>
-                                ) : u.isActivated ? (
-                                  <span className="text-green-600 font-semibold">Active</span>
-                                ) : (
-                                  <span className="text-slate-500">Inactive</span>
-                                )}
+                                <div className="flex flex-col gap-1 items-start">
+                                  {u.isBlocked ? (
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700">Blocked</span>
+                                  ) : u.isActivated ? (
+                                    <span className="text-green-600 font-semibold">Active</span>
+                                  ) : (
+                                    <span className="text-slate-500">Inactive</span>
+                                  )}
+                                  {u.customTag && (
+                                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                                      🏷️ {u.customTag}
+                                    </span>
+                                  )}
+                                </div>
                               </td>
                               <td className="p-3">
                                 <button
@@ -2305,6 +2345,18 @@ export default function AdminPage() {
                               className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none h-20"
                             />
                           </div>
+                          <div>
+                            <label className="block text-xs font-medium text-slate-700 mb-1">
+                              Custom Member Tag <span className="text-slate-400 font-normal">(Shown beside Active status on user dashboard)</span>
+                            </label>
+                            <input
+                              value={mgmtUser.customTag || ""}
+                              onChange={(e) => setMgmtUser({ ...mgmtUser, customTag: e.target.value })}
+                              placeholder="e.g. VIP, Leader, Diamond, Core Member..."
+                              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-amber-50/30 border-amber-200"
+                            />
+                            <p className="text-[10px] text-slate-400 mt-1">Leave empty to remove tag.</p>
+                          </div>
                         </div>
                       </div>
 
@@ -2336,6 +2388,86 @@ export default function AdminPage() {
                               onChange={(e) => setMgmtUser({ ...mgmtUser, sponsorName: e.target.value })}
                               className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none"
                             />
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Rank & Tier Section */}
+                      <div className="bg-white border rounded-2xl shadow-sm p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400">Rank & Tier Details</h3>
+                          <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200 shadow-sm">
+                            👑 {mgmtUser.rank || 'Member'}
+                          </span>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div>
+                            <label className="block text-xs font-medium text-slate-700 mb-1">
+                              Rank Assignment
+                            </label>
+                            <select
+                              value={mgmtUser.customRank || (mgmtUser.rank && mgmtUser.rank !== 'Member' ? mgmtUser.rank : 'Auto')}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setMgmtUser({
+                                  ...mgmtUser,
+                                  customRank: val,
+                                  rank: val === 'Auto' ? (mgmtUser.rankInfo?.calculatedRank || 'Member') : val
+                                });
+                              }}
+                              className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-1 focus:ring-blue-500 outline-none bg-slate-50 font-medium"
+                            >
+                              <option value="Auto">Auto-Calculate from Downline Team</option>
+                              <option value="Associate">Level 1: Associate (10 Team)</option>
+                              <option value="Executive Associate">Level 2: Executive Associate (100 Team)</option>
+                              <option value="Team Leader">Level 3: Team Leader (1,000 Team)</option>
+                              <option value="Senior Leader">Level 4: Senior Leader (10,000 Team)</option>
+                              <option value="Bronze Manager">Level 5: Bronze Manager (1,00,000 Team)</option>
+                              <option value="Silver Manager">Level 6: Silver Manager (10,00,000 Team)</option>
+                              <option value="Gold Director">Level 7: Gold Director (1,00,00,000 Team)</option>
+                              <option value="Platinum Director">Level 8: Platinum Director (10,00,00,000 Team)</option>
+                              <option value="Diamond Ambassador">Level 9: Diamond Ambassador (10,00,00,000 Team)</option>
+                              <option value="Crown Royal Ambassador">Level 10: Crown Royal Ambassador (100,00,00,000 Team)</option>
+                            </select>
+                            <p className="text-[10px] text-slate-400 mt-1">
+                              {mgmtUser.customRank && mgmtUser.customRank !== 'Auto'
+                                ? 'Manual Override Active: ' + mgmtUser.customRank
+                                : 'Calculated Rank: ' + (mgmtUser.rankInfo?.calculatedRank || mgmtUser.rank || 'Member')}
+                            </p>
+                          </div>
+
+                          {/* Level Team Progression Table */}
+                          <div className="border rounded-xl overflow-hidden text-xs">
+                            <div className="bg-slate-50 px-3 py-2 font-bold text-slate-600 border-b flex justify-between">
+                              <span>Level & Target</span>
+                              <span>Rank</span>
+                              <span>Current Team</span>
+                            </div>
+                            <div className="max-h-48 overflow-y-auto divide-y">
+                              {[
+                                { lvl: 1, target: 10, r: 'Associate' },
+                                { lvl: 2, target: 100, r: 'Executive Associate' },
+                                { lvl: 3, target: 1000, r: 'Team Leader' },
+                                { lvl: 4, target: 10000, r: 'Senior Leader' },
+                                { lvl: 5, target: 100000, r: 'Bronze Manager' },
+                                { lvl: 6, target: 1000000, r: 'Silver Manager' },
+                                { lvl: 7, target: 10000000, r: 'Gold Director' },
+                                { lvl: 8, target: 100000000, r: 'Platinum Director' },
+                                { lvl: 9, target: 1000000000, r: 'Diamond Ambassador' },
+                                { lvl: 10, target: 100000000000, r: 'Crown Royal Ambassador' },
+                              ].map((item) => {
+                                const count = mgmtUser.rankInfo?.levelCounts?.[item.lvl] ?? (item.lvl === 1 ? (mgmtUser.directInviteCount || 0) : 0);
+                                const isDone = count >= item.target;
+                                return (
+                                  <div key={item.lvl} className={'px-3 py-2 flex items-center justify-between ' + (isDone ? 'bg-emerald-50/60 font-semibold text-emerald-800' : 'text-slate-600')}>
+                                    <span className="font-mono">L{item.lvl} ({item.target.toLocaleString()})</span>
+                                    <span>{item.r}</span>
+                                    <span className="font-mono">{count.toLocaleString()} {isDone ? '✅' : ''}</span>
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -2508,7 +2640,8 @@ export default function AdminPage() {
                   { label: "Invite Code" },
                   { label: "UPI" },
                   { label: "Original", className: "text-right" },
-                  { label: "Charge (25%)", className: "text-right" },
+                  { label: "Fee (5%)", className: "text-right" },
+                  { label: "Repurchase (10%)", className: "text-right" },
                   { label: "Payout", className: "text-right" },
                   { label: "Status" },
                   { label: "Requested" },
@@ -2601,8 +2734,13 @@ export default function AdminPage() {
                           )}
                         </td>
                         <td className="p-4 text-right">
-                          <div className="text-xs font-bold text-red-500 font-mono">
-                            -₹{w.chargeAmount !== undefined ? w.chargeAmount : (Number(w.originalAmount || (Number(w.amount) / 0.9)) * 0.1).toFixed(2)}
+                          <div className="text-xs font-bold text-rose-500 font-mono">
+                            -₹{w.chargeAmount !== undefined ? w.chargeAmount : (Number(w.originalAmount || w.amount) * 0.05).toFixed(2)}
+                          </div>
+                        </td>
+                        <td className="p-4 text-right">
+                          <div className="text-xs font-bold text-indigo-600 font-mono">
+                            +₹{w.repurchaseAmount !== undefined ? w.repurchaseAmount : (Number(w.originalAmount || w.amount) * 0.10).toFixed(2)}
                           </div>
                         </td>
                         <td className="p-4 text-right">
@@ -3048,6 +3186,176 @@ export default function AdminPage() {
                 </div>
               )
             }
+
+            {/* Repurchase Wallet Page */}
+            {currentPage === "repurchaseWallet" && (
+              <div>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
+                  <div>
+                    <h2 className="text-xl md:text-2xl font-bold text-slate-800 flex items-center gap-2">
+                      <span className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">🛍️</span>
+                      Repurchase Wallet Management
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-1">
+                      Member repurchase balances (10% auto-deducted from withdrawals and credited on approval)
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => fetchRepurchaseData(adminToken)}
+                    disabled={loadingRepurchase}
+                    className="inline-flex items-center gap-2 px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 active:scale-95 transition shadow-sm"
+                  >
+                    <IconRefresh className={loadingRepurchase ? "animate-spin text-indigo-600" : "text-slate-500"} />
+                    Refresh Data
+                  </button>
+                </div>
+
+                {/* Summary Metrics */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                  <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white rounded-2xl p-5 shadow-lg shadow-indigo-100">
+                    <div className="text-xs font-medium text-indigo-100 uppercase tracking-wider">Total Repurchase Pool</div>
+                    <div className="text-3xl font-black mt-2 font-mono">
+                      ₹{Number(repurchaseStats.totalRepurchaseBalance || 0).toLocaleString()}
+                    </div>
+                    <div className="text-[11px] text-indigo-100/80 mt-1">Accumulated across all users</div>
+                  </div>
+
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                    <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Members With Balance</div>
+                    <div className="text-3xl font-black text-slate-800 mt-2 font-mono">
+                      {repurchaseStats.totalWithRepurchase || 0}
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-1">Have ₹1 or more repurchase fund</div>
+                  </div>
+
+                  <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+                    <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Total Members</div>
+                    <div className="text-3xl font-black text-slate-800 mt-2 font-mono">
+                      {repurchaseUsers.length}
+                    </div>
+                    <div className="text-[11px] text-slate-500 mt-1">Total registered users</div>
+                  </div>
+                </div>
+
+                {/* Search Bar */}
+                <div className="bg-white border border-slate-200 rounded-2xl p-4 mb-4 shadow-sm">
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={repurchaseSearch}
+                        onChange={(e) => {
+                          setRepurchaseSearch(e.target.value);
+                          setRepurchasePage(1);
+                        }}
+                        placeholder="Search by member name, invite code, phone, or email..."
+                        className="w-full pl-4 pr-10 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50/50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-none transition"
+                      />
+                      {repurchaseSearch && (
+                        <button
+                          onClick={() => { setRepurchaseSearch(""); setRepurchasePage(1); }}
+                          className="absolute right-3 top-2.5 text-xs text-slate-400 hover:text-slate-600"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                    <div className="text-xs text-slate-500 font-medium whitespace-nowrap">
+                      Showing {repurchaseUsers.filter(u => {
+                        const q = repurchaseSearch.trim().toLowerCase();
+                        if (!q) return true;
+                        return (
+                          u.name?.toLowerCase().includes(q) ||
+                          u.inviteCode?.toLowerCase().includes(q) ||
+                          u.email?.toLowerCase().includes(q) ||
+                          u.phone?.toLowerCase().includes(q)
+                        );
+                      }).length} of {repurchaseUsers.length} members
+                    </div>
+                  </div>
+                </div>
+
+                {/* Users Table */}
+                <div className="border border-slate-200 rounded-2xl overflow-hidden bg-white shadow-sm">
+                  <DataTable
+                    headers={[
+                      { label: "#" },
+                      { label: "Member Name" },
+                      { label: "Invite Code" },
+                      { label: "Phone / Email" },
+                      { label: "Repurchase Balance", className: "text-right" },
+                      { label: "Main Balance", className: "text-right" },
+                      { label: "Status", className: "text-center" },
+                      { label: "Joined Date", className: "text-right" }
+                    ]}
+                    data={repurchaseUsers.filter(u => {
+                      const q = repurchaseSearch.trim().toLowerCase();
+                      if (!q) return true;
+                      return (
+                        u.name?.toLowerCase().includes(q) ||
+                        u.inviteCode?.toLowerCase().includes(q) ||
+                        u.email?.toLowerCase().includes(q) ||
+                        u.phone?.toLowerCase().includes(q)
+                      );
+                    })}
+                    itemsPerPage={15}
+                    emptyMessage="No members found matching your search."
+                    externalPage={repurchasePage}
+                    onPageChange={setRepurchasePage}
+                    renderRow={(u, idx) => (
+                      <tr key={u._id || u.id || idx} className="border-t border-slate-100 hover:bg-slate-50/70 transition">
+                        <td className="p-3 text-slate-400 text-xs font-mono">
+                          {(repurchasePage - 1) * 15 + idx + 1}
+                        </td>
+                        <td className="p-3 font-semibold text-slate-800 text-sm">
+                          {u.name || "N/A"}
+                        </td>
+                        <td className="p-3">
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(u.inviteCode)}
+                            className="font-mono text-xs font-bold text-indigo-600 hover:underline bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100"
+                            title="Click to copy"
+                          >
+                            {u.inviteCode || "-"}
+                          </button>
+                        </td>
+                        <td className="p-3 text-xs text-slate-600">
+                          <div>{u.phone || "-"}</div>
+                          <div className="text-slate-400 text-[11px] truncate max-w-[180px]">{u.email || "-"}</div>
+                        </td>
+                        <td className="p-3 text-right">
+                          <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-mono font-bold ${
+                            Number(u.repurchaseWallet || 0) > 0
+                              ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                              : "bg-slate-100 text-slate-400"
+                          }`}>
+                            ₹{Number(u.repurchaseWallet || 0).toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right font-mono text-xs font-bold text-slate-700">
+                          ₹{Number(u.balance || 0).toLocaleString()}
+                        </td>
+                        <td className="p-3 text-center">
+                          {u.isActivated ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-green-100 text-green-700">
+                              Active
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-100 text-red-700">
+                              Inactive
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3 text-right text-xs text-slate-400 font-mono">
+                          {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : "-"}
+                        </td>
+                      </tr>
+                    )}
+                  />
+                </div>
+              </div>
+            )}
 
             {/* Upgrade Requests Page (60-Day System) */}
             {currentPage === "upgradeRequests" && (
@@ -3666,7 +3974,7 @@ export default function AdminPage() {
                           <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                             <div>
                               <span className="text-sm font-medium text-slate-700">Enable Daily Cron Job</span>
-                              <p className="text-[11px] text-slate-400 mt-0.5">Controls the midnight cron job that distributes daily bonus &amp; level income.</p>
+                              <p className="text-[11px] text-slate-400 mt-0.5">Controls the midnight cron job that distributes daily bonus.</p>
                             </div>
                             <button
                               onClick={() => setSiteSettings(s => ({ ...s, cronEnabled: s.cronEnabled === false ? true : (s.cronEnabled === undefined ? false : !s.cronEnabled) }))}

@@ -12,16 +12,16 @@ async function getAllDownlineIds(inviteCode, maxLevel = 10) {
 }
 
 const LEVEL_INCOME_RATES = {
-    1: 5,
-    2: 4,
-    3: 3,
-    4: 2,
-    5: 1,
-    6: 1,
-    7: 0.5,
-    8: 0.5,
-    9: 0.5,
-    10: 0.5
+    1: 300,
+    2: 100,
+    3: 100,
+    4: 100,
+    5: 50,
+    6: 50,
+    7: 50,
+    8: 50,
+    9: 50,
+    10: 50
 };
 
 const LEVEL_INCOME_CAPS = {
@@ -50,21 +50,16 @@ const CAP_UNLOCK_THRESHOLDS = {
     10: 20000
 };
 
-// Helper to check if a user is expired for RECEIVING income (60 days from first team member)
+// Helper to check if a user is expired for RECEIVING income (REMOVED: Accounts have lifetime validity)
 function isUserExpired(user) {
-    if (!user) return false;
-    if (user.upgradeStatus === 'approved') return false;
-    if (!user.firstReferralDate) return false;
-    const msSinceFirst = Date.now() - new Date(user.firstReferralDate).getTime();
-    const daysSinceFirst = msSinceFirst / (1000 * 60 * 60 * 24);
-    return daysSinceFirst >= 60;
+    // 60-day expiry rule has been removed - IDs never close or expire
+    return false;
 }
 
-// Helper to check if a user is expired for GENERATING income for upline (60 days from activation/upgrade)
+// Helper to check if a user is expired for GENERATING income for upline (REMOVED: Accounts have lifetime validity)
 function isIncomeGenerationExpired(user) {
-    if (!user) return false;
-    if (!user.incomeExpiryDate) return false; // Should be set on activation
-    return new Date() > new Date(user.incomeExpiryDate);
+    // 60-day expiry rule has been removed - IDs always generate upline income
+    return false;
 }
 
 /**
@@ -164,8 +159,8 @@ async function getTeamStats(user) {
         todayInactive: allTeamUsers.filter(u => !u.isActivated && u.createdAt >= todayStart).length,
         todayTotalId: allTeamUsers.filter(u => u.createdAt >= todayStart).length,
 
-        dailyLevelIncome: potentialDailyLevelRate,
-        actualCreditedIncome: actualCreditedIncome
+        dailyLevelIncome: 0,
+        actualCreditedIncome: user.levelIncome || 0
     };
 
     return stats;

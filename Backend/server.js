@@ -93,8 +93,6 @@ cron.schedule("0 0 * * *", async () => {
     const users = await User.find({ isActivated: true, activatedAt: { $ne: null }, isBlocked: { $ne: true } });
     console.log(`👥 Total activated users found: ${users.length}`);
 
-    // Collect users eligible for daily level income distribution
-    const usersForLevelIncome = [];
     let skippedCount = 0;
     let bonusCount = 0;
 
@@ -130,25 +128,13 @@ cron.schedule("0 0 * * *", async () => {
         });
       }
 
-      // Collect this user for capped level income distribution
-      usersForLevelIncome.push(user);
-
       user.lastDailyCredit = todayStr;
       await user.save();
     }
 
     console.log(`⏭️  Skipped (already processed): ${skippedCount}`);
-    console.log(`📋 Users for level income: ${usersForLevelIncome.length}`);
     console.log(`🎁 Daily bonus given to: ${bonusCount} users`);
-
-    // Distribute daily level income with per-level caps (done ONCE for all users)
-    if (usersForLevelIncome.length > 0) {
-      const { distributeDailyLevelIncomeWithCaps } = require('./utils/income');
-      console.log(`🚀 Starting level income distribution for ${usersForLevelIncome.length} users...`);
-      await distributeDailyLevelIncomeWithCaps(usersForLevelIncome);
-    } else {
-      console.log(`⚠️  No users to distribute level income to!`);
-    }
+    console.log("✔ Daily bonus cron job complete (Daily level income has been replaced with one-time level income on activation)");
 
     console.log("✔ Daily bonus cron job complete");
   } catch (err) {

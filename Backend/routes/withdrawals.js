@@ -123,16 +123,17 @@ router.post('/', auth, async (req, res) => {
       });
     }
 
-    // Split amount: 25% withdrawal charge, 75% actual payout
-    const chargeAmount = Number((amount * 0.25).toFixed(2));
-    const withdrawalAmount = Number((amount - chargeAmount).toFixed(2));
+    // Split amount: 5% withdrawal charge, 10% to Repurchase Wallet (on approval), 85% actual payout
+    const chargeAmount = Number((amount * 0.05).toFixed(2));
+    const repurchaseAmount = Number((amount * 0.10).toFixed(2));
+    const withdrawalAmount = Number((amount - chargeAmount - repurchaseAmount).toFixed(2));
 
     const withdrawal = new Withdrawal({
       withdrawalId: `WD-${Date.now()}`,
       userId: req.user._id.toString(),
       amount: withdrawalAmount,
       chargeAmount: chargeAmount,
-      repurchaseAmount: 0,
+      repurchaseAmount: repurchaseAmount,
       originalAmount: amount,
       upiId: method === 'upi' ? upiId : '',
       upiNo: method === 'upi' ? upiNo : 'CASH',
@@ -160,8 +161,10 @@ router.post('/', auth, async (req, res) => {
     return res.status(201).json({
       withdrawal,
       chargeAmount,
+      chargeAmount,
+      repurchaseAmount,
       withdrawalAmount,
-      message: `Withdrawal request for ₹${withdrawalAmount} created. ₹${chargeAmount} (25%) deducted as withdrawal charge.`
+      message: `Withdrawal request for ₹${withdrawalAmount} created. ₹${chargeAmount} (5%) fee deducted, ₹${repurchaseAmount} (10%) will be added to Repurchase Wallet on approval.`
     });
   } catch (err) {
     console.error('Create withdrawal error', err);

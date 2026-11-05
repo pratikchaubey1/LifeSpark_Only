@@ -8,22 +8,22 @@ const router = express.Router();
 
 // Income per user at each level
 const LEVEL_INCOME_RATES = {
-    1: 5,
-    2: 4,
-    3: 3,
-    4: 2,
-    5: 1,
-    6: 1,
-    7: 0.5,
-    8: 0.5,
-    9: 0.5,
-    10: 0.5
+    1: 300,
+    2: 100,
+    3: 100,
+    4: 100,
+    5: 50,
+    6: 50,
+    7: 50,
+    8: 50,
+    9: 50,
+    10: 50
 };
 
 router.get('/', auth, async (req, res) => {
     try {
         const currentUser = await User.findById(req.user._id)
-            .select('inviteCode directInviteIds')
+            .select('inviteCode directInviteIds name levelIncome')
             .lean();
 
         if (!currentUser) {
@@ -120,7 +120,7 @@ router.get('/', auth, async (req, res) => {
 
         return res.json({
             levels,
-            totalLevelIncome,
+            totalLevelIncome: (currentUser.levelIncome !== undefined && currentUser.levelIncome > 0) ? currentUser.levelIncome : totalLevelIncome,
             currentUserInfo: {
                 name: currentUser.name,
                 inviteCode: currentUser.inviteCode

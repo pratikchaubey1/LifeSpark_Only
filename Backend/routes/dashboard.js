@@ -5,6 +5,7 @@ const Epin = require('../models/Epin');
 const router = express.Router();
 const { distributeIncome } = require('../utils/income');
 const { getTeamStats } = require('../utils/dashboard_utils');
+const { calculateUserRank } = require('../utils/rank');
 const IncomeLog = require('../models/IncomeLog');
 
 router.get('/', auth, async (req, res) => {
@@ -14,28 +15,28 @@ router.get('/', auth, async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // ---- 60-Day Upgrade Check ----
+    // ---- 60-Day Upgrade Check (REMOVED: Lifetime validity, no ID expiration) ----
     let upgradeRequired = false;
     let daysRemaining = null;
-    if (user.firstReferralDate && user.upgradeStatus !== 'approved') {
-      const msSinceFirst = Date.now() - new Date(user.firstReferralDate).getTime();
-      const daysSinceFirst = msSinceFirst / (1000 * 60 * 60 * 24);
-      daysRemaining = Math.max(0, Math.ceil(60 - daysSinceFirst));
-      if (daysSinceFirst >= 60) {
-        upgradeRequired = true;
-        if (user.upgradeStatus !== 'pending') {
-          user.upgradeStatus = 'expired';
-          await user.save();
-        }
-      }
+    // Auto-revert any previously expired accounts so they are completely unblocked
+    if (user.upgradeStatus === 'expired') {
+      user.upgradeStatus = 'none';
+      await user.save();
     }
     // ---- End 60-Day Check ----
 
     const teamStats = await getTeamStats(user);
+    const rankInfo = await calculateUserRank(user);
+    if (user.rank !== rankInfo.rank) {
+      user.rank = rankInfo.rank;
+      await user.save();
+    }
     const { password, ...safeUser } = user.toObject();
+    safeUser.rank = rankInfo.rank;
 
     res.json({
       user: safeUser,
+      rankInfo,
       upgradeRequired,
       daysRemaining,
       cards: {
@@ -45,11 +46,12 @@ router.get('/', auth, async (req, res) => {
         dailyBonusIncome: user.dailyBonusIncome || 0,
         autopoolIncome: user.autopoolLevelIncome || 0,
         rankRewardIncome: user.rankRewardIncome || 0,
-        levelIncome: teamStats.dailyLevelIncome || 0,
+        levelIncome: user.levelIncome || 0,
         accumulatedLevelIncome: user.levelIncome || 0,
         marriageFund: user.marriageFund || 0,
         accidentFund: user.accidentFund || 0,
-        repurchaseIncome: 0, // Not implemented yet
+        repurchaseIncome: user.repurchaseWallet || 0,
+        repurchaseWallet: user.repurchaseWallet || 0,
         ...teamStats
       },
     });

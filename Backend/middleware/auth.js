@@ -29,6 +29,11 @@ module.exports = async function auth(req, res, next) {
     const user = await User.findById(userId);
     if (!user) return res.status(401).json({ message: 'User not found' });
 
+    // BLOCK CHECK: Reject any request from a blocked user (even with valid token)
+    if (user.isBlocked) {
+      return res.status(403).json({ message: 'Your account has been blocked by admin. Please contact support.' });
+    }
+
     // Attach user object to request
     req.user = user.toObject();
     next();

@@ -35,14 +35,9 @@ const topStatConfig = [
     color: "bg-gradient-to-r from-purple-500 to-fuchsia-600",
   },
   {
-    label: "Daily Level Income",
+    label: "Level Income",
     key: "levelIncome",
     color: "bg-gradient-to-r from-indigo-400 to-blue-500",
-  },
-  {
-    label: "Actual Credited Income",
-    key: "actualCreditedIncome",
-    color: "bg-gradient-to-r from-blue-600 to-cyan-500",
   },
   {
     label: "Marriage Fund",
@@ -58,7 +53,7 @@ const topStatConfig = [
 
 const bottomStatConfig = [
   {
-    label: "Repurchase Income",
+    label: "Repurchase Wallet",
     key: "repurchaseIncome",
     color: "bg-gradient-to-r from-cyan-500 to-sky-600",
   },
@@ -116,6 +111,8 @@ function DashBoardPage({ setLoading: setParentLoading }) {
   const [cards, setCards] = useState(null);
   const [settings, setSettings] = useState(null);
   const [showPopup, setShowPopup] = useState(false);
+  const [rankInfo, setRankInfo] = useState(null);
+  const [showRankChart, setShowRankChart] = useState(false);
 
   // 60-Day Upgrade System
   const [upgradeRequired, setUpgradeRequired] = useState(false);
@@ -145,7 +142,8 @@ function DashBoardPage({ setLoading: setParentLoading }) {
           const data = await dashRes.json();
           setUser(data.user);
           setCards(data.cards || {});
-          setUpgradeRequired(data.upgradeRequired || false);
+          setRankInfo(data.rankInfo || null);
+          setUpgradeRequired(false); // 60-day upgrade popup disabled
           setDaysRemaining(data.daysRemaining);
           setUpgradeStatus(data.user?.upgradeStatus || 'none');
         }
@@ -223,59 +221,8 @@ function DashBoardPage({ setLoading: setParentLoading }) {
   return (
     <div className="min-h-full bg-white relative">
 
-      {/* 60-Day Upgrade Popup */}
-      {upgradeRequired && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
-          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
-            {/* Header */}
-            <div className="bg-gradient-to-r from-red-500 to-orange-500 p-6 text-center">
-              <div className="text-5xl mb-3">⏰</div>
-              <h2 className="text-2xl font-black text-white">Account Upgrade Required</h2>
-              <p className="text-sm text-white/80 mt-2">Your 60-day period has expired</p>
-            </div>
-
-            {/* Body */}
-            <div className="p-6 text-center">
-              {upgradeStatus === 'pending' ? (
-                <>
-                  <div className="text-6xl mb-4">✅</div>
-                  <h3 className="text-lg font-bold text-slate-900 mb-2">Upgrade Request Submitted!</h3>
-                  <p className="text-sm text-slate-600 mb-4">
-                    Your upgrade request has been sent to the admin. Please pay <strong>₹1199</strong> to admin and wait for approval.
-                  </p>
-                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-sm font-bold">
-                    <div className="w-2 h-2 bg-amber-500 rounded-full animate-pulse"></div>
-                    Pending Admin Approval
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-slate-600 mb-6">
-                    Your account has been active for more than 60 days since you started adding members. To continue using all features, please upgrade your account.
-                  </p>
-
-                  <div className="bg-blue-50 rounded-2xl p-6 mb-6 border border-blue-100">
-                    <div className="text-xs font-bold text-blue-400 uppercase tracking-widest mb-1">Upgrade Fee</div>
-                    <div className="text-4xl font-black text-blue-600">₹1199</div>
-                    <div className="text-xs text-slate-500 mt-1">One-time payment to admin</div>
-                  </div>
-
-                  <button
-                    onClick={handleRequestUpgrade}
-                    disabled={upgradeRequesting}
-                    className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white font-black text-lg rounded-2xl transition-all shadow-xl shadow-blue-200 active:translate-y-0.5 disabled:opacity-50"
-                  >
-                    {upgradeRequesting ? "Submitting..." : "Request Upgrade"}
-                  </button>
-                  <p className="text-[11px] text-slate-400 mt-3">
-                    Pay ₹1199 to admin and click above to submit your request.
-                  </p>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 60-Day Upgrade Popup (REMOVED: IDs have lifetime validity) */}
+      {/* 60-day upgrade system and popup have been disabled per user request */}
       {/* Top info bar (Marquee) */}
       {settings?.marqueeEnabled && (
         <div className="bg-sky-600 border-b border-sky-500 overflow-hidden py-2 shadow-sm sticky top-0 z-40">
@@ -336,15 +283,22 @@ function DashBoardPage({ setLoading: setParentLoading }) {
         </div>
       )}
 
-      {/* Activation status badge */}
-      <div className="flex justify-center mt-3">
+      {/* Activation status badge + Admin Custom Tag */}
+      <div className="flex justify-center items-center gap-2 mt-3 flex-wrap">
         {user?.isActivated ? (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 border border-green-200">
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-green-100 text-green-800 border border-green-200 shadow-sm">
             ✅ Status: Active
           </span>
         ) : (
-          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 border border-red-200">
+          <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 border border-red-200 shadow-sm">
             ⚠️ Status: Inactive
+          </span>
+        )}
+
+        {user?.customTag && (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold bg-gradient-to-r from-amber-500 to-indigo-600 text-white shadow-sm border border-amber-300/60">
+            <span>🏷️</span>
+            <span>{user.customTag}</span>
           </span>
         )}
       </div>
@@ -403,7 +357,9 @@ function DashBoardPage({ setLoading: setParentLoading }) {
               </div>
 
               <div className="mt-1 text-sm">{user?.id || "User ID"}</div>
-              <div className="text-sm">Post</div>
+              <div className="mt-1 px-3 py-0.5 rounded-full text-xs font-bold bg-white/20 text-white border border-white/30 flex items-center gap-1">
+                👑 Rank: {user?.rank || "Member"}
+              </div>
 
               <div className="mt-4 text-xs">
                 Joining Date:{" "}
@@ -421,6 +377,156 @@ function DashBoardPage({ setLoading: setParentLoading }) {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Rank & Achievement Block */}
+        <div className="mt-6 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 border border-indigo-800/50 rounded-2xl p-6 text-white shadow-xl relative overflow-hidden">
+          {/* Decorative glow */}
+          <div className="absolute top-0 right-0 -mr-16 -mt-16 w-64 h-64 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 -ml-16 -mb-16 w-64 h-64 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="relative z-10">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-indigo-900/40">
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-400 via-amber-500 to-indigo-600 flex items-center justify-center text-3xl shadow-lg shadow-amber-500/20 border border-amber-300/40">
+                  👑
+                </div>
+                <div>
+                  <div className="text-xs uppercase tracking-widest text-amber-300 font-bold">
+                    Official Member Rank
+                  </div>
+                  <h2 className="text-2xl font-extrabold tracking-tight text-white mt-0.5 flex items-center gap-2">
+                    <span>{user?.rank || "Member"}</span>
+                    {rankInfo?.achievedLevel > 0 && (
+                      <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        Level {rankInfo.achievedLevel} Qualified
+                      </span>
+                    )}
+                  </h2>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setShowRankChart(!showRankChart)}
+                  className="px-4 py-2 rounded-xl text-xs font-bold bg-indigo-600/60 hover:bg-indigo-600 border border-indigo-400/30 text-indigo-100 transition flex items-center gap-2 shadow-sm"
+                >
+                  <span>📊</span>
+                  <span>{showRankChart ? "Hide Rank Chart" : "View Rank Chart"}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Next Rank Progress */}
+            {rankInfo?.nextTier ? (
+              <div className="mt-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs gap-2 mb-2">
+                  <span className="text-indigo-200">
+                    Next Rank: <strong className="text-amber-300 font-bold">{rankInfo.nextTier.rank}</strong> (Level {rankInfo.nextTier.level})
+                  </span>
+                  <span className="text-indigo-300 font-mono">
+                    {rankInfo.nextTier.currentCount.toLocaleString()} / {rankInfo.nextTier.target.toLocaleString()} Team ({rankInfo.nextTier.progressPercent}%)
+                  </span>
+                </div>
+                <div className="w-full bg-slate-800 rounded-full h-3.5 p-0.5 overflow-hidden border border-slate-700">
+                  <div
+                    className="bg-gradient-to-r from-amber-400 via-orange-500 to-indigo-500 h-full rounded-full transition-all duration-500"
+                    style={{ width: Math.min(100, Math.max(3, rankInfo.nextTier.progressPercent)) + '%' }}
+                  />
+                </div>
+                <p className="text-[11px] text-slate-400 mt-2">
+                  {rankInfo.nextTier.currentCount >= rankInfo.nextTier.target
+                    ? "Target completed! Rank upgrade unlocked."
+                    : 'Complete ' + (rankInfo.nextTier.target - rankInfo.nextTier.currentCount).toLocaleString() + ' more downline team members at Level ' + rankInfo.nextTier.level + ' to unlock ' + rankInfo.nextTier.rank + '.'}
+                </p>
+              </div>
+            ) : (
+              <div className="mt-4 text-xs text-amber-300 font-medium">
+                🌟 Outstanding! You have achieved the highest rank: {user?.rank || "Crown Royal Ambassador"}.
+              </div>
+            )}
+
+            {/* Expandable 10-Level Rank Table from User's Chart */}
+            {showRankChart && (
+              <div className="mt-6 pt-5 border-t border-indigo-900/40">
+                <h3 className="text-sm font-bold text-amber-300 mb-3 flex items-center gap-2">
+                  <span>📜</span>
+                  <span>10-Level Rank & Team Chart</span>
+                </h3>
+                <div className="overflow-x-auto rounded-xl border border-indigo-900/50">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-indigo-950/80 text-amber-300 font-bold uppercase tracking-wider border-b border-indigo-900/50">
+                      <tr>
+                        <th className="p-3">S.N.</th>
+                        <th className="p-3">Level</th>
+                        <th className="p-3 text-right">Team Target</th>
+                        <th className="p-3">Rank Name</th>
+                        <th className="p-3 text-center">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-indigo-950/50 bg-slate-900/70">
+                      {(rankInfo?.tiers || [
+                        { level: 1, rank: "Associate", target: 10 },
+                        { level: 2, rank: "Executive Associate", target: 100 },
+                        { level: 3, rank: "Team Leader", target: 1000 },
+                        { level: 4, rank: "Senior Leader", target: 10000 },
+                        { level: 5, rank: "Bronze Manager", target: 100000 },
+                        { level: 6, rank: "Silver Manager", target: 1000000 },
+                        { level: 7, rank: "Gold Director", target: 10000000 },
+                        { level: 8, rank: "Platinum Director", target: 100000000 },
+                        { level: 9, rank: "Diamond Ambassador", target: 1000000000 },
+                        { level: 10, rank: "Crown Royal Ambassador", target: 100000000000 },
+                      ]).map((t) => {
+                        const count = rankInfo?.levelCounts?.[t.level] ?? 0;
+                        const isAchieved = count >= t.target;
+                        const isCurrent = user?.rank === t.rank;
+                        return (
+                          <tr
+                            key={t.level}
+                            className={'hover:bg-indigo-950/40 transition ' + (
+                              isCurrent
+                                ? "bg-amber-500/15 font-bold text-amber-200"
+                                : isAchieved
+                                ? "text-emerald-300"
+                                : "text-slate-300"
+                            )}
+                          >
+                            <td className="p-3 font-mono">{t.level}</td>
+                            <td className="p-3 font-semibold">LEVEL {t.level}</td>
+                            <td className="p-3 text-right font-mono font-semibold">
+                              {t.target.toLocaleString()}
+                            </td>
+                            <td className="p-3">
+                              <span className="flex items-center gap-1.5">
+                                {isCurrent ? "👑 " : isAchieved ? "✅ " : "🔒 "}
+                                {t.rank}
+                              </span>
+                            </td>
+                            <td className="p-3 text-center">
+                              {isCurrent ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-400 text-slate-950">
+                                  Current
+                                </span>
+                              ) : isAchieved ? (
+                                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                  Achieved
+                                </span>
+                              ) : (
+                                <span className="text-[10px] text-slate-400 font-mono">
+                                  {count.toLocaleString()} / {t.target.toLocaleString()}
+                                </span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

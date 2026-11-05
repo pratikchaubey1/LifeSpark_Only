@@ -27,6 +27,13 @@ const userSchema = new mongoose.Schema({
   // Block Status
   isBlocked: { type: Boolean, default: false },
 
+  // Admin-Assigned Custom Tag (e.g. VIP, Leader, Core Member)
+  customTag: { type: String, default: '' },
+
+  // Rank System (Associate, Executive Associate, Team Leader, etc.)
+  rank: { type: String, default: 'Member' },
+  customRank: { type: String, default: '' },
+
   // 60-Day Upgrade System
   firstReferralDate: { type: Date, default: null },   // Set when user's first direct member joins
   upgradeStatus: { type: String, enum: ['none', 'pending', 'approved', 'expired'], default: 'none' },

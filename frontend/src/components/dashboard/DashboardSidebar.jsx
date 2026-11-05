@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { FiTrendingUp, FiHeart, FiCreditCard } from "react-icons/fi";
+import { FiTrendingUp, FiHeart, FiCreditCard, FiShoppingBag } from "react-icons/fi";
 import config from "../../config/config";
 
 const API_BASE = config.apiUrl;
@@ -61,6 +61,7 @@ const DASHBOARD_ITEMS = [
   // },
 
   { label: "Withdraw", path: "/dashboard/withdraw" },
+  { label: "Repurchase Wallet", icon: <FiShoppingBag />, path: "/dashboard/repurchase-wallet" },
   { label: "ID Card", icon: <FiCreditCard />, path: "/dashboard/id-card" },
   { label: "Dann Fund", icon: <FiHeart />, path: "/dashboard/dann-fund" },
   { label: "Accident Fund", path: "/dashboard/accident-fund" },

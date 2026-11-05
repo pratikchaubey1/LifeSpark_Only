@@ -1,3 +1,4 @@
+const { calculateUserRank } = require('../utils/rank');
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -256,8 +257,14 @@ router.get('/users', adminAuth, async (req, res) => {
           role: { $ifNull: ['$role', 'member'] },
           isActivated: { $ifNull: ['$isActivated', false] },
           isBlocked: { $ifNull: ['$isBlocked', false] },
+          customTag: { $ifNull: ['$customTag', ''] },
+          rank: { $ifNull: ['$rank', 'Member'] },
+          customRank: { $ifNull: ['$customRank', ''] },
           activationPackage: { $ifNull: ['$activationPackage', null] },
           balance: { $ifNull: ['$balance', 0] },
+          repurchaseWallet: { $ifNull: ['$repurchaseWallet', 0] },
+          marriageFund: { $ifNull: ['$marriageFund', 0] },
+          accidentFund: { $ifNull: ['$accidentFund', 0] },
           totalIncome: { $ifNull: ['$totalIncome', 0] },
           withdrawal: { $ifNull: ['$withdrawal', 0] },
           freedomIncome: { $ifNull: ['$freedomIncome', 0] },
@@ -322,8 +329,13 @@ router.get('/users/search/:query', adminAuth, async (req, res) => {
       used: true
     });
 
-    // Return full user object with epin stats
+    // Rank details for member detail
+    const rankInfo = await calculateUserRank(user);
+
+    // Return full user object with epin stats and rank
     const userObj = user.toObject();
+    userObj.rank = rankInfo.rank;
+    userObj.rankInfo = rankInfo;
     userObj.leftWithMe = leftWithMe;
     userObj.usedByMe = usedByMe;
     userObj.epinCount = leftWithMe; // for backward compatibility if any
@@ -387,6 +399,20 @@ router.put('/users/:id', adminAuth, async (req, res) => {
 
     // Role
     if (updates.role !== undefined) user.role = updates.role;
+
+    // Custom Tag assigned by admin
+    if (updates.customTag !== undefined) user.customTag = String(updates.customTag).trim();
+
+    // Rank & Custom Rank
+    if (updates.customRank !== undefined) {
+      user.customRank = String(updates.customRank).trim();
+      if (user.customRank && user.customRank !== 'Auto') {
+        user.rank = user.customRank;
+      }
+    }
+    if (updates.rank !== undefined && (!user.customRank || user.customRank === 'Auto')) {
+      user.rank = String(updates.rank).trim();
+    }
 
     await user.save();
     return res.json({ message: 'User updated successfully', user });
@@ -708,9 +734,21 @@ router.post('/withdrawals/:id/approve', adminAuth, async (req, res) => {
     } else {
       user.withdrawal = (Number(user.withdrawal) || 0) + amount;
 
-      // No wallet credit for withdrawal charges (25% fee is simply deducted)
-      // Note: Withdrawal charge (25%) is already stored in withdrawal.chargeAmount
-      // and deduction happened at request time.
+      // Credit Repurchase Wallet with the 10% portion on approval
+      const repurchaseAmt = Number(withdrawal.repurchaseAmount) || 0;
+      if (repurchaseAmt > 0) {
+        user.repurchaseWallet = (Number(user.repurchaseWallet) || 0) + repurchaseAmt;
+
+        // Log the Repurchase Wallet credit
+        await IncomeLog.create({
+          userId: user._id.toString(),
+          userName: user.name,
+          userInviteCode: user.inviteCode,
+          type: 'repurchase_transfer',
+          amount: repurchaseAmt,
+          description: `10% repurchase credit from approved withdrawal ${withdrawal.withdrawalId}`
+        });
+      }
     }
     await user.save();
 
@@ -1348,6 +1386,31 @@ router.post('/upgrade-requests/:userId/reject', adminAuth, async (req, res) => {
     res.json({ message: `Upgrade rejected for ${user.name} (${user.inviteCode}).` });
   } catch (err) {
     console.error('Reject upgrade error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
+// ================== REPURCHASE WALLET MANAGEMENT ==================
+// Get all users with repurchase balance and stats
+router.get('/repurchase-users', adminAuth, async (req, res) => {
+  try {
+    const users = await User.find({})
+      .select('name email phone inviteCode isActivated isBlocked repurchaseWallet balance createdAt')
+      .sort({ repurchaseWallet: -1, createdAt: -1 })
+      .lean();
+
+    const totalRepurchaseBalance = users.reduce((sum, u) => sum + (Number(u.repurchaseWallet) || 0), 0);
+    const totalWithRepurchase = users.filter(u => (Number(u.repurchaseWallet) || 0) > 0).length;
+
+    res.json({
+      users,
+      totalRepurchaseBalance,
+      totalWithRepurchase,
+      totalUsers: users.length
+    });
+  } catch (err) {
+    console.error('Get repurchase users error:', err);
     res.status(500).json({ message: 'Server error' });
   }
 });

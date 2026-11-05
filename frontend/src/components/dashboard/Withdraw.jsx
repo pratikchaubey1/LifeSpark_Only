@@ -436,7 +436,7 @@ export default function Withdraw({ onMenuOpen }) {
                     Minimum payout amount is ₹300
                   </div>
 
-                  {/* 25% Withdrawal Charge Info */}
+                  {/* 5% Withdrawal Fee & 10% Repurchase Wallet Info */}
                   {Number(amount) >= 300 && (
                     <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 space-y-1.5 -mt-1">
                       <div className="flex items-center justify-between text-xs">
@@ -444,12 +444,16 @@ export default function Withdraw({ onMenuOpen }) {
                         <span className="font-bold text-slate-700">₹{Number(amount).toLocaleString()}</span>
                       </div>
                       <div className="flex items-center justify-between text-xs">
-                        <span className="text-slate-500">Withdrawal Charge (25%)</span>
-                        <span className="font-semibold text-red-600">-₹{Number((Number(amount) * 0.25).toFixed(2)).toLocaleString()}</span>
+                        <span className="text-slate-500">Withdrawal Fee (5%)</span>
+                        <span className="font-semibold text-rose-600">-₹{Number((Number(amount) * 0.05).toFixed(2)).toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-500">Repurchase Wallet (10%)</span>
+                        <span className="font-semibold text-indigo-600">+₹{Number((Number(amount) * 0.10).toFixed(2)).toLocaleString()}</span>
                       </div>
                       <div className="border-t border-blue-200 pt-1.5 flex items-center justify-between text-xs">
-                        <span className="text-slate-600 font-semibold">You will receive</span>
-                        <span className="font-bold text-emerald-600">₹{Number((Number(amount) * 0.75).toFixed(2)).toLocaleString()}</span>
+                        <span className="text-slate-600 font-semibold">Net Payout (85%)</span>
+                        <span className="font-bold text-emerald-600">₹{Number((Number(amount) * 0.85).toFixed(2)).toLocaleString()}</span>
                       </div>
                     </div>
                   )}
