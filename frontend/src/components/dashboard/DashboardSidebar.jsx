@@ -63,7 +63,7 @@ const DASHBOARD_ITEMS = [
   { label: "Withdraw", path: "/dashboard/withdraw" },
   { label: "Repurchase Wallet", icon: <FiShoppingBag />, path: "/dashboard/repurchase-wallet" },
   { label: "ID Card", icon: <FiCreditCard />, path: "/dashboard/id-card" },
-  { label: "Dann Fund", icon: <FiHeart />, path: "/dashboard/dann-fund" },
+  { label: "Donation Fund", icon: <FiHeart />, path: "/dashboard/dann-fund" },
   { label: "Accident Fund", path: "/dashboard/accident-fund" },
 ];
 

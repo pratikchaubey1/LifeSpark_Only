@@ -111,8 +111,9 @@ cron.schedule("0 0 * * *", async () => {
       const DAILY_BONUS = 50;
 
       // Only give ₹50 daily bonus if within 30 days of activation
+      // CREDITED DIRECTLY TO REPURCHASE WALLET
       if (daysSince < 30) {
-        user.balance = (user.balance || 0) + DAILY_BONUS;
+        user.repurchaseWallet = (user.repurchaseWallet || 0) + DAILY_BONUS;
         user.dailyBonusIncome = (user.dailyBonusIncome || 0) + DAILY_BONUS;
         user.totalIncome = (user.totalIncome || 0) + DAILY_BONUS;
         bonusCount++;
@@ -124,7 +125,7 @@ cron.schedule("0 0 * * *", async () => {
           userInviteCode: user.inviteCode || '',
           type: 'daily_bonus',
           amount: DAILY_BONUS,
-          description: `Daily bonus ₹${DAILY_BONUS} (day ${daysSince + 1} of 30)`
+          description: `Daily bonus ₹${DAILY_BONUS} (day ${daysSince + 1} of 30) credited to Repurchase Wallet`
         });
       }
 

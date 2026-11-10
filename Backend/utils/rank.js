@@ -34,22 +34,43 @@ async function calculateUserRank(user) {
     };
   }
 
-  // 1. Fetch direct referrals
+  // 1. Fetch direct referrals (ALL, to get their IDs for tree traversal)
   const directMembers = await User.find({ sponsorId: user.inviteCode })
     .select('_id isActivated')
     .lean();
   const directIds = directMembers.map(m => m._id.toString());
 
-  // 2. Map downline by level
+  // 2. Map downline by level (all IDs — active filtering done below)
   const levelUserIdsMap = await getDownlineByLevels(directIds);
 
+  // 3. Collect ALL downline IDs across all levels, then batch-fetch activation status
+  const allDownlineIds = [];
+  for (let l = 1; l <= 10; l++) {
+    if (levelUserIdsMap[l]) allDownlineIds.push(...levelUserIdsMap[l]);
+  }
+
+  // Single DB query to get activation status of all downline members
+  const activationMap = {};
+  if (allDownlineIds.length > 0) {
+    const allUsers = await User.find({ _id: { $in: allDownlineIds } })
+      .select('_id isActivated')
+      .lean();
+    allUsers.forEach(u => { activationMap[u._id.toString()] = u.isActivated; });
+  }
+  // Also include direct members in activation map
+  directMembers.forEach(m => { activationMap[m._id.toString()] = m.isActivated; });
+
+  // 4. Count ONLY active IDs at each level
   const levelCounts = {};
   for (let l = 1; l <= 10; l++) {
-    levelCounts[l] = (levelUserIdsMap[l] || []).length;
+    const ids = levelUserIdsMap[l] || [];
+    // Count only activated members — RANK is based on active IDs only
+    levelCounts[l] = ids.filter(id => activationMap[id] === true).length;
   }
-  // Ensure level 1 count is at least direct referrals count
-  if (directMembers.length > (levelCounts[1] || 0)) {
-    levelCounts[1] = directMembers.length;
+  // Level 1: active direct referrals
+  const activeDirectCount = directMembers.filter(m => m.isActivated).length;
+  if (activeDirectCount > (levelCounts[1] || 0)) {
+    levelCounts[1] = activeDirectCount;
   }
 
   // 3. Determine achieved rank level sequentially

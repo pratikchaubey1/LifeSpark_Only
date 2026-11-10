@@ -138,7 +138,7 @@ const FooterSection = ({
             )}
           </div>
 
-          <p>Design inspired by the original WSE website layout.</p>
+          <p>Design inspired by the original LSA website layout.</p>
         </div>
       </div>
     </footer>

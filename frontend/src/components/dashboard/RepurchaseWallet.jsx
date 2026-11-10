@@ -17,6 +17,7 @@ export default function RepurchaseWallet({ onMenuOpen }) {
     const [msgType, setMsgType] = useState("info");
 
     const [balance, setBalance] = useState(0);
+    const [dailyBonusTotal, setDailyBonusTotal] = useState(0);
     const [logs, setLogs] = useState([]);
 
     const loadData = async () => {
@@ -34,7 +35,7 @@ export default function RepurchaseWallet({ onMenuOpen }) {
                 fetch(`${API_BASE}/profile`, {
                     headers: { Authorization: `Bearer ${token}` },
                 }),
-                fetch(`${API_BASE}/dashboard/income-logs?type=repurchase_transfer`, {
+                fetch(`${API_BASE}/dashboard/income-logs?type=repurchase_transfer,daily_bonus`, {
                     headers: { Authorization: `Bearer ${token}` },
                 }),
             ]);
@@ -44,6 +45,7 @@ export default function RepurchaseWallet({ onMenuOpen }) {
 
             if (profileRes.ok) {
                 setBalance(Number(profileData.user?.repurchaseWallet) || 0);
+                setDailyBonusTotal(Number(profileData.user?.dailyBonusIncome) || 0);
             }
 
             if (logsRes.ok) {
@@ -103,18 +105,33 @@ export default function RepurchaseWallet({ onMenuOpen }) {
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
-                    {/* BALANCE CARD */}
-                    <div className="lg:col-span-12 xl:col-span-4">
-                        <div className="bg-indigo-600 rounded-3xl p-8 text-white shadow-xl shadow-indigo-200 relative overflow-hidden h-full flex flex-col justify-center">
-                            <div className="absolute top-0 right-0 p-8 opacity-10">
-                                <FiShoppingBag size={120} />
+                    {/* BALANCE CARDS */}
+                    <div className="lg:col-span-12 xl:col-span-4 space-y-4">
+                        {/* TOTAL REPURCHASE FUND */}
+                        <div className="bg-indigo-600 rounded-3xl p-6 text-white shadow-xl shadow-indigo-200 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 p-6 opacity-10">
+                                <FiShoppingBag size={100} />
                             </div>
                             <div className="relative z-10">
-                                <div className="text-indigo-100 text-sm font-medium uppercase tracking-wider">Total Repurchase Fund</div>
-                                <div className="text-4xl md:text-5xl font-bold mt-2 font-mono">₹{balance.toLocaleString()}</div>
-                                <div className="mt-6 flex items-center gap-2 text-indigo-100 text-xs bg-white/10 w-fit px-3 py-1.5 rounded-full border border-white/10">
-                                    <FiArrowDownCircle size={14} />
-                                    <span>10% auto-deducted from withdrawals</span>
+                                <div className="text-indigo-100 text-xs font-medium uppercase tracking-wider">Total Repurchase Fund</div>
+                                <div className="text-3xl md:text-4xl font-bold mt-2 font-mono">₹{balance.toLocaleString()}</div>
+                                <div className="mt-4 flex items-center gap-2 text-indigo-100 text-[11px] bg-white/10 w-fit px-3 py-1 rounded-full border border-white/10">
+                                    <FiArrowDownCircle size={13} />
+                                    <span>Available repurchase balance</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* DAILY INCOME CARD */}
+                        <div className="bg-gradient-to-br from-amber-500 to-orange-600 rounded-3xl p-6 text-white shadow-xl shadow-amber-200/50 relative overflow-hidden">
+                            <div className="relative z-10">
+                                <div className="text-amber-100 text-xs font-medium uppercase tracking-wider flex items-center justify-between">
+                                    <span>Daily Income Added</span>
+                                    <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full font-bold">₹50 / Day</span>
+                                </div>
+                                <div className="text-3xl md:text-4xl font-bold mt-2 font-mono">₹{dailyBonusTotal.toLocaleString()}</div>
+                                <div className="mt-4 text-amber-100 text-[11px] bg-white/10 px-3 py-1 rounded-full border border-white/10 inline-block">
+                                    Auto-credited to Repurchase Wallet
                                 </div>
                             </div>
                         </div>
@@ -125,8 +142,11 @@ export default function RepurchaseWallet({ onMenuOpen }) {
                         <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden h-full flex flex-col">
                             <div className="p-6 border-b border-slate-100 flex items-center justify-between">
                                 <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                                    <FiClock className="text-indigo-600" /> Transfer History
+                                    <FiClock className="text-indigo-600" /> Repurchase & Daily Income History
                                 </h3>
+                                <span className="text-xs text-slate-400 font-mono font-medium">
+                                    {logs.length} record{logs.length !== 1 ? 's' : ''}
+                                </span>
                             </div>
 
                             <div className="overflow-x-auto flex-1 max-h-[500px]">
@@ -134,33 +154,48 @@ export default function RepurchaseWallet({ onMenuOpen }) {
                                     <thead>
                                         <tr className="bg-slate-50 text-[10px] uppercase tracking-widest font-bold text-slate-400 border-b border-slate-100">
                                             <th className="px-6 py-4">Transaction Details</th>
+                                            <th className="px-4 py-4 text-center">Income Source</th>
                                             <th className="px-6 py-4 text-right">Amount</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-slate-50">
-                                        {logs.map((log, idx) => (
-                                            <tr key={log._id || idx} className="hover:bg-slate-50/50 transition-colors">
-                                                <td className="px-6 py-4">
-                                                    <div className="text-sm font-semibold text-slate-800">
-                                                        {log.description || "Withdrawal Deduction"}
-                                                    </div>
-                                                    <div className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-bold">
-                                                        {log.createdAt ? new Date(log.createdAt).toLocaleString([], { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : "-"}
-                                                    </div>
-                                                </td>
-                                                <td className="px-6 py-4 text-right">
-                                                    <div className="text-base font-bold text-emerald-600 font-mono">+ ₹{Number(log.amount).toLocaleString()}</div>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {logs.map((log, idx) => {
+                                            const isDaily = log.type === 'daily_bonus' || (log.description && log.description.toLowerCase().includes('daily'));
+                                            return (
+                                                <tr key={log._id || idx} className="hover:bg-slate-50/50 transition-colors">
+                                                    <td className="px-6 py-4">
+                                                        <div className="text-sm font-semibold text-slate-800">
+                                                            {log.description || "Credit to Repurchase Wallet"}
+                                                        </div>
+                                                        <div className="text-[10px] text-slate-400 mt-1 uppercase tracking-wider font-bold">
+                                                            {log.createdAt ? new Date(log.createdAt).toLocaleString([], { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : "-"}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-4 py-4 text-center">
+                                                        {isDaily ? (
+                                                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                                                                Daily Income
+                                                            </span>
+                                                        ) : (
+                                                            <span className="inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-200">
+                                                                Withdrawal (10%)
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <div className="text-base font-bold text-emerald-600 font-mono">+ ₹{Number(log.amount).toLocaleString()}</div>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
 
                                         {logs.length === 0 && (
                                             <tr>
-                                                <td colSpan={2} className="px-6 py-20 text-center">
+                                                <td colSpan={3} className="px-6 py-20 text-center">
                                                     <div className="flex flex-col items-center opacity-40">
                                                         <FiShoppingBag size={48} className="text-slate-300" />
-                                                        <div className="mt-3 text-sm text-slate-500 font-medium">No repurchase transfers yet.</div>
-                                                        <p className="text-xs text-slate-400 mt-1">Found credits will appear here after your next withdrawal.</p>
+                                                        <div className="mt-3 text-sm text-slate-500 font-medium">No wallet credits yet.</div>
+                                                        <p className="text-xs text-slate-400 mt-1">Daily income and withdrawal deductions will appear here.</p>
                                                     </div>
                                                 </td>
                                             </tr>
@@ -168,6 +203,21 @@ export default function RepurchaseWallet({ onMenuOpen }) {
                                     </tbody>
                                 </table>
                             </div>
+
+                            {/* Total Sum Footer */}
+                            {logs.length > 0 && (
+                                <div className="px-6 py-3.5 bg-slate-50 border-t border-slate-100 flex items-center justify-between text-xs font-semibold">
+                                    <span className="text-slate-500">
+                                        Total {logs.length} credit transaction{logs.length !== 1 ? 's' : ''}
+                                    </span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-slate-500">Total Sum Credited:</span>
+                                        <span className="text-sm font-bold font-mono text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200">
+                                            + ₹{logs.reduce((sum, l) => sum + (Number(l.amount) || 0), 0).toLocaleString()}
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
 

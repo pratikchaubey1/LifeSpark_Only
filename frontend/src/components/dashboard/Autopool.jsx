@@ -128,41 +128,74 @@ export default function Autopool({ sidebarOpen, onMenuOpen }) {
                     animate={{ opacity: 1, y: 0 }}
                     className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200 mt-10"
                 >
-                    <div className={`p-8 text-white text-center ${data?.status === 'rejected' ? 'bg-gradient-to-r from-red-600 to-orange-700' : 'bg-gradient-to-r from-blue-600 to-indigo-700'}`}>
+                    <div className={`p-8 text-white text-center ${
+                        !data?.isActivated
+                            ? 'bg-gradient-to-r from-orange-600 to-red-700'
+                            : data?.status === 'rejected'
+                            ? 'bg-gradient-to-r from-red-600 to-orange-700'
+                            : 'bg-gradient-to-r from-blue-600 to-indigo-700'
+                    }`}>
                         <h2 className="text-3xl font-bold mb-2">
-                            {data?.status === 'rejected' ? 'Request Rejected' : 'Join the Global Autopool'}
+                            {!data?.isActivated
+                                ? 'Account Not Activated'
+                                : data?.status === 'rejected'
+                                ? 'Request Rejected'
+                                : 'Join the Global Autopool'}
                         </h2>
                         <p className="opacity-90">
-                            {data?.status === 'rejected'
+                            {!data?.isActivated
+                                ? 'Your account must be activated before you can join the Autopool system.'
+                                : data?.status === 'rejected'
                                 ? 'Your previous request was rejected by the admin. You can try submitting a new request.'
                                 : 'Unlock passive income through the global 3x3 matrix'}
                         </p>
                     </div>
 
                     <div className="p-8">
-                        <div className="flex justify-center mb-8">
-                            <div className="text-center p-6 bg-slate-50 rounded-xl border border-slate-200 w-full max-w-sm">
-                                <p className="text-sm text-slate-500 uppercase font-semibold mb-1">Activation Cost</p>
-                                <p className="text-4xl font-extrabold text-slate-900">₹2,000</p>
+                        {/* INACTIVE ID — Show activation required notice instead of join button */}
+                        {!data?.isActivated ? (
+                            <div className="flex flex-col items-center text-center gap-4">
+                                <div className="w-20 h-20 rounded-full bg-orange-100 flex items-center justify-center text-5xl">
+                                    🔒
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-bold text-slate-800 mb-2">Activation Required</h3>
+                                    <p className="text-slate-600 text-sm leading-relaxed">
+                                        Only <strong>activated IDs</strong> are eligible to join the Autopool income system.<br />
+                                        Please activate your account using an <strong>E-Pin</strong> first, then come back here to request Autopool access.
+                                    </p>
+                                </div>
+                                <div className="mt-2 w-full bg-orange-50 border border-orange-200 rounded-xl p-4 text-sm text-orange-800 font-medium">
+                                    ⚠️ Your ID is currently <strong>Inactive</strong>. Contact your sponsor or admin to get an E-Pin for activation.
+                                </div>
                             </div>
-                        </div>
+                        ) : (
+                            <>
+                                <div className="flex justify-center mb-8">
+                                    <div className="text-center p-6 bg-slate-50 rounded-xl border border-slate-200 w-full max-w-sm">
+                                        <p className="text-sm text-slate-500 uppercase font-semibold mb-1">Activation Cost</p>
+                                        <p className="text-4xl font-extrabold text-slate-900">₹2,000</p>
+                                    </div>
+                                </div>
 
-                        <h3 className="font-bold text-lg text-slate-800 mb-4">How it works:</h3>
-                        <ul className="space-y-3 mb-8 text-slate-600">
-                            <li className="flex items-start"><span className="mr-2 text-green-500">✓</span> Join the global company tree</li>
-                            <li className="flex items-start"><span className="mr-2 text-green-500">✓</span> Automatic placement (Top-to-bottom, Left-to-right)</li>
-                            <li className="flex items-start"><span className="mr-2 text-green-500">✓</span> Earn ₹3,000 when your Level 1 (3 members) fills</li>
-                            <li className="flex items-start"><span className="mr-2 text-green-500">✓</span> Total potential income up to Level 10</li>
-                        </ul>
+                                <h3 className="font-bold text-lg text-slate-800 mb-4">How it works:</h3>
+                                <ul className="space-y-3 mb-8 text-slate-600">
+                                    <li className="flex items-start"><span className="mr-2 text-green-500">✓</span> Join the global company tree</li>
+                                    <li className="flex items-start"><span className="mr-2 text-green-500">✓</span> Automatic placement (Top-to-bottom, Left-to-right)</li>
+                                    <li className="flex items-start"><span className="mr-2 text-green-500">✓</span> Earn ₹2,000 when your Level 1 (3 members) fills</li>
+                                    <li className="flex items-start"><span className="mr-2 text-green-500">✓</span> Total potential income up to Level 10</li>
+                                </ul>
 
-                        <button
-                            onClick={handleJoin}
-                            disabled={requesting}
-                            className={`w-full text-white font-bold py-4 rounded-xl shadow-lg transform transition hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed
-                                ${data?.status === 'rejected' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
-                        >
-                            {requesting ? "Processing Request..." : (data?.status === 'rejected' ? "Re-Submit Request" : "Request Access Now")}
-                        </button>
+                                <button
+                                    onClick={handleJoin}
+                                    disabled={requesting}
+                                    className={`w-full text-white font-bold py-4 rounded-xl shadow-lg transform transition hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed
+                                        ${data?.status === 'rejected' ? 'bg-red-600 hover:bg-red-700' : 'bg-blue-600 hover:bg-blue-700'}`}
+                                >
+                                    {requesting ? "Processing Request..." : (data?.status === 'rejected' ? "Re-Submit Request" : "Request Access Now")}
+                                </button>
+                            </>
+                        )}
                     </div>
                 </motion.div>
             )}
@@ -226,16 +259,16 @@ export default function Autopool({ sidebarOpen, onMenuOpen }) {
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
                                     {[
-                                        { lvl: 1, team: 3, inc: 3000 },
-                                        { lvl: 2, team: 9, inc: 6000 },
-                                        { lvl: 3, team: 27, inc: 9000 },
-                                        { lvl: 4, team: 81, inc: 12000 },
-                                        { lvl: 5, team: 243, inc: 15000 },
-                                        { lvl: 6, team: 729, inc: 18000 },
-                                        { lvl: 7, team: 2187, inc: 21000 },
-                                        { lvl: 8, team: 6561, inc: 24000 },
-                                        { lvl: 9, team: 19683, inc: 27000 },
-                                        { lvl: 10, team: 59049, inc: 30000 },
+                                        { lvl: 1, team: 3, inc: 2000 },
+                                        { lvl: 2, team: 9, inc: 4000 },
+                                        { lvl: 3, team: 27, inc: 6000 },
+                                        { lvl: 4, team: 81, inc: 8000 },
+                                        { lvl: 5, team: 243, inc: 10000 },
+                                        { lvl: 6, team: 729, inc: 12000 },
+                                        { lvl: 7, team: 2187, inc: 14000 },
+                                        { lvl: 8, team: 6561, inc: 16000 },
+                                        { lvl: 9, team: 19683, inc: 18000 },
+                                        { lvl: 10, team: 59049, inc: 20000 },
                                     ].map((level) => {
                                         const isCompleted = data.levelsCompleted.includes(level.lvl);
                                         return (

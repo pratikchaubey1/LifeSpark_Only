@@ -3,16 +3,16 @@ import { FiUsers, FiLayers, FiGift } from "react-icons/fi";
 
 export default function TeamBusiness({ sidebarOpen, onMenuOpen }) {
   const rows = [
-    { level: 1, team: 3, poolIncome: 3000 },
-    { level: 2, team: 9, poolIncome: 6000 },
-    { level: 3, team: 27, poolIncome: 9000 },
-    { level: 4, team: 81, poolIncome: 12000 },
-    { level: 5, team: 243, poolIncome: 15000 },
-    { level: 6, team: 729, poolIncome: 18000 },
-    { level: 7, team: 2187, poolIncome: 21000 },
-    { level: 8, team: 6561, poolIncome: 24000 },
-    { level: 9, team: 19683, poolIncome: 27000 },
-    { level: 10, team: 59049, poolIncome: 30000 },
+    { level: 1, team: 3, poolIncome: 2000 },
+    { level: 2, team: 9, poolIncome: 4000 },
+    { level: 3, team: 27, poolIncome: 6000 },
+    { level: 4, team: 81, poolIncome: 8000 },
+    { level: 5, team: 243, poolIncome: 10000 },
+    { level: 6, team: 729, poolIncome: 12000 },
+    { level: 7, team: 2187, poolIncome: 14000 },
+    { level: 8, team: 6561, poolIncome: 16000 },
+    { level: 9, team: 19683, poolIncome: 18000 },
+    { level: 10, team: 59049, poolIncome: 20000 },
   ];
 
   return (

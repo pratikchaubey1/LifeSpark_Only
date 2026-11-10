@@ -136,7 +136,7 @@ router.post('/users', adminAuth, async (req, res) => {
     const inviteCode = await generateUniqueInviteCode();
 
     // Clean sponsorId
-    const cleanSponsorId = sponsorId ? String(sponsorId).trim() : 'WSE-COMPANY';
+    const cleanSponsorId = sponsorId ? String(sponsorId).trim() : 'LSA-COMPANY';
 
     const newUser = new User({
       name: name.trim(),
@@ -145,7 +145,7 @@ router.post('/users', adminAuth, async (req, res) => {
       phone: normalizedPhone || (phone || ''),
       address: address || '',
       sponsorId: cleanSponsorId,
-      sponsorName: sponsorName || 'WSE Company',
+      sponsorName: sponsorName || 'LSA Company',
       inviteCode,
       role: 'member',
       roleAssignedBy: 'admin',
@@ -167,7 +167,7 @@ router.post('/users', adminAuth, async (req, res) => {
     }
 
     // Update Sponsor if exists
-    if (cleanSponsorId && cleanSponsorId !== 'WSE-COMPANY') {
+    if (cleanSponsorId && cleanSponsorId !== 'LSA-COMPANY') {
       const sponsorUser = await User.findOne({ inviteCode: cleanSponsorId });
       if (sponsorUser) {
         if (!Array.isArray(sponsorUser.directInviteIds)) {
@@ -1396,16 +1396,18 @@ router.post('/upgrade-requests/:userId/reject', adminAuth, async (req, res) => {
 router.get('/repurchase-users', adminAuth, async (req, res) => {
   try {
     const users = await User.find({})
-      .select('name email phone inviteCode isActivated isBlocked repurchaseWallet balance createdAt')
+      .select('name email phone inviteCode isActivated isBlocked repurchaseWallet dailyBonusIncome balance createdAt')
       .sort({ repurchaseWallet: -1, createdAt: -1 })
       .lean();
 
     const totalRepurchaseBalance = users.reduce((sum, u) => sum + (Number(u.repurchaseWallet) || 0), 0);
+    const totalDailyBonus = users.reduce((sum, u) => sum + (Number(u.dailyBonusIncome) || 0), 0);
     const totalWithRepurchase = users.filter(u => (Number(u.repurchaseWallet) || 0) > 0).length;
 
     res.json({
       users,
       totalRepurchaseBalance,
+      totalDailyBonus,
       totalWithRepurchase,
       totalUsers: users.length
     });

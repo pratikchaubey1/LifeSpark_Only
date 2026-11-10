@@ -189,7 +189,11 @@ router.get('/income-logs', auth, async (req, res) => {
     const query = { userId: req.user._id.toString() };
 
     if (type) {
-      query.type = type;
+      if (type.includes(',')) {
+        query.type = { $in: type.split(',').map(t => t.trim()) };
+      } else {
+        query.type = type;
+      }
     }
 
     const logs = await IncomeLog.find(query).sort({ createdAt: -1 });

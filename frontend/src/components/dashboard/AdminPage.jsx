@@ -297,7 +297,7 @@ export default function AdminPage() {
 
   // Repurchase Wallet
   const [repurchaseUsers, setRepurchaseUsers] = useState([]);
-  const [repurchaseStats, setRepurchaseStats] = useState({ totalRepurchaseBalance: 0, totalWithRepurchase: 0 });
+  const [repurchaseStats, setRepurchaseStats] = useState({ totalRepurchaseBalance: 0, totalDailyBonus: 0, totalWithRepurchase: 0 });
   const [loadingRepurchase, setLoadingRepurchase] = useState(false);
   const [repurchaseSearch, setRepurchaseSearch] = useState("");
   const [repurchasePage, setRepurchasePage] = useState(1);
@@ -383,6 +383,7 @@ export default function AdminPage() {
         setRepurchaseUsers(data.users || []);
         setRepurchaseStats({
           totalRepurchaseBalance: data.totalRepurchaseBalance || 0,
+          totalDailyBonus: data.totalDailyBonus || 0,
           totalWithRepurchase: data.totalWithRepurchase || 0
         });
       }
@@ -1505,7 +1506,7 @@ export default function AdminPage() {
           <SidebarButton label="Autopool Tree" active={currentPage === "autopool-tree"} icon={<IconUsers />} onClick={() => { openPage("autopool-tree"); setSidebarOpen(false); }} />
           <SidebarButton label="Repurchase Wallet" active={currentPage === "repurchaseWallet"} icon={<IconDollar />} onClick={() => { openPage("repurchaseWallet"); setSidebarOpen(false); }} />
           <SidebarButton label="Accident Fund" active={currentPage === "accidentFund"} icon={<IconDollar />} onClick={() => { openPage("accidentFund"); setSidebarOpen(false); }} />
-          <SidebarButton label="Dann Fund" active={currentPage === "dannFund"} icon={<IconAward />} onClick={() => { openPage("dannFund"); setSidebarOpen(false); }} />
+          <SidebarButton label="Donation Fund" active={currentPage === "dannFund"} icon={<IconAward />} onClick={() => { openPage("dannFund"); setSidebarOpen(false); }} />
           <SidebarButton label="Upgrade Requests" active={currentPage === "upgradeRequests"} icon={<IconRefresh />} onClick={() => { openPage("upgradeRequests"); setSidebarOpen(false); }} />
           <SidebarButton
             label="Rewards"
@@ -1612,7 +1613,7 @@ export default function AdminPage() {
                 </div>
 
                 <div className="mb-4 border rounded p-3 bg-slate-50">
-                  <div className="text-sm font-semibold mb-2">Add New Member (WSE Dedicated)</div>
+                  <div className="text-sm font-semibold mb-2">Add New Member (LSA Dedicated)</div>
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                     <input
                       value={newMember.name}
@@ -3211,18 +3212,26 @@ export default function AdminPage() {
                 </div>
 
                 {/* Summary Metrics */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                   <div className="bg-gradient-to-br from-indigo-500 to-indigo-700 text-white rounded-2xl p-5 shadow-lg shadow-indigo-100">
                     <div className="text-xs font-medium text-indigo-100 uppercase tracking-wider">Total Repurchase Pool</div>
-                    <div className="text-3xl font-black mt-2 font-mono">
+                    <div className="text-2xl md:text-3xl font-black mt-2 font-mono">
                       ₹{Number(repurchaseStats.totalRepurchaseBalance || 0).toLocaleString()}
                     </div>
                     <div className="text-[11px] text-indigo-100/80 mt-1">Accumulated across all users</div>
                   </div>
 
+                  <div className="bg-gradient-to-br from-amber-500 to-orange-600 text-white rounded-2xl p-5 shadow-lg shadow-amber-500/10">
+                    <div className="text-xs font-medium text-amber-100 uppercase tracking-wider">Total Daily Income</div>
+                    <div className="text-2xl md:text-3xl font-black mt-2 font-mono">
+                      ₹{Number(repurchaseStats.totalDailyBonus || 0).toLocaleString()}
+                    </div>
+                    <div className="text-[11px] text-amber-100/80 mt-1">Credited to repurchase wallet</div>
+                  </div>
+
                   <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
                     <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Members With Balance</div>
-                    <div className="text-3xl font-black text-slate-800 mt-2 font-mono">
+                    <div className="text-2xl md:text-3xl font-black text-slate-800 mt-2 font-mono">
                       {repurchaseStats.totalWithRepurchase || 0}
                     </div>
                     <div className="text-[11px] text-slate-500 mt-1">Have ₹1 or more repurchase fund</div>
@@ -3230,7 +3239,7 @@ export default function AdminPage() {
 
                   <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
                     <div className="text-xs font-medium text-slate-400 uppercase tracking-wider">Total Members</div>
-                    <div className="text-3xl font-black text-slate-800 mt-2 font-mono">
+                    <div className="text-2xl md:text-3xl font-black text-slate-800 mt-2 font-mono">
                       {repurchaseUsers.length}
                     </div>
                     <div className="text-[11px] text-slate-500 mt-1">Total registered users</div>
@@ -3283,6 +3292,7 @@ export default function AdminPage() {
                       { label: "Member Name" },
                       { label: "Invite Code" },
                       { label: "Phone / Email" },
+                      { label: "Daily Income", className: "text-right" },
                       { label: "Repurchase Balance", className: "text-right" },
                       { label: "Main Balance", className: "text-right" },
                       { label: "Status", className: "text-center" },
@@ -3325,6 +3335,11 @@ export default function AdminPage() {
                           <div className="text-slate-400 text-[11px] truncate max-w-[180px]">{u.email || "-"}</div>
                         </td>
                         <td className="p-3 text-right">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-mono font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                            ₹{Number(u.dailyBonusIncome || 0).toLocaleString()}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right">
                           <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-mono font-bold ${
                             Number(u.repurchaseWallet || 0) > 0
                               ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
@@ -3353,6 +3368,37 @@ export default function AdminPage() {
                       </tr>
                     )}
                   />
+
+                  {/* Summary / Total Sum Row */}
+                  {(() => {
+                    const filtered = repurchaseUsers.filter(u => {
+                      const q = repurchaseSearch.trim().toLowerCase();
+                      if (!q) return true;
+                      return (
+                        u.name?.toLowerCase().includes(q) ||
+                        u.inviteCode?.toLowerCase().includes(q) ||
+                        u.email?.toLowerCase().includes(q) ||
+                        u.phone?.toLowerCase().includes(q)
+                      );
+                    });
+                    const totalDaily = filtered.reduce((sum, u) => sum + (Number(u.dailyBonusIncome) || 0), 0);
+                    const totalRep = filtered.reduce((sum, u) => sum + (Number(u.repurchaseWallet) || 0), 0);
+                    return (
+                      <div className="bg-slate-50 border-t border-slate-200 px-6 py-3.5 flex flex-wrap items-center justify-between gap-4 text-xs font-semibold">
+                        <span className="text-slate-500">
+                          Total Summary ({filtered.length} member{filtered.length !== 1 ? 's' : ''})
+                        </span>
+                        <div className="flex items-center gap-6 font-mono text-xs">
+                          <span className="text-amber-800 bg-amber-100/60 px-3 py-1 rounded-lg border border-amber-200">
+                            Total Daily Income: <strong className="font-bold">₹{totalDaily.toLocaleString()}</strong>
+                          </span>
+                          <span className="text-indigo-800 bg-indigo-100/60 px-3 py-1 rounded-lg border border-indigo-200">
+                            Total Repurchase Pool: <strong className="font-bold">₹{totalRep.toLocaleString()}</strong>
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             )}

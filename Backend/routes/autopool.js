@@ -16,6 +16,7 @@ router.get('/status', auth, async (req, res) => {
 
         res.json({
             status: user.autopoolStatus, // 'inactive', 'requested', 'active'
+            isActivated: user.isActivated, // USER_ACTIVATION CHECK: needed by frontend to gate the join button
             joinDate: user.autopoolJoinDate,
             income: user.autopoolLevelIncome,
             levelsCompleted: user.autopoolLevelsCompleted
@@ -86,6 +87,11 @@ router.post('/request', auth, async (req, res) => {
     try {
         const user = await User.findById(req.user._id);
         if (!user) return res.status(404).json({ message: 'User not found' });
+
+        // ACTIVATION CHECK: Only activated IDs can request autopool
+        if (!user.isActivated) {
+            return res.status(403).json({ message: 'Your ID must be activated before you can request to join the Autopool. Please activate your account first.' });
+        }
 
         if (user.autopoolStatus !== 'inactive' && user.autopoolStatus !== 'rejected') {
             return res.status(400).json({ message: 'Autopool already requested or active' });
