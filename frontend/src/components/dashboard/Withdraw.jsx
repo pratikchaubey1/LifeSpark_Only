@@ -243,6 +243,10 @@ export default function Withdraw({ onMenuOpen }) {
   // Show upgrade UI if limit is fully reached OR remaining is below min withdrawal (₹300)
   const isCapped = totalWithdrawn >= currentLimit || remainingLimit < 300;
 
+  // Check if an upgrade request is currently pending or was previously rejected
+  const pendingUpgrade = withdrawals.find(w => w.type === 'upgrade' && w.status === 'pending');
+  const lastRejectedUpgrade = withdrawals.find(w => w.type === 'upgrade' && w.status === 'rejected');
+
   if (loading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
@@ -342,44 +346,76 @@ export default function Withdraw({ onMenuOpen }) {
                     </div>
                   </div>
 
-                  <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
-                    <button
-                      onClick={() => setUpgradeMethod("upi")}
-                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${upgradeMethod === "upi" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-white/50"}`}
-                    >
-                      Use Wallet (₹{upgradeFee.toLocaleString()})
-                    </button>
-                    <button
-                      onClick={() => setUpgradeMethod("cash")}
-                      className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${upgradeMethod === "cash" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-white/50"}`}
-                    >
-                      Cash / Manual
-                    </button>
-                  </div>
+                  {pendingUpgrade ? (
+                    <div className="space-y-3">
+                      <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3 text-amber-800">
+                        <FiClock className="mt-0.5 shrink-0 text-amber-600" size={18} />
+                        <div className="text-xs leading-relaxed">
+                          <div className="font-bold text-sm text-amber-900 mb-1">Upgrade Request Pending Review</div>
+                          <p>Your upgrade request of <strong>₹{Number(pendingUpgrade.amount).toLocaleString()}</strong> ({pendingUpgrade.method === 'cash' ? 'Cash / Manual' : 'Wallet'}) is currently under review by admin.</p>
+                          <p className="mt-1 text-amber-700 font-medium">Withdrawals will unlock automatically once admin approves this upgrade.</p>
+                        </div>
+                      </div>
 
-                  <button
-                    onClick={handleUpgradeRequest}
-                    disabled={submitting || (upgradeMethod === "upi" && balance < upgradeFee)}
-                    className="w-full py-4 rounded-2xl text-white font-bold bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-blue-100"
-                  >
-                    {submitting ? (
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                      <>
-                        <FiTrendingUp />
-                        {upgradeMethod === "cash" ? "Request Manual Upgrade" : `Request Wallet Upgrade (₹${upgradeFee.toLocaleString()})`}
-                      </>
-                    )}
-                  </button>
-                  {upgradeMethod === "upi" && balance < upgradeFee && !submitting && (
-                    <p className="text-[10px] text-center text-rose-500 font-bold uppercase tracking-widest">
-                      Insufficient balance for wallet upgrade
-                    </p>
-                  )}
-                  {upgradeMethod === "cash" && (
-                    <p className="text-[10px] text-center text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
-                      You will need to pay ₹{upgradeFee.toLocaleString()} manually to the admin <br /> after submitting this request.
-                    </p>
+                      <button
+                        disabled={true}
+                        className="w-full py-4 rounded-2xl text-white font-bold bg-amber-500/80 cursor-not-allowed flex items-center justify-center gap-2 shadow-sm"
+                      >
+                        <FiClock />
+                        Upgrade Under Review...
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {lastRejectedUpgrade && (
+                        <div className="bg-rose-50 border border-rose-200 rounded-xl p-3 flex gap-2 text-rose-800 text-xs">
+                          <FiAlertCircle className="mt-0.5 shrink-0 text-rose-600" size={16} />
+                          <div>
+                            <span className="font-bold">Previous upgrade request was rejected.</span> Withdrawals remain stopped until an upgrade is approved. Please resubmit below.
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
+                        <button
+                          onClick={() => setUpgradeMethod("upi")}
+                          className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${upgradeMethod === "upi" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-white/50"}`}
+                        >
+                          Use Wallet (₹{upgradeFee.toLocaleString()})
+                        </button>
+                        <button
+                          onClick={() => setUpgradeMethod("cash")}
+                          className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${upgradeMethod === "cash" ? "bg-white text-blue-600 shadow-sm" : "text-slate-500 hover:text-slate-700 hover:bg-white/50"}`}
+                        >
+                          Cash / Manual
+                        </button>
+                      </div>
+
+                      <button
+                        onClick={handleUpgradeRequest}
+                        disabled={submitting || (upgradeMethod === "upi" && balance < upgradeFee)}
+                        className="w-full py-4 rounded-2xl text-white font-bold bg-blue-600 hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-blue-100"
+                      >
+                        {submitting ? (
+                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        ) : (
+                          <>
+                            <FiTrendingUp />
+                            {upgradeMethod === "cash" ? "Request Manual Upgrade" : `Request Wallet Upgrade (₹${upgradeFee.toLocaleString()})`}
+                          </>
+                        )}
+                      </button>
+                      {upgradeMethod === "upi" && balance < upgradeFee && !submitting && (
+                        <p className="text-[10px] text-center text-rose-500 font-bold uppercase tracking-widest">
+                          Insufficient balance for wallet upgrade
+                        </p>
+                      )}
+                      {upgradeMethod === "cash" && (
+                        <p className="text-[10px] text-center text-slate-500 font-bold uppercase tracking-widest leading-relaxed">
+                          You will need to pay ₹{upgradeFee.toLocaleString()} manually to the admin <br /> after submitting this request.
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               ) : (

@@ -2727,7 +2727,7 @@ export default function AdminPage() {
                           )}
                         </td>
                         <td className="p-4 text-right">
-                          <div className="text-xs font-bold text-slate-500 font-mono">₹{w.originalAmount || (Number(w.amount) / 0.9).toFixed(2)}</div>
+                          <div className="text-xs font-bold text-slate-500 font-mono">₹1000</div>
                           {w.type === 'upgrade' && (
                             <div className={`mt-1 inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase tracking-tight ${w.method === 'cash' ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-blue-100 border-blue-200 text-blue-600'}`}>
                               Upgrade Request {w.method === 'cash' ? '(Cash)' : '(Wallet)'}

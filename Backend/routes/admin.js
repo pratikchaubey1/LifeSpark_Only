@@ -798,29 +798,36 @@ router.post('/withdrawals/:id/reject', adminAuth, async (req, res) => {
 
     const amount = Number(withdrawal.amount) || 0;
 
-    // REFUND logic: Return the FULL original amount to the user.
-    // originalAmount stores the exact amount the user originally requested (before the 10% split).
-    // For OLD records that don't have originalAmount, calculate it: amount is 90%, so original = amount / 0.9
-    let fullRefund;
-    if (Number(withdrawal.originalAmount) > 0) {
-      fullRefund = Number(withdrawal.originalAmount);
-    } else if (withdrawal.source !== 'marriageFund' && withdrawal.source !== 'accidentFund' && withdrawal.type !== 'upgrade') {
-      // Old record: stored amount is 90% of original
-      fullRefund = Number((amount / 0.9).toFixed(2));
-    } else {
-      fullRefund = amount;
-    }
+    // REFUND logic: Return the FULL original amount to the user ONLY if funds were actually deducted!
+    // NOTE: For manual cash upgrades (type === 'upgrade' && method === 'cash'),
+    // no balance was ever deducted from user.balance at request time.
+    // Therefore, do NOT refund anything to user.balance!
+    const isManualCashUpgrade = withdrawal.type === 'upgrade' && withdrawal.method === 'cash';
 
-    console.log(`[REJECT REFUND] withdrawalId=${withdrawal.withdrawalId}, storedAmount=${amount}, originalAmount=${withdrawal.originalAmount}, fullRefund=${fullRefund}, source=${withdrawal.source}`);
+    if (!isManualCashUpgrade) {
+      let fullRefund;
+      if (Number(withdrawal.originalAmount) > 0) {
+        fullRefund = Number(withdrawal.originalAmount);
+      } else if (withdrawal.source !== 'marriageFund' && withdrawal.source !== 'accidentFund' && withdrawal.type !== 'upgrade') {
+        // Old record: stored amount is 90% of original
+        fullRefund = Number((amount / 0.9).toFixed(2));
+      } else {
+        fullRefund = amount;
+      }
 
-    if (withdrawal.source === 'marriageFund') {
-      user.marriageFund = (Number(user.marriageFund) || 0) + fullRefund;
-    } else if (withdrawal.source === 'accidentFund') {
-      user.accidentFund = (Number(user.accidentFund) || 0) + fullRefund;
+      console.log(`[REJECT REFUND] withdrawalId=${withdrawal.withdrawalId}, storedAmount=${amount}, originalAmount=${withdrawal.originalAmount}, fullRefund=${fullRefund}, source=${withdrawal.source}`);
+
+      if (withdrawal.source === 'marriageFund') {
+        user.marriageFund = (Number(user.marriageFund) || 0) + fullRefund;
+      } else if (withdrawal.source === 'accidentFund') {
+        user.accidentFund = (Number(user.accidentFund) || 0) + fullRefund;
+      } else {
+        user.balance = (Number(user.balance) || 0) + fullRefund;
+      }
+      await user.save();
     } else {
-      user.balance = (Number(user.balance) || 0) + fullRefund;
+      console.log(`[REJECT NO-REFUND] Manual cash upgrade rejected: withdrawalId=${withdrawal.withdrawalId}. User balance was not deducted at request time, so no refund is added.`);
     }
-    await user.save();
 
     withdrawal.status = 'rejected';
     withdrawal.reviewedAt = new Date();
