@@ -111,7 +111,7 @@ router.post('/', auth, async (req, res) => {
           status: { $in: ['approved', 'pending'] }
         }
       },
-      { $group: { _id: null, total: { $sum: '$amount' } } }
+      { $group: { _id: null, total: { $sum: { $ifNull: ['$originalAmount', '$amount'] } } } }
     ]);
     const totalWithdrawn = withdrawnAgg.length > 0 ? withdrawnAgg[0].total : 0;
 

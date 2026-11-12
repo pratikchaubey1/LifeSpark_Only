@@ -732,7 +732,7 @@ router.post('/withdrawals/:id/approve', adminAuth, async (req, res) => {
     if (withdrawal.type === 'upgrade') {
       user.upgradeLevel = (Number(user.upgradeLevel) || 0) + 1;
     } else {
-      user.withdrawal = (Number(user.withdrawal) || 0) + amount;
+      user.withdrawal = (Number(user.withdrawal) || 0) + (Number(withdrawal.originalAmount) || amount);
 
       // Credit Repurchase Wallet with the 10% portion on approval
       const repurchaseAmt = Number(withdrawal.repurchaseAmount) || 0;

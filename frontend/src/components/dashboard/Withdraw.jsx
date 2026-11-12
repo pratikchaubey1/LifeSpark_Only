@@ -107,10 +107,10 @@ export default function Withdraw({ onMenuOpen }) {
         setWithdrawals(wdList);
 
         // Compute totalWithdrawn from actual withdrawal records (approved + pending, excluding upgrades)
-        // Exclude by type AND by withdrawalId prefix (old upgrades may lack type field but start with 'UP-')
+        // Uses originalAmount (gross requested amount before deductions) so the full requested amount counts against limit
         const computedWithdrawn = wdList
           .filter(w => w.type !== 'upgrade' && !(w.withdrawalId || '').startsWith('UP-') && (w.status === 'approved' || w.status === 'pending'))
-          .reduce((sum, w) => sum + (Number(w.amount) || 0), 0);
+          .reduce((sum, w) => sum + (Number(w.originalAmount != null ? w.originalAmount : w.amount) || 0), 0);
         setTotalWithdrawn(computedWithdrawn);
       }
     } catch {
@@ -492,7 +492,7 @@ export default function Withdraw({ onMenuOpen }) {
                     <tr className="bg-slate-50 text-[10px] uppercase tracking-widest font-bold text-slate-400 border-b border-slate-100">
                       <th className="px-6 py-4">ID / Date</th>
                       <th className="px-6 py-4">Amount</th>
-                      <th className="px-6 py-4">Charge (25%)</th>
+                      <th className="px-6 py-4">Fee (5%)</th>
                       <th className="px-6 py-4">Status</th>
                     </tr>
                   </thead>
