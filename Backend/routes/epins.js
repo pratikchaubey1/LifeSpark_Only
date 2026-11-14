@@ -9,12 +9,13 @@ const { distributeIncome } = require('../utils/income');
 
 const router = express.Router();
 
-async function generateUniquePinCode() {
+async function generateUniquePinCode(isSelf = false) {
   const part = () => Math.random().toString(36).substring(2, 6).toUpperCase();
-  let code = `EP-${part()}-${part()}-${part()}`;
+  const prefix = isSelf ? 'SELF' : 'EP';
+  let code = `${prefix}-${part()}-${part()}-${part()}`;
   let exists = await Epin.findOne({ code });
   while (exists) {
-    code = `EP-${part()}-${part()}-${part()}`;
+    code = `${prefix}-${part()}-${part()}-${part()}`;
     exists = await Epin.findOne({ code });
   }
   return code;
@@ -142,8 +143,12 @@ router.get('/transfers', auth, async (req, res) => {
 router.get('/my-generated', auth, async (req, res) => {
   try {
     const epins = await Epin.find({
-      generatedByUserId: req.user._id.toString(),
-      isSelfGenerated: true
+      $or: [
+        { generatedByUserId: req.user._id.toString() },
+        { ownerUserId: req.user._id.toString(), isSelfGenerated: true },
+        { ownerUserId: req.user._id.toString(), pinTag: 'SELF-GENERATED' },
+        { ownerUserId: req.user._id.toString(), code: { $regex: /^SELF-/i } }
+      ]
     }).sort({ createdAt: -1 });
 
     const populated = await Promise.all(
@@ -199,11 +204,12 @@ router.post('/generate-from-balance', auth, async (req, res) => {
     const generatedCodes = [];
 
     for (let i = 0; i < howMany; i++) {
-      const code = await generateUniquePinCode();
+      const code = await generateUniquePinCode(true);
       const epin = new Epin({
         code,
         ownerUserId: user._id.toString(),
         isSelfGenerated: true,
+        pinTag: 'SELF-GENERATED',
         generatedByUserId: user._id.toString(),
         cost: costPerPin,
         packageId: 'Basic',
@@ -293,13 +299,14 @@ router.post('/generate-and-activate', auth, async (req, res) => {
     user.balance = (user.balance || 0) - cost;
 
     // Generate unique pin
-    const code = await generateUniquePinCode();
+    const code = await generateUniquePinCode(true);
     const now = new Date();
 
     const epin = new Epin({
       code,
       ownerUserId: user._id.toString(),
       isSelfGenerated: true,
+      pinTag: 'SELF-GENERATED',
       generatedByUserId: user._id.toString(),
       cost: cost,
       packageId: packageId,

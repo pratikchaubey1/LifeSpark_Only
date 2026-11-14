@@ -795,8 +795,11 @@ export default function ActivateID({ compact = false, onMenuOpen }) {
                     const isUsed = Boolean(p.used);
                     return (
                       <tr key={p._id || p.code} className="hover:bg-slate-50/70 transition">
-                        <td className="py-3 px-3 font-mono font-bold text-slate-800">
-                          {p.code}
+                        <td className="py-3 px-3">
+                          <span className="font-mono font-bold text-purple-900 block">{p.code}</span>
+                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[9px] font-extrabold bg-purple-100 text-purple-700 border border-purple-200 mt-0.5">
+                            ⭐ SELF-GENERATED
+                          </span>
                         </td>
                         <td className="py-3 px-3 font-semibold text-slate-700">
                           ₹{p.cost || 1500}

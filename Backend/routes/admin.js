@@ -1195,7 +1195,14 @@ router.post('/epins', adminAuth, async (req, res) => {
 // Get Member Self-Generated E-Pins & Activated Members
 router.get('/self-generated-epins', adminAuth, async (req, res) => {
   try {
-    const epins = await Epin.find({ isSelfGenerated: true }).sort({ createdAt: -1 });
+    const epins = await Epin.find({
+      $or: [
+        { isSelfGenerated: true },
+        { pinTag: 'SELF-GENERATED' },
+        { code: { $regex: /^SELF-/i } },
+        { generatedByUserId: { $ne: null, $exists: true } }
+      ]
+    }).sort({ createdAt: -1 });
 
     const userIds = new Set();
     epins.forEach(ep => {
