@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import toast from "react-hot-toast";
 
 import config from "../../config/config";
@@ -194,6 +194,15 @@ export default function AdminPage() {
   const [withdrawals, setWithdrawals] = useState([]);
   const [epinHistory, setEpinHistory] = useState([]);
   const [epinStats, setEpinStats] = useState({ totalGenerated: 0, totalUsed: 0, totalTransferred: 0, inPool: 0 });
+  const [selfGenEpins, setSelfGenEpins] = useState([]);
+  const [selfGenStats, setSelfGenStats] = useState({ totalGenerated: 0, totalCost: 0, usedCount: 0, unusedCount: 0, activationRate: 0 });
+  const [loadingSelfGenEpins, setLoadingSelfGenEpins] = useState(false);
+  const [selfGenSearch, setSelfGenSearch] = useState("");
+  const [selfGenFilter, setSelfGenFilter] = useState("all");
+  const [bankTab, setBankTab] = useState("members");
+  const [bankUpdateRequests, setBankUpdateRequests] = useState([]);
+  const [loadingBankRequests, setLoadingBankRequests] = useState(false);
+  const [processingBankRequestId, setProcessingBankRequestId] = useState(null);
   const [incomeLogs, setIncomeLogs] = useState([]);
   const [incomeLogsTotalPages, setIncomeLogsTotalPages] = useState(1);
 
@@ -733,6 +742,109 @@ export default function AdminPage() {
       }
     } catch (err) { }
   }
+
+  async function fetchBankUpdateRequests(token) {
+    if (!token) return;
+    try {
+      setLoadingBankRequests(true);
+      const res = await fetch(`${API_BASE}/admin/bank-update-requests`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setBankUpdateRequests(data.requests || []);
+      }
+    } catch (err) {
+      console.error("Fetch bank update requests error", err);
+    } finally {
+      setLoadingBankRequests(false);
+    }
+  }
+
+  async function handleApproveBankRequest(requestId) {
+    if (!adminToken) return;
+    try {
+      setProcessingBankRequestId(requestId);
+      const res = await fetch(`${API_BASE}/admin/bank-update-requests/${requestId}/approve`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${adminToken}` }
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.message || "Failed to approve request");
+        return;
+      }
+      toast.success("Bank details updated and approved!");
+      fetchBankUpdateRequests(adminToken);
+      fetchUsers(adminToken);
+    } catch {
+      toast.error("Error approving request");
+    } finally {
+      setProcessingBankRequestId(null);
+    }
+  }
+
+  async function handleRejectBankRequest(requestId) {
+    if (!adminToken) return;
+    const remark = window.prompt("Enter rejection reason (optional):", "Rejected by Admin");
+    if (remark === null) return;
+    try {
+      setProcessingBankRequestId(requestId);
+      const res = await fetch(`${API_BASE}/admin/bank-update-requests/${requestId}/reject`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${adminToken}`
+        },
+        body: JSON.stringify({ adminRemark: remark })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.message || "Failed to reject request");
+        return;
+      }
+      toast.success("Bank update request rejected");
+      fetchBankUpdateRequests(adminToken);
+    } catch {
+      toast.error("Error rejecting request");
+    } finally {
+      setProcessingBankRequestId(null);
+    }
+  }
+
+  async function fetchSelfGenEpins(token) {
+    if (!token) return;
+    try {
+      setLoadingSelfGenEpins(true);
+      const res = await fetch(`${API_BASE}/admin/self-generated-epins`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setSelfGenEpins(data.epins || []);
+        if (data.stats) setSelfGenStats(data.stats);
+      }
+    } catch (err) {
+      console.error("Fetch self-generated epins error", err);
+    } finally {
+      setLoadingSelfGenEpins(false);
+    }
+  }
+
+  const filteredSelfGenEpins = useMemo(() => {
+    return selfGenEpins.filter((ep) => {
+      if (selfGenFilter === "used" && !ep.used) return false;
+      if (selfGenFilter === "unused" && ep.used) return false;
+      if (!selfGenSearch.trim()) return true;
+      const q = selfGenSearch.toLowerCase();
+      const codeMatch = ep.code?.toLowerCase().includes(q);
+      const genName = ep.generator?.name?.toLowerCase().includes(q);
+      const genCode = ep.generator?.inviteCode?.toLowerCase().includes(q);
+      const actName = ep.activatedUser?.name?.toLowerCase().includes(q);
+      const actCode = ep.activatedUser?.inviteCode?.toLowerCase().includes(q);
+      return Boolean(codeMatch || genName || genCode || actName || actCode);
+    });
+  }, [selfGenEpins, selfGenFilter, selfGenSearch]);
 
   async function fetchEpinStats(token) {
     if (!token) return;
@@ -1500,6 +1612,7 @@ export default function AdminPage() {
           <SidebarButton label="KYC" active={currentPage === "kyc"} icon={<IconFile />} onClick={() => { openPage("kyc"); setSidebarOpen(false); }} />
           <SidebarButton label="Withdrawals" active={currentPage === "withdrawals"} icon={<IconDollar />} onClick={() => { openPage("withdrawals"); setSidebarOpen(false); }} />
           <SidebarButton label="E-Pin" active={currentPage === "epin"} icon={<IconKey />} onClick={() => { openPage("epin"); setSidebarOpen(false); }} />
+          <SidebarButton label="Self-Generated E-Pins" active={currentPage === "selfGenEpins"} icon={<IconKey />} onClick={() => { openPage("selfGenEpins"); setSidebarOpen(false); }} />
           <SidebarButton label="Income" active={currentPage === "income"} icon={<IconDollar />} onClick={() => { openPage("income"); setSidebarOpen(false); }} />
           <SidebarButton label="Transaction Logs" active={currentPage === "incomeLogs"} icon={<IconRefresh />} onClick={() => { openPage("incomeLogs"); setSidebarOpen(false); }} />
           <SidebarButton label="Autopool Requests" active={currentPage === "autopool"} icon={<IconUsers />} onClick={() => { openPage("autopool"); setSidebarOpen(false); }} />
@@ -1864,59 +1977,222 @@ export default function AdminPage() {
 
             {/* Bank Details page */}
             {currentPage === "bank" && (
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h2 className="text-lg font-semibold">All Bank Details</h2>
-                  <div className="text-xs text-slate-500">{users.length} members</div>
+              <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                      <IconBank />
+                      Member Bank Details & Update Requests
+                    </h2>
+                    <p className="text-xs text-slate-500 mt-1">
+                      View all registered member bank details and process change requests.
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        fetchUsers(adminToken);
+                        fetchBankUpdateRequests(adminToken);
+                      }}
+                      disabled={loadingUsers || loadingBankRequests}
+                      className="flex items-center gap-2 border px-4 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-sm transition active:scale-95"
+                    >
+                      <IconRefresh className={loadingUsers || loadingBankRequests ? "animate-spin text-blue-600" : ""} />
+                      Refresh Data
+                    </button>
+                  </div>
                 </div>
 
-                <div className="flex gap-2 mb-4">
+                {/* Tabs */}
+                <div className="flex gap-2 border-b border-slate-200">
                   <button
-                    onClick={() => fetchUsers(adminToken)}
-                    disabled={loadingUsers}
-                    className="flex items-center gap-2 border px-4 py-2 rounded-lg bg-white hover:bg-slate-50 transition active:scale-95 shadow-sm"
+                    onClick={() => setBankTab("members")}
+                    className={`pb-3 px-4 text-xs font-bold transition flex items-center gap-2 border-b-2 ${
+                      bankTab === "members"
+                        ? "border-blue-600 text-blue-600"
+                        : "border-transparent text-slate-500 hover:text-slate-700"
+                    }`}
                   >
-                    <IconRefresh className={loadingUsers ? "animate-spin text-blue-600" : "text-slate-500"} />
-                    <span className="text-sm font-medium text-slate-700">Refresh Bank Lists</span>
+                    <span>All Member Bank Details</span>
+                    <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-[10px]">
+                      {users.length}
+                    </span>
+                  </button>
+
+                  <button
+                    onClick={() => setBankTab("requests")}
+                    className={`pb-3 px-4 text-xs font-bold transition flex items-center gap-2 border-b-2 ${
+                      bankTab === "requests"
+                        ? "border-blue-600 text-blue-600"
+                        : "border-transparent text-slate-500 hover:text-slate-700"
+                    }`}
+                  >
+                    <span>Bank Update Requests</span>
+                    {(bankUpdateRequests.filter(r => r.status === 'pending').length) > 0 ? (
+                      <span className="bg-amber-100 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-full text-[10px] font-extrabold animate-pulse">
+                        {bankUpdateRequests.filter(r => r.status === 'pending').length} PENDING
+                      </span>
+                    ) : (
+                      <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded-full text-[10px]">
+                        {bankUpdateRequests.length}
+                      </span>
+                    )}
                   </button>
                 </div>
 
-                {loadingUsers ? (
-                  <div className="text-sm text-slate-500">Loading members...</div>
-                ) : (
-                  <DataTable
-                    headers={[
-                      { label: "User" },
-                      { label: "UPI" },
-                      { label: "Account Holder" },
-                      { label: "Bank" },
-                      { label: "Account No" },
-                      { label: "IFSC" },
-                      { label: "Branch" }
-                    ]}
-                    data={users}
-                    renderRow={(u) => {
-                      const b = u.bankDetails || {};
-                      return (
-                        <tr key={u.id} className="border-t hover:bg-slate-50">
-                          <td className="p-3">
-                            <div className="font-medium">{u.name}</div>
-                            <div className="text-xs text-slate-500">{u.email}</div>
-                            <div className="text-[11px] text-slate-500 font-mono">{u.id}</div>
-                          </td>
-                          <td className="p-3">
-                            <div className="font-mono text-xs">{u.upiId || "-"}</div>
-                            <div className="text-xs text-slate-500">{u.upiNo || ""}</div>
-                          </td>
-                          <td className="p-3 text-xs">{b.accountHolder || "-"}</td>
-                          <td className="p-3 text-xs">{b.bankName || "-"}</td>
-                          <td className="p-3 font-mono text-xs">{b.accountNo || "-"}</td>
-                          <td className="p-3 font-mono text-xs">{b.ifsc || "-"}</td>
-                          <td className="p-3 text-xs">{b.branchName || "-"}</td>
-                        </tr>
-                      );
-                    }}
-                  />
+                {/* TAB 1: ALL REGISTERED BANK DETAILS */}
+                {bankTab === "members" && (
+                  <div>
+                    {loadingUsers ? (
+                      <div className="text-sm text-slate-500 py-8 text-center">Loading members...</div>
+                    ) : (
+                      <DataTable
+                        headers={[
+                          { label: "User" },
+                          { label: "UPI" },
+                          { label: "Account Holder" },
+                          { label: "Bank" },
+                          { label: "Account No" },
+                          { label: "IFSC" },
+                          { label: "Branch" }
+                        ]}
+                        data={users}
+                        renderRow={(u) => {
+                          const b = u.bankDetails || {};
+                          return (
+                            <tr key={u.id} className="border-t hover:bg-slate-50">
+                              <td className="p-3">
+                                <div className="font-medium text-slate-800">{u.name}</div>
+                                <div className="text-xs text-slate-500">{u.email}</div>
+                                <div className="text-[11px] text-blue-600 font-mono font-semibold">{u.inviteCode || u.id}</div>
+                              </td>
+                              <td className="p-3">
+                                <div className="font-mono text-xs">{u.upiId || "-"}</div>
+                                <div className="text-xs text-slate-500">{u.upiNo || ""}</div>
+                              </td>
+                              <td className="p-3 text-xs font-medium text-slate-800">{b.accountHolder || "-"}</td>
+                              <td className="p-3 text-xs">{b.bankName || "-"}</td>
+                              <td className="p-3 font-mono text-xs font-bold text-slate-800">{b.accountNo || "-"}</td>
+                              <td className="p-3 font-mono text-xs uppercase">{b.ifsc || "-"}</td>
+                              <td className="p-3 text-xs text-slate-600">{b.branchName || "-"}</td>
+                            </tr>
+                          );
+                        }}
+                      />
+                    )}
+                  </div>
+                )}
+
+                {/* TAB 2: BANK UPDATE REQUESTS */}
+                {bankTab === "requests" && (
+                  <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+                    {loadingBankRequests ? (
+                      <div className="py-12 text-center text-xs text-slate-400">Loading update requests...</div>
+                    ) : bankUpdateRequests.length === 0 ? (
+                      <div className="py-12 text-center text-slate-400 font-medium text-xs">
+                        No bank update requests submitted yet.
+                      </div>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-xs border-collapse">
+                          <thead>
+                            <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-wider font-semibold">
+                              <th className="py-3 px-3">#</th>
+                              <th className="py-3 px-3">Member</th>
+                              <th className="py-3 px-3">Current Bank Details</th>
+                              <th className="py-3 px-3">Requested Bank Details</th>
+                              <th className="py-3 px-3">Reason</th>
+                              <th className="py-3 px-3">Date</th>
+                              <th className="py-3 px-3">Status</th>
+                              <th className="py-3 px-3 text-right">Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-100">
+                            {bankUpdateRequests.map((req, idx) => {
+                              const isPending = req.status === "pending";
+                              const isProcessing = processingBankRequestId === req._id;
+                              return (
+                                <tr key={req._id} className="hover:bg-slate-50/70 transition">
+                                  <td className="py-3 px-3 font-mono text-slate-400">{idx + 1}</td>
+                                  <td className="py-3 px-3">
+                                    <div className="font-bold text-slate-800">{req.userName}</div>
+                                    <div className="text-[11px] text-blue-600 font-mono font-medium">
+                                      {req.userInviteCode}
+                                    </div>
+                                    <div className="text-[10px] text-slate-400">{req.userPhone || req.userEmail}</div>
+                                  </td>
+                                  <td className="py-3 px-3 text-slate-600 text-[11px] leading-relaxed">
+                                    <div><span className="font-semibold text-slate-500">Holder:</span> {req.currentBankDetails?.accountHolder || "—"}</div>
+                                    <div><span className="font-semibold text-slate-500">Bank:</span> {req.currentBankDetails?.bankName || "—"}</div>
+                                    <div><span className="font-semibold text-slate-500">A/C:</span> <span className="font-mono">{req.currentBankDetails?.accountNo || "—"}</span></div>
+                                    <div><span className="font-semibold text-slate-500">IFSC:</span> <span className="font-mono">{req.currentBankDetails?.ifsc || "—"}</span></div>
+                                    <div><span className="font-semibold text-slate-500">Branch:</span> {req.currentBankDetails?.branchName || "—"}</div>
+                                  </td>
+                                  <td className="py-3 px-3 bg-indigo-50/40 text-slate-800 text-[11px] leading-relaxed font-medium">
+                                    <div><span className="font-semibold text-indigo-700">Holder:</span> {req.requestedBankDetails?.accountHolder}</div>
+                                    <div><span className="font-semibold text-indigo-700">Bank:</span> {req.requestedBankDetails?.bankName}</div>
+                                    <div><span className="font-semibold text-indigo-700">A/C:</span> <span className="font-mono font-bold text-indigo-900">{req.requestedBankDetails?.accountNo}</span></div>
+                                    <div><span className="font-semibold text-indigo-700">IFSC:</span> <span className="font-mono font-bold text-indigo-900">{req.requestedBankDetails?.ifsc}</span></div>
+                                    <div><span className="font-semibold text-indigo-700">Branch:</span> {req.requestedBankDetails?.branchName}</div>
+                                  </td>
+                                  <td className="py-3 px-3 text-slate-600 text-[11px] max-w-xs">
+                                    <span className="italic">{req.reason || "—"}</span>
+                                  </td>
+                                  <td className="py-3 px-3 text-slate-500 text-[11px]">
+                                    {req.createdAt ? new Date(req.createdAt).toLocaleDateString("en-IN", {
+                                      day: "numeric",
+                                      month: "short",
+                                      year: "numeric"
+                                    }) : "—"}
+                                  </td>
+                                  <td className="py-3 px-3">
+                                    {req.status === "approved" ? (
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                        APPROVED
+                                      </span>
+                                    ) : req.status === "rejected" ? (
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-50 text-rose-700 border border-rose-200" title={req.adminRemark || ""}>
+                                        REJECTED
+                                      </span>
+                                    ) : (
+                                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                                        PENDING
+                                      </span>
+                                    )}
+                                  </td>
+                                  <td className="py-3 px-3 text-right">
+                                    {isPending ? (
+                                      <div className="flex items-center justify-end gap-1.5">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleApproveBankRequest(req._id)}
+                                          disabled={isProcessing}
+                                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] font-bold shadow-sm transition active:scale-95 disabled:opacity-50"
+                                        >
+                                          {isProcessing ? "..." : "Approve"}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRejectBankRequest(req._id)}
+                                          disabled={isProcessing}
+                                          className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[10px] font-bold shadow-sm transition active:scale-95 disabled:opacity-50"
+                                        >
+                                          Reject
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <span className="text-[10px] text-slate-400">Done</span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
                 )}
               </div>
             )}
@@ -2727,7 +3003,8 @@ export default function AdminPage() {
                           )}
                         </td>
                         <td className="p-4 text-right">
-                          <div className="text-xs font-bold text-slate-500 font-mono">₹1000</div>
+                          {/* <div className="text-xs font-bold text-slate-500 font-mono">₹1000</div> */}
+                          <div className="text-xs font-bold text-slate-500 font-mono">₹{w.originalAmount || (Number(w.amount) / 0.9).toFixed(2)}</div>
                           {w.type === 'upgrade' && (
                             <div className={`mt-1 inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase tracking-tight ${w.method === 'cash' ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-blue-100 border-blue-200 text-blue-600'}`}>
                               Upgrade Request {w.method === 'cash' ? '(Cash)' : '(Wallet)'}

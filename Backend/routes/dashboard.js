@@ -119,6 +119,7 @@ router.post('/activate-id', auth, async (req, res) => {
     // Mark E-Pin as used
     epinObj.used = true;
     epinObj.usedByUserId = beneficiary._id.toString(); // Used for beneficiary
+    epinObj.activatedUserId = beneficiary._id.toString();
     epinObj.usedAt = new Date();
     epinObj.packageId = packageId;
     await epinObj.save();

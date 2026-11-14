@@ -14,7 +14,7 @@ const DASHBOARD_ITEMS = [
       { label: "Edit Profile", path: "/dashboard/edit-profile" },
       { label: "KYC Upload", path: "/dashboard/kyc-upload" },
       { label: "Edit Password", path: "/dashboard/edit-password" },
-      { label: "Edit Bank Details", path: "/dashboard/edit-bank-details" },
+      { label: "Bank Details", path: "/dashboard/edit-bank-details" },
     ],
   },
 

@@ -94,7 +94,8 @@ const userSchema = new mongoose.Schema({
     accountNo: { type: String, default: '' },
     ifsc: { type: String, default: '' },
     branchName: { type: String, default: '' }
-  }
+  },
+  bankDetailsSubmitted: { type: Boolean, default: false }
 }, {
   timestamps: true, // Adds createdAt and updatedAt
   collection: 'users'

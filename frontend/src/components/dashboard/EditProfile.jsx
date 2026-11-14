@@ -158,9 +158,21 @@ export default function EditProfile({ onMenuOpen }) {
         <div className="space-y-10">
           <Section title="Personal Information">
             <Grid>
-              <IconField label="Name" icon={<FiUser />} value={form.name} onChange={onChange("name")} />
+              <IconField
+                label="Name"
+                icon={<FiUser />}
+                value={form.name}
+                disabled={true}
+                helper="Name is locked and cannot be edited"
+              />
 
-              <IconField label="Mobile No" icon={<FiPhone />} value={form.phone} onChange={onChange("phone")} />
+              <IconField
+                label="Mobile No"
+                icon={<FiPhone />}
+                value={form.phone}
+                disabled={true}
+                helper="Mobile number is locked and cannot be edited"
+              />
 
               <SelectField label="Gender" value={form.gender} onChange={onChange("gender")} options={["Male", "Female", "Other"]} />
 
@@ -197,18 +209,34 @@ function Grid({ children }) {
   return <div className="grid grid-cols-1 md:grid-cols-2 gap-5">{children}</div>;
 }
 
-function IconField({ label, value, onChange, icon }) {
+function IconField({ label, value, onChange, icon, disabled = false, helper = "" }) {
   return (
     <div>
-      <label className="text-sm font-medium text-slate-700">{label}</label>
-      <div className="mt-1 flex items-center gap-2 bg-slate-200 p-3 rounded-xl border border-slate-300">
-        <span className="text-slate-600">{icon}</span>
+      <div className="flex items-center justify-between">
+        <label className="text-sm font-medium text-slate-700">{label}</label>
+        {disabled && (
+          <span className="text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+            LOCKED
+          </span>
+        )}
+      </div>
+      <div className={`mt-1 flex items-center gap-2 p-3 rounded-xl border ${
+        disabled
+          ? "bg-slate-100 border-slate-200 opacity-80 cursor-not-allowed"
+          : "bg-slate-200 border-slate-300"
+      }`}>
+        <span className={disabled ? "text-slate-400" : "text-slate-600"}>{icon}</span>
         <input
           value={value}
-          onChange={onChange}
-          className="flex-1 bg-transparent outline-none text-sm text-slate-800"
+          onChange={disabled ? undefined : onChange}
+          disabled={disabled}
+          readOnly={disabled}
+          className={`flex-1 bg-transparent outline-none text-sm ${
+            disabled ? "text-slate-500 cursor-not-allowed font-medium" : "text-slate-800"
+          }`}
         />
       </div>
+      {helper && <p className="text-[11px] text-slate-400 mt-1 italic">{helper}</p>}
     </div>
   );
 }

@@ -25,7 +25,8 @@ const WITHDRAWAL_TIERS = [
   { limit: 80000, fee: 2000 },
   { limit: 120000, fee: 2500 },
   { limit: 160000, fee: 2500 },
-];
+  { limit: 200000, fee: 2500 },
+];//change according to the admins call 
 
 export default function Withdraw({ onMenuOpen }) {
   const [loading, setLoading] = useState(true);

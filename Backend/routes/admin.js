@@ -11,6 +11,7 @@ const Project = require('../models/Project');
 const Testimonial = require('../models/Testimonial');
 const IncomeLog = require('../models/IncomeLog');
 const UpgradeHistory = require('../models/UpgradeHistory');
+const BankUpdateRequest = require('../models/BankUpdateRequest');
 const { getUsersAtLevel } = require('../utils/team');
 const { distributeIncome } = require('../utils/income');
 const adminAuth = require('../middleware/adminAuth');
@@ -463,6 +464,98 @@ router.put('/users/:id/payment-details', adminAuth, async (req, res) => {
     return res.json({ user: userObj });
   } catch (err) {
     console.error('Update payment details error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get all Bank Update Requests
+router.get('/bank-update-requests', adminAuth, async (req, res) => {
+  try {
+    const requests = await BankUpdateRequest.find().sort({ createdAt: -1 });
+    const pendingCount = requests.filter(r => r.status === 'pending').length;
+    return res.json({ requests, pendingCount });
+  } catch (err) {
+    console.error('Get bank update requests error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Approve Bank Update Request
+router.post('/bank-update-requests/:id/approve', adminAuth, async (req, res) => {
+  try {
+    const updateRequest = await BankUpdateRequest.findById(req.params.id);
+    if (!updateRequest) return res.status(404).json({ message: 'Bank update request not found' });
+
+    if (updateRequest.status !== 'pending') {
+      return res.status(400).json({ message: `Request is already ${updateRequest.status}` });
+    }
+
+    const user = await User.findById(updateRequest.userId);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    const nextAccountNo = normalizeIdValue(updateRequest.requestedBankDetails.accountNo);
+    const clash = await User.findOne({
+      _id: { $ne: user._id },
+      'bankDetails.accountNo': nextAccountNo
+    });
+    if (clash) {
+      return res.status(409).json({ message: 'The requested account number is already used by another user.' });
+    }
+
+    user.bankDetails = {
+      accountHolder: updateRequest.requestedBankDetails.accountHolder,
+      bankName: updateRequest.requestedBankDetails.bankName,
+      accountNo: nextAccountNo,
+      ifsc: updateRequest.requestedBankDetails.ifsc,
+      branchName: updateRequest.requestedBankDetails.branchName
+    };
+    user.bankDetailsSubmitted = true;
+    await user.save();
+
+    updateRequest.status = 'approved';
+    updateRequest.reviewedBy = req.user?.id || 'admin';
+    updateRequest.reviewedAt = new Date();
+    await updateRequest.save();
+
+    return res.json({
+      message: 'Bank details update approved and applied successfully.',
+      request: updateRequest,
+      user: {
+        id: user._id,
+        name: user.name,
+        inviteCode: user.inviteCode,
+        bankDetails: user.bankDetails
+      }
+    });
+  } catch (err) {
+    console.error('Approve bank update request error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Reject Bank Update Request
+router.post('/bank-update-requests/:id/reject', adminAuth, async (req, res) => {
+  try {
+    const updateRequest = await BankUpdateRequest.findById(req.params.id);
+    if (!updateRequest) return res.status(404).json({ message: 'Bank update request not found' });
+
+    if (updateRequest.status !== 'pending') {
+      return res.status(400).json({ message: `Request is already ${updateRequest.status}` });
+    }
+
+    const { adminRemark } = req.body || {};
+    updateRequest.status = 'rejected';
+    updateRequest.adminRemark = adminRemark ? String(adminRemark).trim() : 'Rejected by Admin';
+    updateRequest.reviewedBy = req.user?.id || 'admin';
+    updateRequest.reviewedAt = new Date();
+    await updateRequest.save();
+
+    return res.json({
+      message: 'Bank update request rejected.',
+      request: updateRequest
+    });
+  } catch (err) {
+    console.error('Reject bank update request error', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
@@ -1095,6 +1188,58 @@ router.post('/epins', adminAuth, async (req, res) => {
     res.status(201).json({ epins: newEpins });
   } catch (err) {
     console.error('Create epins error', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// Get Member Self-Generated E-Pins & Activated Members
+router.get('/self-generated-epins', adminAuth, async (req, res) => {
+  try {
+    const epins = await Epin.find({ isSelfGenerated: true }).sort({ createdAt: -1 });
+
+    const userIds = new Set();
+    epins.forEach(ep => {
+      if (ep.generatedByUserId) userIds.add(ep.generatedByUserId);
+      if (ep.ownerUserId) userIds.add(ep.ownerUserId);
+      if (ep.usedByUserId) userIds.add(ep.usedByUserId);
+      if (ep.activatedUserId) userIds.add(ep.activatedUserId);
+    });
+
+    const users = await User.find({ _id: { $in: Array.from(userIds) } })
+      .select('name inviteCode email phone isActivated activatedAt');
+
+    const userMap = new Map();
+    users.forEach(u => userMap.set(u._id.toString(), u));
+
+    const enrichedEpins = epins.map(ep => {
+      const epObj = ep.toObject();
+      const generatorId = ep.generatedByUserId || ep.ownerUserId;
+      epObj.generator = generatorId ? userMap.get(generatorId) || null : null;
+
+      const actId = ep.activatedUserId || ep.usedByUserId;
+      epObj.activatedUser = actId ? userMap.get(actId) || null : null;
+
+      return epObj;
+    });
+
+    const totalGenerated = epins.length;
+    const usedCount = epins.filter(e => e.used).length;
+    const unusedCount = totalGenerated - usedCount;
+    const totalCost = epins.reduce((sum, e) => sum + (e.cost || 1500), 0);
+
+    return res.json({
+      success: true,
+      epins: enrichedEpins,
+      stats: {
+        totalGenerated,
+        totalCost,
+        usedCount,
+        unusedCount,
+        activationRate: totalGenerated > 0 ? Math.round((usedCount / totalGenerated) * 100) : 0
+      }
+    });
+  } catch (err) {
+    console.error('Get self-generated epins error', err);
     res.status(500).json({ message: 'Server error' });
   }
 });
