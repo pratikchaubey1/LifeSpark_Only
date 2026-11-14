@@ -150,8 +150,8 @@ export default function ActivateID({ compact = false, onMenuOpen }) {
     if (!userProfile?.isActivated) {
       return setGenMsg("Your account must be activated to generate E-Pins.");
     }
-    if ((userProfile?.balance || 0) < 1500) {
-      return setGenMsg("Insufficient wallet balance. ₹1,500 required per E-Pin.");
+    if ((userProfile?.balance || 0) < 1650) {
+      return setGenMsg("Insufficient wallet balance. ₹1,650 required per E-Pin (₹1,500 + 10% fee).");
     }
 
     try {
@@ -173,7 +173,7 @@ export default function ActivateID({ compact = false, onMenuOpen }) {
       const newCode = data.codes?.[0] || data.epins?.[0]?.code;
       setLastGenPin(newCode);
       setEpin(newCode);
-      setGenMsg(`E-Pin generated successfully: ${newCode} (₹1,500 deducted)`);
+      setGenMsg(`E-Pin generated successfully: ${newCode} (₹1,650 deducted [₹1,500 + 10% fee])`);
 
       // Refresh data
       fetchUserData();
@@ -195,8 +195,8 @@ export default function ActivateID({ compact = false, onMenuOpen }) {
     if (!userProfile?.isActivated) {
       return setGenMsg("Your account must be activated to generate E-Pins.");
     }
-    if ((userProfile?.balance || 0) < 1500) {
-      return setGenMsg("Insufficient wallet balance. ₹1,500 required for activation.");
+    if ((userProfile?.balance || 0) < 1650) {
+      return setGenMsg("Insufficient wallet balance. ₹1,650 required for activation (₹1,500 + 10% fee).");
     }
 
     try {
@@ -293,7 +293,8 @@ export default function ActivateID({ compact = false, onMenuOpen }) {
 
   const userBalance = userProfile?.balance || 0;
   const isUserActive = Boolean(userProfile?.isActivated);
-  const canGenerate = isUserActive && userBalance >= 1500;
+  const PIN_COST = 1650; // ₹1,500 base + 10% fee (₹150)
+  const canGenerate = isUserActive && userBalance >= PIN_COST;
 
   return (
     <div className={`w-full min-h-screen bg-slate-100 flex items-start justify-center ${containerPadding}`}>
@@ -353,7 +354,7 @@ export default function ActivateID({ compact = false, onMenuOpen }) {
                 ₹{userBalance.toLocaleString("en-IN")}
               </div>
               <p className="text-xs text-indigo-100/80 mt-1 flex items-center gap-1">
-                Cost: <span className="font-semibold text-white">₹1,500</span> per E-Pin
+                Cost: <span className="font-semibold text-white">₹1,500 + 10% fee = ₹1,650</span> per E-Pin • Counts towards limit
               </p>
             </div>
 
@@ -377,11 +378,11 @@ export default function ActivateID({ compact = false, onMenuOpen }) {
                 {isUserActive ? (
                   canGenerate ? (
                     <span className="text-emerald-300 font-medium">
-                      ✓ Eligible to generate {Math.floor(userBalance / 1500)} E-Pin(s)
+                      ✓ Eligible to generate {Math.floor(userBalance / PIN_COST)} E-Pin(s)
                     </span>
                   ) : (
                     <span className="text-amber-300 font-medium">
-                      ⚠️ Needs ₹{(1500 - userBalance).toLocaleString("en-IN")} more to generate
+                      ⚠️ Needs ₹{(PIN_COST - userBalance).toLocaleString("en-IN")} more to generate
                     </span>
                   )
                 ) : (
@@ -405,7 +406,7 @@ export default function ActivateID({ compact = false, onMenuOpen }) {
             }`}
           >
             <FiZap className={activeTab === "generate" ? "text-indigo-600" : "text-slate-400"} />
-            Generate from Balance (₹1,500)
+            Generate from Balance (₹1,650)
           </button>
           <button
             onClick={() => setActiveTab("manual")}
@@ -457,11 +458,11 @@ export default function ActivateID({ compact = false, onMenuOpen }) {
                   Self-Generate E-Pin & Activate
                 </h2>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Cost is ₹1,500 per pin deducted directly from your wallet balance.
+                  Cost is ₹1,650 per pin (₹1,500 base + 10% fee) deducted directly from your wallet balance.
                 </p>
               </div>
               <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800">
-                ₹1,500 / Pin
+                ₹1,650 / Pin
               </span>
             </div>
 
@@ -479,13 +480,13 @@ export default function ActivateID({ compact = false, onMenuOpen }) {
             )}
 
             {/* Insufficient Balance Notice */}
-            {isUserActive && userBalance < 1500 && (
+            {isUserActive && userBalance < PIN_COST && (
               <div className="bg-amber-50 border border-amber-200 p-4 rounded-xl text-xs text-amber-800 flex items-start gap-2.5">
                 <FiDollarSign className="shrink-0 mt-0.5" size={16} />
                 <div>
                   <p className="font-bold">Insufficient Balance</p>
                   <p className="mt-0.5">
-                    You have ₹{userBalance.toLocaleString("en-IN")}. You need at least ₹1,500 to generate an E-Pin.
+                    You have ₹{userBalance.toLocaleString("en-IN")}. You need at least ₹1,650 (₹1,500 + 10% fee) to generate an E-Pin.
                   </p>
                 </div>
               </div>
@@ -559,7 +560,7 @@ export default function ActivateID({ compact = false, onMenuOpen }) {
                 ) : (
                   <>
                     <FiZap />
-                    Generate E-Pin & Activate Member Immediately (₹1,500)
+                    Generate E-Pin & Activate Member Immediately (₹1,650)
                   </>
                 )}
               </button>
@@ -584,7 +585,7 @@ export default function ActivateID({ compact = false, onMenuOpen }) {
                 ) : (
                   <>
                     <FiKey className="text-indigo-600" />
-                    Generate E-Pin to Wallet Only (Use Later)
+                    Generate E-Pin to Wallet Only (₹1,650)
                   </>
                 )}
               </button>
@@ -755,7 +756,7 @@ export default function ActivateID({ compact = false, onMenuOpen }) {
                 My Self-Generated E-Pins
               </h3>
               <p className="text-xs text-slate-500">
-                E-Pins you generated using your wallet balance (₹1,500)
+                E-Pins you generated using your wallet balance (₹1,500 + 10% fee = ₹1,650)
               </p>
             </div>
             <button
@@ -802,7 +803,7 @@ export default function ActivateID({ compact = false, onMenuOpen }) {
                           </span>
                         </td>
                         <td className="py-3 px-3 font-semibold text-slate-700">
-                          ₹{p.cost || 1500}
+                          ₹{p.cost || 1650}
                         </td>
                         <td className="py-3 px-3">
                           {isUsed ? (

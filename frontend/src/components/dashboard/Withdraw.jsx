@@ -40,6 +40,7 @@ export default function Withdraw({ onMenuOpen }) {
   const [amount, setAmount] = useState("");
   const [directCount, setDirectCount] = useState(0);
   const [totalWithdrawn, setTotalWithdrawn] = useState(0);
+  const [selfGenEpinAmount, setSelfGenEpinAmount] = useState(0);
   const [upgradeLevel, setUpgradeLevel] = useState(0);
   const [upgradeMethod, setUpgradeMethod] = useState("upi"); // upi, cash
 
@@ -103,16 +104,21 @@ export default function Withdraw({ onMenuOpen }) {
       }
 
       const wdList = Array.isArray(listData.withdrawals) ? listData.withdrawals : [];
+      const epinAmt = Number(listData.totalSelfGenEpinAmount) || 0;
+      setSelfGenEpinAmount(epinAmt);
 
       if (listRes.ok) {
         setWithdrawals(wdList);
 
-        // Compute totalWithdrawn from actual withdrawal records (approved + pending, excluding upgrades)
-        // Uses originalAmount (gross requested amount before deductions) so the full requested amount counts against limit
-        const computedWithdrawn = wdList
-          .filter(w => w.type !== 'upgrade' && !(w.withdrawalId || '').startsWith('UP-') && (w.status === 'approved' || w.status === 'pending'))
-          .reduce((sum, w) => sum + (Number(w.originalAmount != null ? w.originalAmount : w.amount) || 0), 0);
-        setTotalWithdrawn(computedWithdrawn);
+        // Compute totalWithdrawn from actual withdrawal records + self-generated E-Pins purchased from balance
+        if (typeof listData.totalWithdrawn === 'number') {
+          setTotalWithdrawn(listData.totalWithdrawn);
+        } else {
+          const computedCashWithdrawn = wdList
+            .filter(w => w.type !== 'upgrade' && !(w.withdrawalId || '').startsWith('UP-') && (w.status === 'approved' || w.status === 'pending'))
+            .reduce((sum, w) => sum + (Number(w.originalAmount != null ? w.originalAmount : w.amount) || 0), 0);
+          setTotalWithdrawn(computedCashWithdrawn + epinAmt);
+        }
       }
     } catch {
       setMsg("Failed to load data.");
@@ -315,6 +321,12 @@ export default function Withdraw({ onMenuOpen }) {
                       style={{ width: `${Math.min((totalWithdrawn / currentLimit) * 100, 100)}%` }}
                     ></div>
                   </div>
+                  {selfGenEpinAmount > 0 && (
+                    <div className="text-[10px] text-blue-200 mt-1.5 flex items-center justify-between">
+                      <span>Includes E-Pins Generated:</span>
+                      <span className="font-semibold text-white">₹{selfGenEpinAmount.toLocaleString()}</span>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

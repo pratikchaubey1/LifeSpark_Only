@@ -3009,8 +3009,11 @@ export default function AdminPage() {
                           )}
                         </td>
                         <td className="p-4 text-right">
-                          {/* <div className="text-xs font-bold text-slate-500 font-mono">₹1000</div> */}
-                          <div className="text-xs font-bold text-slate-500 font-mono">₹{w.originalAmount || (Number(w.amount) / 0.9).toFixed(2)}</div>
+                          <div className="text-xs font-bold text-slate-500 font-mono">
+                            ₹{w.type === 'upgrade' || (w.withdrawalId || '').startsWith('UP-')
+                              ? (w.originalAmount != null ? w.originalAmount : w.amount)
+                              : (w.originalAmount != null ? w.originalAmount : (Number(w.amount) / 0.85).toFixed(2))}
+                          </div>
                           {w.type === 'upgrade' && (
                             <div className={`mt-1 inline-flex items-center px-1.5 py-0.5 rounded border text-[9px] font-bold uppercase tracking-tight ${w.method === 'cash' ? 'bg-amber-50 border-amber-200 text-amber-600' : 'bg-blue-100 border-blue-200 text-blue-600'}`}>
                               Upgrade Request {w.method === 'cash' ? '(Cash)' : '(Wallet)'}
@@ -3019,12 +3022,16 @@ export default function AdminPage() {
                         </td>
                         <td className="p-4 text-right">
                           <div className="text-xs font-bold text-rose-500 font-mono">
-                            -₹{w.chargeAmount !== undefined ? w.chargeAmount : (Number(w.originalAmount || w.amount) * 0.05).toFixed(2)}
+                            -₹{w.type === 'upgrade' || (w.withdrawalId || '').startsWith('UP-')
+                              ? 0
+                              : (w.chargeAmount !== undefined ? w.chargeAmount : (Number(w.originalAmount || w.amount) * 0.05).toFixed(2))}
                           </div>
                         </td>
                         <td className="p-4 text-right">
                           <div className="text-xs font-bold text-indigo-600 font-mono">
-                            +₹{w.repurchaseAmount !== undefined ? w.repurchaseAmount : (Number(w.originalAmount || w.amount) * 0.10).toFixed(2)}
+                            +₹{w.type === 'upgrade' || (w.withdrawalId || '').startsWith('UP-')
+                              ? 0
+                              : (w.repurchaseAmount !== undefined ? w.repurchaseAmount : (Number(w.originalAmount || w.amount) * 0.10).toFixed(2))}
                           </div>
                         </td>
                         <td className="p-4 text-right">
@@ -4045,7 +4052,7 @@ export default function AdminPage() {
                     <div className="text-2xl font-black text-purple-600">
                       ₹{(selfGenStats.totalCost || 0).toLocaleString("en-IN")}
                     </div>
-                    <div className="text-[11px] text-purple-500 mt-1">₹1,500 per generated pin</div>
+                    <div className="text-[11px] text-purple-500 mt-1">₹1,500 + 10% fee (₹1,650)</div>
                   </div>
 
                   <div className="bg-white border border-slate-200/80 p-4 rounded-2xl shadow-sm border-l-4 border-l-emerald-500">
@@ -4160,7 +4167,7 @@ export default function AdminPage() {
                                 </span>
                               </td>
                               <td className="py-3.5 px-4 font-bold text-slate-800">
-                                ₹{ep.cost || 1500}
+                                ₹{ep.cost || 1650}
                               </td>
                               <td className="py-3.5 px-4">
                                 {ep.used ? (

@@ -4,18 +4,9 @@ const User = require('../models/User');
 const Withdrawal = require('../models/Withdrawal');
 const IncomeLog = require('../models/IncomeLog');
 const Kyc = require('../models/Kyc');
+const { WITHDRAWAL_TIERS, getTotalWithdrawnAmount } = require('../utils/withdrawal_utils');
 
 const router = express.Router();
-
-const WITHDRAWAL_TIERS = [
-  { limit: 5000, fee: 1000 },
-  { limit: 15000, fee: 1000 },
-  { limit: 25000, fee: 1000 },
-  { limit: 40000, fee: 1500 },
-  { limit: 80000, fee: 2000 },
-  { limit: 120000, fee: 2500 },
-  { limit: 160000, fee: 2500 },
-];
 
 function normalize(v) {
   if (v == null) return '';
@@ -29,7 +20,14 @@ router.get('/', auth, async (req, res) => {
       userId: req.user._id.toString()
     }).sort({ requestedAt: -1 });
 
-    return res.json({ withdrawals });
+    const { totalWithdrawn, totalCash, totalEpin } = await getTotalWithdrawnAmount(req.user._id);
+
+    return res.json({
+      withdrawals,
+      totalWithdrawn,
+      totalCashWithdrawn: totalCash,
+      totalSelfGenEpinAmount: totalEpin
+    });
   } catch (err) {
     console.error('Get withdrawals error', err);
     res.status(500).json({ message: 'Server error' });
@@ -99,23 +97,10 @@ router.post('/', auth, async (req, res) => {
     const nextTier = WITHDRAWAL_TIERS[level] || WITHDRAWAL_TIERS[WITHDRAWAL_TIERS.length - 1];
     const upgradeFee = nextTier.fee;
  
-    // Compute totalWithdrawn from actual withdrawal records (approved + pending)
-    // Use $ne: 'upgrade' to exclude upgrades, and also exclude by withdrawalId prefix 'UP-'
-    // (old upgrade records may lack the type field but always start with 'UP-')
-    const withdrawnAgg = await Withdrawal.aggregate([
-      {
-        $match: {
-          userId: req.user._id.toString(),
-          type: { $ne: 'upgrade' },
-          withdrawalId: { $not: /^UP-/ },
-          status: { $in: ['approved', 'pending'] }
-        }
-      },
-      { $group: { _id: null, total: { $sum: { $ifNull: ['$originalAmount', '$amount'] } } } }
-    ]);
-    const totalWithdrawn = withdrawnAgg.length > 0 ? withdrawnAgg[0].total : 0;
+    // Compute totalWithdrawn from actual withdrawal records + self-generated E-Pin balance usage
+    const { totalWithdrawn, totalCash, totalEpin } = await getTotalWithdrawnAmount(req.user._id);
 
-    console.log(`[CAP CHECK] userId=${req.user._id}, totalWithdrawn=${totalWithdrawn}, amount=${amount}, currentLimit=${currentLimit}, willExceed=${totalWithdrawn + amount > currentLimit}`);
+    console.log(`[CAP CHECK] userId=${req.user._id}, totalWithdrawn=${totalWithdrawn} (cash=${totalCash}, epin=${totalEpin}), amount=${amount}, currentLimit=${currentLimit}, willExceed=${totalWithdrawn + amount > currentLimit}`);
 
     if (totalWithdrawn + amount > currentLimit) {
       return res.status(403).json({
@@ -207,6 +192,9 @@ router.post('/upgrade', auth, async (req, res) => {
       withdrawalId: `UP-${Date.now()}`,
       userId: req.user._id.toString(),
       amount: upgradeAmount,
+      originalAmount: upgradeAmount,
+      chargeAmount: 0,
+      repurchaseAmount: 0,
       upiId: method === 'upi' ? (user.upiId || 'N/A') : '',
       upiNo: method === 'upi' ? (user.upiNo || 'N/A') : 'CASH',
       status: 'pending',

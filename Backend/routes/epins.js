@@ -6,6 +6,7 @@ const Epin = require('../models/Epin');
 const EpinTransfer = require('../models/EpinTransfer');
 const IncomeLog = require('../models/IncomeLog');
 const { distributeIncome } = require('../utils/income');
+const { WITHDRAWAL_TIERS, getTotalWithdrawnAmount } = require('../utils/withdrawal_utils');
 
 const router = express.Router();
 
@@ -172,7 +173,7 @@ router.get('/my-generated', auth, async (req, res) => {
   }
 });
 
-// Generate E-Pin from wallet balance (₹1,500 per pin)
+// Generate E-Pin from wallet balance (₹1,500 + 10% fee = ₹1,650 per pin)
 router.post('/generate-from-balance', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user._id);
@@ -188,17 +189,35 @@ router.post('/generate-from-balance', auth, async (req, res) => {
 
     const { count } = req.body || {};
     const howMany = Math.min(Math.max(parseInt(count || 1, 10) || 1, 1), 10);
-    const costPerPin = 1500;
+    const basePrice = 1500;
+    const feePercent = 10;
+    const feeAmount = (basePrice * feePercent) / 100; // ₹150
+    const costPerPin = basePrice + feeAmount; // ₹1,650
     const totalCost = howMany * costPerPin;
 
     if ((user.balance || 0) < totalCost) {
       return res.status(400).json({
-        message: `Insufficient wallet balance. Required: ₹${totalCost.toLocaleString('en-IN')}, Available: ₹${(user.balance || 0).toLocaleString('en-IN')}`
+        message: `Insufficient wallet balance. Required: ₹${totalCost.toLocaleString('en-IN')} (₹1,500 + 10% fee = ₹${costPerPin.toLocaleString('en-IN')} per E-Pin), Available: ₹${(user.balance || 0).toLocaleString('en-IN')}`
       });
     }
 
-    // Deduct balance
+    // Check Withdrawal Limit (full ₹1,650 counts against limit)
+    const { totalWithdrawn } = await getTotalWithdrawnAmount(user._id);
+    const level = user.upgradeLevel || 0;
+    const tier = WITHDRAWAL_TIERS[level] || WITHDRAWAL_TIERS[WITHDRAWAL_TIERS.length - 1];
+    const currentLimit = tier.limit;
+    const nextTier = WITHDRAWAL_TIERS[level] || WITHDRAWAL_TIERS[WITHDRAWAL_TIERS.length - 1];
+    const upgradeFee = nextTier.fee;
+
+    if (totalWithdrawn + totalCost > currentLimit) {
+      return res.status(403).json({
+        message: `Withdrawal limit reached for your current level (Limit: ₹${currentLimit.toLocaleString('en-IN')}, Already used: ₹${totalWithdrawn.toLocaleString('en-IN')}). Generating E-Pin of ₹${totalCost.toLocaleString('en-IN')} (₹1,500 + 10% fee) would exceed your limit. Please request an upgrade of ₹${upgradeFee.toLocaleString('en-IN')} to continue.`
+      });
+    }
+
+    // Deduct balance & add to user withdrawal amount
     user.balance = (user.balance || 0) - totalCost;
+    user.withdrawal = (Number(user.withdrawal) || 0) + totalCost;
 
     const generatedEpins = [];
     const generatedCodes = [];
@@ -228,7 +247,7 @@ router.post('/generate-from-balance', auth, async (req, res) => {
         userInviteCode: user.inviteCode,
         type: 'epin_generation',
         amount: -totalCost,
-        description: `Generated ${howMany} E-Pin(s) (${generatedCodes.join(', ')}) from wallet balance`,
+        description: `Generated ${howMany} E-Pin(s) (${generatedCodes.join(', ')}) from wallet balance (₹1,500 + 10% fee = ₹${totalCost})`,
         createdAt: new Date()
       });
     } catch (logErr) {
@@ -264,11 +283,28 @@ router.post('/generate-and-activate', auth, async (req, res) => {
     }
 
     const { targetUserId, packageId = 'Basic' } = req.body || {};
-    const cost = 1500;
+    const basePrice = 1500;
+    const feePercent = 10;
+    const feeAmount = (basePrice * feePercent) / 100; // ₹150
+    const cost = basePrice + feeAmount; // ₹1,650
 
     if ((user.balance || 0) < cost) {
       return res.status(400).json({
-        message: `Insufficient wallet balance. Required: ₹${cost.toLocaleString('en-IN')}, Available: ₹${(user.balance || 0).toLocaleString('en-IN')}`
+        message: `Insufficient wallet balance. Required: ₹${cost.toLocaleString('en-IN')} (₹1,500 + 10% fee), Available: ₹${(user.balance || 0).toLocaleString('en-IN')}`
+      });
+    }
+
+    // Check Withdrawal Limit (full ₹1,650 counts against limit)
+    const { totalWithdrawn } = await getTotalWithdrawnAmount(user._id);
+    const level = user.upgradeLevel || 0;
+    const tier = WITHDRAWAL_TIERS[level] || WITHDRAWAL_TIERS[WITHDRAWAL_TIERS.length - 1];
+    const currentLimit = tier.limit;
+    const nextTier = WITHDRAWAL_TIERS[level] || WITHDRAWAL_TIERS[WITHDRAWAL_TIERS.length - 1];
+    const upgradeFee = nextTier.fee;
+
+    if (totalWithdrawn + cost > currentLimit) {
+      return res.status(403).json({
+        message: `Withdrawal limit reached for your current level (Limit: ₹${currentLimit.toLocaleString('en-IN')}, Already used: ₹${totalWithdrawn.toLocaleString('en-IN')}). Generating E-Pin of ₹${cost.toLocaleString('en-IN')} (₹1,500 + 10% fee) would exceed your limit. Please request an upgrade of ₹${upgradeFee.toLocaleString('en-IN')} to continue.`
       });
     }
 
@@ -295,8 +331,9 @@ router.post('/generate-and-activate', auth, async (req, res) => {
       });
     }
 
-    // Deduct balance from generating user
+    // Deduct balance from generating user & add to user withdrawal amount
     user.balance = (user.balance || 0) - cost;
+    user.withdrawal = (Number(user.withdrawal) || 0) + cost;
 
     // Generate unique pin
     const code = await generateUniquePinCode(true);
@@ -325,7 +362,7 @@ router.post('/generate-and-activate', auth, async (req, res) => {
         userInviteCode: user.inviteCode,
         type: 'epin_generation',
         amount: -cost,
-        description: `Generated E-Pin ${code} from balance and activated ${beneficiary.name} (${beneficiary.inviteCode})`,
+        description: `Generated E-Pin ${code} from balance (₹1,500 + 10% fee = ₹${cost}) and activated ${beneficiary.name} (${beneficiary.inviteCode})`,
         createdAt: now
       });
     } catch (logErr) {

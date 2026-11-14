@@ -784,6 +784,42 @@ router.get('/withdrawals', adminAuth, async (req, res) => {
               },
               else: null
             }
+          },
+          originalAmount: {
+            $cond: {
+              if: {
+                $or: [
+                  { $eq: ['$type', 'upgrade'] },
+                  { $regexMatch: { input: { $ifNull: ['$withdrawalId', ''] }, regex: /^UP-/ } }
+                ]
+              },
+              then: { $ifNull: ['$originalAmount', '$amount'] },
+              else: '$originalAmount'
+            }
+          },
+          chargeAmount: {
+            $cond: {
+              if: {
+                $or: [
+                  { $eq: ['$type', 'upgrade'] },
+                  { $regexMatch: { input: { $ifNull: ['$withdrawalId', ''] }, regex: /^UP-/ } }
+                ]
+              },
+              then: 0,
+              else: { $ifNull: ['$chargeAmount', 0] }
+            }
+          },
+          repurchaseAmount: {
+            $cond: {
+              if: {
+                $or: [
+                  { $eq: ['$type', 'upgrade'] },
+                  { $regexMatch: { input: { $ifNull: ['$withdrawalId', ''] }, regex: /^UP-/ } }
+                ]
+              },
+              then: 0,
+              else: { $ifNull: ['$repurchaseAmount', 0] }
+            }
           }
         }
       },
@@ -1232,7 +1268,7 @@ router.get('/self-generated-epins', adminAuth, async (req, res) => {
     const totalGenerated = epins.length;
     const usedCount = epins.filter(e => e.used).length;
     const unusedCount = totalGenerated - usedCount;
-    const totalCost = epins.reduce((sum, e) => sum + (e.cost || 1500), 0);
+    const totalCost = epins.reduce((sum, e) => sum + (e.cost || 1650), 0);
 
     return res.json({
       success: true,
